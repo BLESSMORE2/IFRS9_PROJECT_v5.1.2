@@ -1,6 +1,7 @@
 import importlib
 import importlib.util
 import sys
+from datetime import datetime
 from pathlib import Path
 
 
@@ -20,6 +21,11 @@ PACKAGE_SOURCE_ROOTS = {
     IFRS9_PACKAGE_SOURCE: [PROJECT_ROOT.parent / "system_nexa9_v5.1.2"],
     SCORECARD_PACKAGE_SOURCE: [PROJECT_ROOT.parent / "system_scorecard_v5.1.2"],
 }
+PACKAGE_EXPIRY_FILENAMES = {
+    IFRS9_PACKAGE_ALIAS: ".nexa_expiry_date",
+    SCORECARD_PACKAGE_ALIAS: ".scorecard_expiry_date",
+}
+PACKAGE_WARNING_THRESHOLD_DAYS = 31
 
 
 def _prepend_candidate_roots(source_name):
@@ -69,6 +75,85 @@ def bootstrap_scorecard_alias():
     return _bootstrap_alias(SCORECARD_PACKAGE_ALIAS, SCORECARD_PACKAGE_SOURCE)
 
 
+def _iter_module_paths(module_name):
+    module = sys.modules.get(module_name)
+    if module is None:
+        return []
+
+    discovered_paths = []
+    for raw_path in getattr(module, "__path__", []):
+        path = Path(raw_path).resolve()
+        if path not in discovered_paths:
+            discovered_paths.append(path)
+    return discovered_paths
+
+
+def _read_expiry_from_file(alias):
+    expiry_filename = PACKAGE_EXPIRY_FILENAMES.get(alias)
+    if not expiry_filename:
+        return None
+
+    candidate_paths = []
+    for module_name in (alias, IFRS9_PACKAGE_SOURCE if alias == IFRS9_PACKAGE_ALIAS else SCORECARD_PACKAGE_SOURCE):
+        for path in _iter_module_paths(module_name):
+            if path not in candidate_paths:
+                candidate_paths.append(path)
+
+    for package_dir in candidate_paths:
+        expiry_file = package_dir / expiry_filename
+        if not expiry_file.exists():
+            continue
+
+        try:
+            expiry_text = expiry_file.read_text(encoding="utf-8").strip()
+            return datetime.strptime(expiry_text, "%Y-%m-%d %H:%M:%S")
+        except (OSError, ValueError):
+            continue
+
+    return None
+
+
+def _build_file_based_status(*, alias, default_message, expired_message_template, valid_message_template):
+    expiry_date = _read_expiry_from_file(alias)
+    if expiry_date is None:
+        return {
+            "installed": True,
+            "usable": False,
+            "expired": True,
+            "message": default_message,
+            "expiry_date": None,
+        }
+
+    now = datetime.now()
+    if expiry_date <= now:
+        return {
+            "installed": True,
+            "usable": False,
+            "expired": True,
+            "message": expired_message_template.format(
+                expiry_label=expiry_date.strftime("%Y-%m-%d %H:%M:%S")
+            ),
+            "expiry_date": expiry_date,
+        }
+
+    remaining_days = max(1, (expiry_date - now).days + 1)
+    if remaining_days <= PACKAGE_WARNING_THRESHOLD_DAYS:
+        message = (
+            f"{valid_message_template.format(expiry_label=expiry_date.strftime('%Y-%m-%d %H:%M:%S'))} "
+            f"({remaining_days} day(s) remaining)."
+        )
+    else:
+        message = valid_message_template.format(expiry_label=expiry_date.strftime("%Y-%m-%d %H:%M:%S"))
+
+    return {
+        "installed": True,
+        "usable": True,
+        "expired": False,
+        "message": message,
+        "expiry_date": expiry_date,
+    }
+
+
 def _get_package_status(*, alias, source, default_message, expired_message_template, valid_message_template):
     if not _bootstrap_alias(alias, source):
         return {
@@ -82,21 +167,19 @@ def _get_package_status(*, alias, source, default_message, expired_message_templ
     try:
         expiry_module = importlib.import_module(f"{alias}.check_package_expiry")
     except ModuleNotFoundError:
-        return {
-            "installed": False,
-            "usable": False,
-            "expired": True,
-            "message": default_message,
-            "expiry_date": None,
-        }
+        return _build_file_based_status(
+            alias=alias,
+            default_message=default_message,
+            expired_message_template=expired_message_template,
+            valid_message_template=valid_message_template,
+        )
     except Exception:
-        return {
-            "installed": True,
-            "usable": False,
-            "expired": True,
-            "message": default_message,
-            "expiry_date": None,
-        }
+        return _build_file_based_status(
+            alias=alias,
+            default_message=default_message,
+            expired_message_template=expired_message_template,
+            valid_message_template=valid_message_template,
+        )
 
     try:
         expiry_date = None
@@ -124,13 +207,12 @@ def _get_package_status(*, alias, source, default_message, expired_message_templ
             "expiry_date": expiry_date,
         }
     except Exception:
-        return {
-            "installed": True,
-            "usable": False,
-            "expired": True,
-            "message": default_message,
-            "expiry_date": None,
-        }
+        return _build_file_based_status(
+            alias=alias,
+            default_message=default_message,
+            expired_message_template=expired_message_template,
+            valid_message_template=valid_message_template,
+        )
 
 
 def get_ifrs9_package_status():
