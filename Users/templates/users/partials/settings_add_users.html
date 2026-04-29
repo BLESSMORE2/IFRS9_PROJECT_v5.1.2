@@ -1,0 +1,145 @@
+<div class="surface-grid">
+    <div class="metric-grid">
+        <div class="metric">
+            <div class="metric-label">Total Users</div>
+            <div class="metric-value">{{ user_count }}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Available Roles</div>
+            <div class="metric-value">{{ role_count }}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Recent Users</div>
+            <div class="metric-value">{{ recent_users|length }}</div>
+        </div>
+    </div>
+
+    <div class="editor-grid">
+        <form method="post" class="card" autocomplete="off">
+            {% csrf_token %}
+            <input type="text" name="workspace_login_identifier" autocomplete="username" tabindex="-1" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
+            <input type="password" name="workspace_login_password" autocomplete="current-password" tabindex="-1" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
+            <div class="card-head">
+                <div>
+                    <h2 class="card-title">Create User</h2>
+                    <p class="card-copy">Add a new user account and assign the initial roles that control what modules the user can see after login.</p>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="field-card">
+                    <label for="{{ new_user_form.email.id_for_label }}">Email</label>
+                    {{ new_user_form.email }}
+                </div>
+                <div class="field-card">
+                    <label for="{{ new_user_form.name.id_for_label }}">First Name</label>
+                    {{ new_user_form.name }}
+                </div>
+                <div class="field-card">
+                    <label for="{{ new_user_form.surname.id_for_label }}">Surname</label>
+                    {{ new_user_form.surname }}
+                </div>
+                <div class="field-card">
+                    <label for="{{ new_user_form.phone_number.id_for_label }}">Phone Number</label>
+                    {{ new_user_form.phone_number }}
+                </div>
+                <div class="field-card">
+                    <label for="{{ new_user_form.department.id_for_label }}">Department</label>
+                    {{ new_user_form.department }}
+                </div>
+                <div class="field-card">
+                    <label for="{{ new_user_form.gender.id_for_label }}">Gender</label>
+                    {{ new_user_form.gender }}
+                </div>
+                <div class="field-card" style="grid-column:1 / -1;">
+                    <label for="{{ new_user_form.address.id_for_label }}">Address</label>
+                    {{ new_user_form.address }}
+                </div>
+                <div class="field-card">
+                    <div class="password-actions">
+                        <label for="{{ new_user_form.password1.id_for_label }}" style="margin-bottom:0;">Temporary Password</label>
+                        <button
+                            type="button"
+                            class="password-action-btn"
+                            data-generate-password="{{ new_user_form.password1.id_for_label }}"
+                            data-confirm-target="{{ new_user_form.password2.id_for_label }}"
+                            data-min-length="{{ password_policy_spec.min_length }}"
+                            data-require-upper="{{ password_policy_spec.require_upper|yesno:'true,false' }}"
+                            data-require-lower="{{ password_policy_spec.require_lower|yesno:'true,false' }}"
+                            data-require-digit="{{ password_policy_spec.require_digit|yesno:'true,false' }}"
+                            data-require-special="{{ password_policy_spec.require_special|yesno:'true,false' }}"
+                        >
+                            <i class="fas fa-wand-magic-sparkles"></i><span>Generate</span>
+                        </button>
+                    </div>
+                    <div class="password-field-wrap">
+                        {{ new_user_form.password1 }}
+                        <button type="button" class="password-toggle" data-password-toggle="{{ new_user_form.password1.id_for_label }}" aria-label="Show password" title="Show password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <div class="help-text">{{ new_user_form.password1.help_text }}</div>
+                </div>
+                <div class="field-card">
+                    <label for="{{ new_user_form.password2.id_for_label }}">Confirm Password</label>
+                    <div class="password-field-wrap">
+                        {{ new_user_form.password2 }}
+                        <button type="button" class="password-toggle" data-password-toggle="{{ new_user_form.password2.id_for_label }}" aria-label="Show password" title="Show password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="field-card" style="grid-column:1 / -1;">
+                    <label>Initial Roles</label>
+                    <div class="checkbox-box">
+                        {{ new_user_form.groups }}
+                    </div>
+                    <div class="help-text">Roles determine which modules the user can open from the launcher after login.</div>
+                </div>
+            </div>
+            {% if new_user_form.non_field_errors %}
+            <div class="alert alert-danger mb-0 mt-3" role="alert" style="font-size:.78rem;">
+                {% for error in new_user_form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+            <div class="editor-actions">
+                <div class="editor-note">New users are created with a forced password change on next login and must comply with the current password policy.</div>
+                <button type="submit" class="primary-btn"{% if not can_manage_users %} disabled{% endif %}>
+                    <i class="fas fa-user-plus"></i><span>Create User</span>
+                </button>
+            </div>
+        </form>
+
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h2 class="card-title">Recently Added Users</h2>
+                    <p class="card-copy">A quick view of the latest user accounts created in the shared workspace.</p>
+                </div>
+            </div>
+            <div class="table-shell compact-scroll">
+                <table class="settings-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Name</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in recent_users %}
+                        <tr>
+                            <td>{{ item.email }}</td>
+                            <td>{{ item.name }} {{ item.surname }}</td>
+                            <td>{{ item.date_joined|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3">No users found yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

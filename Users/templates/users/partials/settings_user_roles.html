@@ -1,0 +1,199 @@
+<div class="surface-grid">
+    <div class="metric-grid">
+        <div class="metric">
+            <div class="metric-label">Users</div>
+            <div class="metric-value">{{ user_rows|length }}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Roles</div>
+            <div class="metric-value">{{ role_rows|length }}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Modules</div>
+            <div class="metric-value">{{ module_count }}</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="tab-shell" data-tab-group>
+            <div class="card-head" style="margin-bottom:8px;">
+                <div>
+                    <h2 class="card-title">Access Workspace</h2>
+                    <p class="card-copy">Use the tabs below to focus on one access task at a time instead of loading the full workspace in one long page.</p>
+                </div>
+            </div>
+
+            <div class="tab-list" role="tablist" aria-label="User roles sections">
+                <button type="button" class="tab-button active" data-tab-target="user-access" aria-selected="true">
+                    <i class="fas fa-users"></i><span>User Access</span>
+                </button>
+                <button type="button" class="tab-button" data-tab-target="user-assignment" aria-selected="false">
+                    <i class="fas fa-user-edit"></i><span>Role Membership</span>
+                </button>
+                <button type="button" class="tab-button" data-tab-target="user-modules" aria-selected="false">
+                    <i class="fas fa-layer-group"></i><span>User Modules</span>
+                </button>
+                <button type="button" class="tab-button" data-tab-target="role-directory" aria-selected="false">
+                    <i class="fas fa-sitemap"></i><span>Role Directory</span>
+                </button>
+            </div>
+
+            <div class="tab-panel" data-tab-panel="user-access">
+                <div class="card-head">
+                    <div>
+                        <h2 class="card-title">Launcher Visibility by User</h2>
+                        <p class="card-copy">Each row shows which roles a user belongs to and which modules they can open after login.</p>
+                    </div>
+                </div>
+                <div class="table-shell compact-scroll">
+                    <table class="settings-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Assigned Roles</th>
+                                <th>Visible Modules</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in user_rows %}
+                            <tr>
+                                <td>
+                                    <strong>{{ row.user.name }} {{ row.user.surname }}</strong><br>
+                                    <span style="color:#6b7d98;">{{ row.user.email }}</span>
+                                </td>
+                                <td>
+                                    <div class="badge-list">
+                                        {% for group_name in row.group_names %}
+                                        <span class="soft-badge">{{ group_name }}</span>
+                                        {% empty %}
+                                        <span class="soft-badge empty">No roles assigned</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="badge-list">
+                                        {% for module_name in row.module_names %}
+                                        <span class="soft-badge">{{ module_name }}</span>
+                                        {% empty %}
+                                        <span class="soft-badge empty">No visible modules</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-panel" data-tab-panel="user-assignment" hidden>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="assign_user_roles">
+                    <input type="hidden" name="selected_group" value="{{ selected_group.pk|default:'' }}">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Role Membership</h2>
+                            <p class="card-copy">Select a user, then assign the roles that determine what appears on the launcher.</p>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="{{ role_form.user.id_for_label }}">User</label>
+                        {{ role_form.user }}
+                    </div>
+                    <div class="form-group">
+                        <label>Assigned Roles</label>
+                        <div class="checkbox-box">{{ role_form.groups }}</div>
+                    </div>
+                    <div class="editor-actions">
+                        <div class="editor-note">
+                            {% if selected_user %}Editing access for {{ selected_user.email }}{% else %}Choose a user to begin.{% endif %}
+                        </div>
+                        <button type="submit" class="primary-btn"{% if not can_manage_user_roles %} disabled{% endif %}>
+                            <i class="fas fa-save"></i><span>Save Role Membership</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="tab-panel" data-tab-panel="user-modules" hidden>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="assign_user_modules">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Module Access by User</h2>
+                            <p class="card-copy">Select a user by email, then choose the modules that should appear for that user after login.</p>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="{{ module_form.user.id_for_label }}">User Email</label>
+                        {{ module_form.user }}
+                    </div>
+                    <div class="form-group">
+                        <label>Visible Modules</label>
+                        <div class="checkbox-box">{{ module_form.modules }}</div>
+                    </div>
+                    <div class="editor-actions">
+                        <div class="editor-note">
+                            {% if selected_user %}Editing launcher access for {{ selected_user.email }}{% else %}Choose a user to begin.{% endif %}
+                        </div>
+                        <button type="submit" class="primary-btn"{% if not can_manage_user_roles %} disabled{% endif %}>
+                            <i class="fas fa-save"></i><span>Save Module Access</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="tab-panel" data-tab-panel="role-directory" hidden>
+                <div class="card-head">
+                    <div>
+                        <h2 class="card-title">Role Directory</h2>
+                        <p class="card-copy">This table shows how many users belong to each role.</p>
+                    </div>
+                </div>
+                <div class="table-shell compact-scroll">
+                    <table class="settings-table">
+                        <thead>
+                            <tr>
+                                <th>Role</th>
+                                <th>Members</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in role_rows %}
+                            <tr>
+                                <td><strong>{{ row.group.name }}</strong></td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="members-toggle{% if not row.member_count %} empty{% endif %}"
+                                        data-members-toggle="role-members-{{ row.group.id }}"
+                                        aria-expanded="false"
+                                    >
+                                        <i class="fas fa-users"></i>
+                                        <span>{{ row.member_count }}</span>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr id="role-members-{{ row.group.id }}" class="members-detail-row" hidden>
+                                <td colspan="2" class="members-detail-cell">
+                                    <div class="members-detail-title">Members in {{ row.group.name }}</div>
+                                    <p class="members-detail-copy">These are the user emails currently assigned to this role.</p>
+                                    <div class="badge-list">
+                                        {% for member_email in row.member_emails %}
+                                        <span class="soft-badge member">{{ member_email }}</span>
+                                        {% empty %}
+                                        <span class="soft-badge empty">No members assigned</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

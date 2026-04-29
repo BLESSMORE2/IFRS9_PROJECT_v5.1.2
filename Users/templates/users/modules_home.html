@@ -1,0 +1,734 @@
+{% load static custom_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Available Modules</title>
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'ifrs9_vendor/fontawesome-6/css/all.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/inter/inter.css' %}" rel="stylesheet">
+    <style>
+        :root {
+            --nx-navy: #0b1a35;
+            --nx-navy-deep: #060e1e;
+            --nx-panel: rgba(255, 255, 255, 0.96);
+            --nx-muted: #64748b;
+            --nx-border: rgba(11, 26, 53, 0.08);
+            --nx-teal: #00d4aa;
+            --nx-blue: #4f8ef7;
+            --nx-gold: #f4b63d;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            color: #10213f;
+            background: linear-gradient(180deg, #f7fafc 0%, #edf3f9 100%);
+        }
+
+        .site-header {
+            background: #ffffff;
+            border-bottom: 1px solid rgba(15, 29, 54, 0.08);
+            box-shadow: 0 8px 20px rgba(15, 29, 54, 0.04);
+        }
+
+        .site-header-inner {
+            width: 100%;
+            max-width: 1220px;
+            margin: 0 auto;
+            padding: 6px 18px;
+        }
+
+        .page-shell {
+            width: 100%;
+            flex: 1;
+            max-width: 1220px;
+            margin: 0 auto;
+            padding: 18px 18px 28px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            min-height: 56px;
+            margin-bottom: 0;
+            padding: 0 2px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-logo-frame {
+            width: 182px;
+            height: 58px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            padding: 4px 8px;
+            border-radius: 12px;
+            border: 1px solid rgba(15, 29, 54, 0.08);
+            background: linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
+            box-shadow: 0 6px 18px rgba(15, 29, 54, 0.06);
+        }
+
+        .brand-logo {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: contain;
+            object-position: center center;
+        }
+
+        .brand-title {
+            margin: 0;
+            color: #10213f;
+            font-size: 0.92rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            line-height: 1.05;
+        }
+
+        .brand-title span { color: var(--nx-teal); }
+
+        .brand-subtitle {
+            margin: 1px 0 0;
+            color: #6b7d98;
+            font-size: 0.6rem;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .nx-user-wrap { position: relative; }
+
+        .nx-user-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 32px;
+            padding: 4px 12px 4px 4px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #1c3158 0%, #27426f 100%);
+            border: 1px solid rgba(39, 66, 111, 0.18);
+            color: #ffffff;
+            box-shadow: 0 8px 18px rgba(15, 29, 54, 0.12);
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+
+        .nx-user-pill:hover {
+            transform: translateY(-1px);
+            background: linear-gradient(135deg, #223a67 0%, #2d4b7f 100%);
+        }
+
+        .nx-user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--nx-teal) 0%, var(--nx-blue) 100%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 0.74rem;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .nx-user-info {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.08;
+        }
+
+        .nx-user-name {
+            color: rgba(255, 255, 255, 0.96);
+            font-size: 0.78rem;
+            font-weight: 700;
+            max-width: 132px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .nx-user-role {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .nx-pill-caret {
+            color: rgba(255, 255, 255, 0.68);
+            font-size: 0.62rem;
+            transition: transform 0.18s ease;
+        }
+
+        .nx-user-wrap.open .nx-pill-caret { transform: rotate(180deg); }
+
+        .nx-user-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 220px;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #10213f;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 18px 42px rgba(15, 29, 54, 0.28);
+            z-index: 50;
+        }
+
+        .nx-user-wrap.open .nx-user-dropdown { display: block; }
+
+        .nx-dd-header {
+            padding: 14px 16px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .nx-dd-email {
+            color: rgba(255, 255, 255, 0.62);
+            font-size: 0.72rem;
+            word-break: break-word;
+        }
+
+        .nx-dd-role {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .nx-dd-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            color: rgba(255, 255, 255, 0.78);
+            text-decoration: none;
+            font-size: 0.78rem;
+            font-weight: 600;
+            transition: background 0.18s ease, color 0.18s ease;
+        }
+
+        .nx-dd-item:hover {
+            background: rgba(255, 255, 255, 0.07);
+            color: #ffffff;
+            text-decoration: none;
+        }
+
+        .nx-dd-item i {
+            width: 14px;
+            text-align: center;
+            font-size: 0.78rem;
+        }
+
+        .nx-dd-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 4px 0;
+        }
+
+        .nx-dd-item.nx-logout {
+            color: #ff8a97;
+        }
+
+        .nx-dd-item.nx-logout:hover {
+            background: rgba(255, 107, 122, 0.12);
+            color: #ff9aa5;
+        }
+
+        .topbar-chip,
+        .topbar-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 32px;
+            padding: 0 12px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-size: 0.68rem;
+            font-weight: 600;
+        }
+
+        .topbar-chip {
+            background: #ffffff;
+            border: 1px solid rgba(15, 29, 54, 0.08);
+            color: #20365f;
+            box-shadow: 0 8px 18px rgba(15, 29, 54, 0.06);
+        }
+
+        .topbar-chip:hover {
+            color: #10213f;
+            text-decoration: none;
+            background: #f8fbff;
+            border-color: rgba(79, 142, 247, 0.18);
+        }
+
+        .topbar-link {
+            background: #ffffff;
+            border: 1px solid rgba(0, 212, 170, 0.24);
+            color: #0f766e;
+            box-shadow: 0 8px 18px rgba(15, 29, 54, 0.06);
+        }
+
+        .topbar-link:hover {
+            color: #0f5e57;
+            text-decoration: none;
+            background: #f2fffb;
+        }
+
+        .hero {
+            padding: 18px 20px 22px;
+            border-radius: 22px;
+            background: #ffffff;
+            box-shadow: 0 18px 48px rgba(15, 29, 54, 0.08);
+            border: 1px solid rgba(15, 29, 54, 0.06);
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding: 6px 11px;
+            border-radius: 999px;
+            background: rgba(0, 212, 170, 0.1);
+            color: #0f766e;
+            font-size: 0.66rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .hero h1 {
+            margin: 0;
+            font-size: clamp(1.1rem, 2.2vw, 1.45rem);
+            line-height: 1.12;
+            letter-spacing: -0.02em;
+            color: #0f1d36;
+        }
+
+        .hero p {
+            max-width: 700px;
+            margin: 8px 0 0;
+            font-size: 0.74rem;
+            line-height: 1.55;
+            color: var(--nx-muted);
+        }
+
+        .modules-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            align-items: stretch;
+            margin-top: 10px;
+        }
+
+        .module-card {
+            position: relative;
+            overflow: hidden;
+            width: min(220px, 100%);
+            min-height: 140px;
+            border-radius: 16px;
+            background: #fff;
+            border: 1px solid var(--nx-border);
+            box-shadow: 0 10px 28px rgba(15, 29, 54, 0.08);
+            padding: 14px;
+        }
+
+        a.module-card {
+            display: block;
+            color: inherit;
+            text-decoration: none;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        a.module-card:hover {
+            color: inherit;
+            text-decoration: none;
+            transform: translateY(-2px);
+            box-shadow: 0 14px 32px rgba(15, 29, 54, 0.12);
+            border-color: rgba(79, 142, 247, 0.18);
+        }
+
+        .module-card.ifrs9::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto;
+            height: 5px;
+            background: linear-gradient(90deg, var(--nx-teal), var(--nx-blue));
+        }
+
+        .module-card.scorecard::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto;
+            height: 5px;
+            background: linear-gradient(90deg, #1d4ed8, var(--nx-gold));
+        }
+
+        .module-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, rgba(0, 212, 170, 0.14), rgba(79, 142, 247, 0.18));
+            color: #0f1d36;
+            font-size: 0.88rem;
+        }
+
+        .module-card.scorecard .module-icon {
+            background: linear-gradient(135deg, rgba(29, 78, 216, 0.14), rgba(244, 182, 61, 0.18));
+            color: #1e3a8a;
+        }
+
+        .module-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+            padding: 5px 9px;
+            border-radius: 999px;
+            background: rgba(15, 118, 110, 0.08);
+            color: #0f766e;
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .module-name {
+            margin: 0;
+            font-size: 0.98rem;
+            font-weight: 800;
+            color: #12213b;
+        }
+
+        .module-meta {
+            margin: 8px 0 4px;
+            color: #74849f;
+            font-size: 0.68rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .module-copy {
+            margin: 0 0 14px;
+            min-height: 32px;
+            color: #5f718f;
+            font-size: 0.69rem;
+            line-height: 1.45;
+        }
+
+        .module-card.scorecard .module-status {
+            background: rgba(29, 78, 216, 0.08);
+            color: #1e40af;
+        }
+
+        .module-card.scorecard .module-link {
+            background: #1e3a8a;
+        }
+
+        .module-card.scorecard .module-link:hover {
+            background: #1d3375;
+        }
+
+        .module-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 12px;
+            background: #0f1d36;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.7rem;
+            letter-spacing: 0.02em;
+        }
+
+        .module-link:hover {
+            color: #fff;
+            text-decoration: none;
+            background: #162849;
+        }
+
+        .site-footer {
+            width: 100%;
+            margin-top: auto;
+            background: #ffffff;
+            border-top: 1px solid rgba(15, 29, 54, 0.08);
+            box-shadow: 0 -8px 24px rgba(15, 29, 54, 0.03);
+        }
+
+        .site-footer-inner {
+            width: 100%;
+            max-width: 1220px;
+            margin: 0 auto;
+            padding: 14px 18px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: #7b8ca7;
+            font-size: 0.68rem;
+            letter-spacing: 0.04em;
+        }
+
+        .footer-title {
+            color: #31456b;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .footer-meta {
+            color: #7b8ca7;
+        }
+
+        .footer-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: #ffffff;
+            border: 1px solid rgba(15, 29, 54, 0.08);
+            box-shadow: 0 8px 18px rgba(15, 29, 54, 0.05);
+            color: #31456b;
+            font-size: 0.64rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 767px) {
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .hero {
+                padding: 18px 16px 20px;
+            }
+
+            .brand {
+                width: 100%;
+            }
+
+            .brand-logo-frame {
+                width: 162px;
+                height: 52px;
+            }
+
+            .topbar-actions {
+                justify-content: stretch;
+            }
+
+            .topbar-chip,
+            .topbar-link {
+                justify-content: center;
+                width: 100%;
+            }
+
+            .nx-user-pill {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .nx-user-dropdown {
+                left: 0;
+                right: auto;
+                width: 100%;
+            }
+
+            .module-card {
+                width: 100%;
+            }
+
+            .site-footer-inner {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="site-header-inner">
+            <div class="topbar">
+                <div class="brand">
+                    <div class="brand-logo-frame">
+                        <img src="{% static 'images/login/bns_logo_trimmed.png' %}" alt="Brain Nexus Solution" class="brand-logo">
+                    </div>
+                    <div>
+                        <h1 class="brand-title">Nexa <span>Compliance</span></h1>
+                        <p class="brand-subtitle">Universal workspace launcher</p>
+                    </div>
+                </div>
+
+                <div class="topbar-actions">
+                    {% if request.user.is_superuser %}
+                    <a href="{% url 'admin:index' %}" class="topbar-chip" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-user-shield"></i>
+                        <span>Admin</span>
+                    </a>
+                    {% endif %}
+                    {% if can_open_users_settings %}
+                    <a href="{% url 'user_settings' %}" class="topbar-chip">
+                        <i class="fas fa-sliders-h"></i>
+                        <span>Settings</span>
+                    </a>
+                    {% endif %}
+                    {% if user.is_authenticated %}
+                    <div class="nx-user-wrap" id="nxUserWrap">
+                        <div class="nx-user-pill" id="nxUserPill" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" title="{{ user.email|default:user.phone_number }}">
+                            <div class="nx-user-avatar">{{ user|user_initials }}</div>
+                            <div class="nx-user-info">
+                                <span class="nx-user-name">{{ user|user_initials }}</span>
+                                <span class="nx-user-role">{% if user.is_superuser %}Super Admin{% else %}User{% endif %}</span>
+                            </div>
+                            <i class="fas fa-chevron-down nx-pill-caret"></i>
+                        </div>
+                        <div class="nx-user-dropdown" role="menu">
+                            <div class="nx-dd-header">
+                                <div class="nx-user-avatar" style="width:38px;height:38px;font-size:.88rem;margin-bottom:8px;">{{ user|user_initials }}</div>
+                                <div class="nx-dd-email">{{ user.email|default:user.phone_number }}</div>
+                                <div class="nx-dd-role">{% if user.is_superuser %}Super Admin{% else %}User{% endif %}</div>
+                            </div>
+                            <a class="nx-dd-item" href="{% url 'update_profile' %}" role="menuitem">
+                                <i class="fas fa-user-edit"></i>
+                                <span>Update Profile</span>
+                            </a>
+                            <a class="nx-dd-item" href="{% url 'change_password' %}" role="menuitem">
+                                <i class="fas fa-lock"></i>
+                                <span>Change Password</span>
+                            </a>
+                            <div class="nx-dd-divider"></div>
+                            <a class="nx-dd-item nx-logout" href="{% url 'logout' %}" role="menuitem">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Sign Out</span>
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-shell">
+        <section class="hero">
+            <div class="hero-eyebrow">
+                <i class="fas fa-layer-group"></i>
+                <span>Available Modules</span>
+            </div>
+
+            <div class="modules-grid">
+                {% for module in modules %}
+                <a href="{{ module.url }}" class="module-card {{ module.accent }}">
+                    <div class="module-icon">
+                        <i class="{{ module.icon }}"></i>
+                    </div>
+                    <div class="module-status">
+                        <i class="fas fa-check-circle"></i>
+                        <span>{{ module.status }}</span>
+                    </div>
+                    <h2 class="module-name">{{ module.name }}</h2>
+                    <p class="module-meta">Workspace</p>
+                    <p class="module-copy">{{ module.description|default:"Open this module workspace." }}</p>
+                    <span class="module-link">
+                        <span>Open</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </span>
+                </a>
+                {% empty %}
+                <article class="module-card">
+                    <div class="module-icon">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <div class="module-status">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>No Access</span>
+                    </div>
+                    <h2 class="module-name">No modules assigned</h2>
+                    <p class="module-meta">Contact an administrator to assign launcher access.</p>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <div>
+                <div class="footer-title">Brain Nexus Platform</div>
+                <div class="footer-meta">Module launcher · Version {{ app_version|default:"5.1.1" }}</div>
+            </div>
+            <div class="footer-status">
+                <i class="fas fa-shield-alt"></i>
+                <span>Secure Access</span>
+            </div>
+        </div>
+    </footer>
+    <script>
+        (function () {
+            const wrap = document.getElementById('nxUserWrap');
+            const pill = document.getElementById('nxUserPill');
+            if (!wrap || !pill) return;
+
+            function toggle(event) {
+                event.stopPropagation();
+                const isOpen = wrap.classList.toggle('open');
+                pill.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            }
+
+            pill.addEventListener('click', toggle);
+            pill.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    toggle(event);
+                }
+            });
+
+            document.addEventListener('click', function () {
+                wrap.classList.remove('open');
+                pill.setAttribute('aria-expanded', 'false');
+            });
+
+            wrap.querySelector('.nx-user-dropdown').addEventListener('click', function (event) {
+                event.stopPropagation();
+            });
+        })();
+    </script>
+</body>
+</html>

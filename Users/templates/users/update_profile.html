@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 720px;">
+  {% if messages %}
+  <div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert" style="font-size: 0.875rem;">
+      <i class="fas fa-{% if message.tags == 'success' %}check-circle{% else %}exclamation-circle{% endif %} mr-2"></i>{{ message }}
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card border-0 shadow-sm overflow-hidden">
+    <div class="card-header py-3 px-4" style="background: linear-gradient(135deg, #0b1a35 0%, #0e2348 100%); color: #fff; border: none;">
+        <div class="d-flex align-items-center">
+        <div class="rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 44px; height: 44px; background: rgba(0,212,170,0.2);">
+          <i class="fas fa-user-edit" style="color: #00d4aa; font-size: 1.1rem;"></i>
+        </div>
+        <div>
+          <h1 class="h5 mb-0 fw-bold" style="letter-spacing: 0.02em;">Update Profile</h1>
+          <p class="mb-0 small opacity-75" style="font-size: 0.75rem;">Edit your personal information</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body p-4">
+      <form method="post" action="{% url 'update_profile' %}" id="update-profile-form">
+        {% csrf_token %}
+
+        <div class="row">
+          <div class="col-md-6 form-group">
+            <label for="name" class="font-weight-bold text-secondary" style="font-size: 0.8rem;">First name</label>
+            <input type="text" id="name" name="name" class="form-control form-control-sm" value="{{ user.name|default:'' }}" required placeholder="Enter first name" style="border-radius: 8px;">
+          </div>
+          <div class="col-md-6 form-group">
+            <label for="surname" class="font-weight-bold text-secondary" style="font-size: 0.8rem;">Surname</label>
+            <input type="text" id="surname" name="surname" class="form-control form-control-sm" value="{{ user.surname|default:'' }}" required placeholder="Enter surname" style="border-radius: 8px;">
+          </div>
+          <div class="col-12 form-group">
+            <label for="phone_number" class="font-weight-bold text-secondary" style="font-size: 0.8rem;">Phone number</label>
+            <input type="tel" id="phone_number" name="phone_number" class="form-control form-control-sm" value="{{ user.phone_number|default:'' }}" required placeholder="e.g. +27 12 345 6789" style="border-radius: 8px;">
+          </div>
+          <div class="col-md-6 form-group">
+            <label for="date_of_birth" class="font-weight-bold text-secondary" style="font-size: 0.8rem;">Date of birth</label>
+            <input type="text" id="date_of_birth" name="date_of_birth" class="form-control form-control-sm" value="{{ user.date_of_birth|date:'d/m/Y'|default:'' }}" placeholder="dd/mm/yyyy" style="border-radius: 8px;" autocomplete="off">
+          </div>
+          <div class="col-md-6 form-group">
+            <label for="gender" class="font-weight-bold text-secondary" style="font-size: 0.8rem;">Gender</label>
+            <select id="gender" name="gender" class="form-control form-control-sm" style="border-radius: 8px;">
+              <option value="male" {% if user.gender == 'male' %}selected{% endif %}>Male</option>
+              <option value="female" {% if user.gender == 'female' %}selected{% endif %}>Female</option>
+            </select>
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <div class="d-flex align-items-center justify-content-between flex-wrap">
+          <a href="{% url 'modules_home' %}" class="btn btn-outline-secondary btn-sm mb-2 mb-md-0" style="border-radius: 8px;">
+            <i class="fas fa-arrow-left mr-1"></i> Back
+          </a>
+          <button type="submit" class="btn btn-sm px-4 font-weight-bold" style="background: #00d4aa; color: #0b1a35; border: none; border-radius: 8px;">
+            <i class="fas fa-save mr-2"></i>Update Profile
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" crossorigin="anonymous"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof $ !== 'undefined' && $.fn.datepicker) {
+    $('#date_of_birth').datepicker({
+      dateFormat: 'dd/mm/yy',
+      changeMonth: true,
+      changeYear: true,
+      yearRange: '-100:+0',
+      maxDate: 0
+    });
+  }
+  document.getElementById('update-profile-form').addEventListener('submit', function(e) {
+    var dob = document.getElementById('date_of_birth').value;
+    var regex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[012])\/\d{4}$/;
+    if (dob && !regex.test(dob)) {
+      e.preventDefault();
+      alert('Please use date format dd/mm/yyyy.');
+    }
+  });
+});
+</script>
+{% endblock %}

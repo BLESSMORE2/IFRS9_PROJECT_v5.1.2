@@ -1,0 +1,409 @@
+{% load static custom_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'ifrs9_vendor/fontawesome-6/css/all.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/inter/inter.css' %}" rel="stylesheet">
+    <style>
+        body { margin:0; min-height:100vh; display:flex; flex-direction:column; font-family:'Inter','Segoe UI',sans-serif; color:#10213f; background:linear-gradient(180deg,#f7fafc 0%,#edf3f9 100%); }
+        .shell, .header-inner, .footer-inner { width:100%; max-width:1240px; margin:0 auto; padding:0 18px; }
+        .header, .footer { background:#fff; }
+        .header { border-bottom:1px solid rgba(11,26,53,.08); box-shadow:0 8px 20px rgba(15,29,54,.04); }
+        .footer { margin-top:auto; border-top:1px solid rgba(11,26,53,.08); box-shadow:0 -8px 24px rgba(15,29,54,.03); }
+        .header-inner { padding:6px 18px; }
+        .footer-inner { padding:14px 18px 18px; display:flex; align-items:center; justify-content:space-between; gap:12px; color:#7b8ca7; font-size:.68rem; letter-spacing:.04em; }
+        .topbar { min-height:56px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+        .brand { display:flex; align-items:center; gap:12px; }
+        .brand-logo-frame { width:182px; height:58px; padding:4px 8px; overflow:hidden; display:flex; align-items:center; justify-content:center; border-radius:12px; border:1px solid rgba(11,26,53,.08); background:linear-gradient(180deg,#fff 0%,#f7fafc 100%); box-shadow:0 6px 18px rgba(15,29,54,.06); }
+        .brand-logo { width:100%; height:100%; object-fit:contain; }
+        .brand-title { margin:0; font-size:.92rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; line-height:1.05; }
+        .brand-title span { color:#00d4aa; }
+        .brand-subtitle { margin:1px 0 0; color:#6b7d98; font-size:.6rem; letter-spacing:.11em; text-transform:uppercase; line-height:1.1; }
+        .topbar-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+        .topbar-link, .primary-btn, .secondary-btn { display:inline-flex; align-items:center; gap:8px; text-decoration:none; font-weight:700; }
+        .topbar-link { min-height:32px; padding:0 12px; border-radius:999px; font-size:.68rem; background:#fff; border:1px solid rgba(0,212,170,.24); color:#0f766e; box-shadow:0 8px 18px rgba(15,29,54,.06); }
+        .topbar-link:hover { color:#0f5e57; text-decoration:none; background:#f2fffb; }
+        .nx-user-wrap { position:relative; }
+        .nx-user-pill { display:inline-flex; align-items:center; gap:9px; min-height:32px; padding:4px 12px 4px 4px; border-radius:999px; background:linear-gradient(135deg,#1c3158 0%,#27426f 100%); border:1px solid rgba(39,66,111,.18); color:#fff; box-shadow:0 8px 18px rgba(15,29,54,.12); cursor:pointer; transition:transform .18s ease, box-shadow .18s ease, background .18s ease; }
+        .nx-user-pill:hover { transform:translateY(-1px); background:linear-gradient(135deg,#223a67 0%,#2d4b7f 100%); }
+        .nx-user-avatar { width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,#00d4aa 0%,#4f8ef7 100%); display:inline-flex; align-items:center; justify-content:center; color:#fff; font-size:.74rem; font-weight:800; flex-shrink:0; }
+        .nx-user-info { display:flex; flex-direction:column; line-height:1.08; }
+        .nx-user-name { color:rgba(255,255,255,.96); font-size:.78rem; font-weight:700; max-width:132px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .nx-user-role { color:rgba(255,255,255,.6); font-size:.58rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+        .nx-pill-caret { color:rgba(255,255,255,.68); font-size:.62rem; transition:transform .18s ease; }
+        .nx-user-wrap.open .nx-pill-caret { transform:rotate(180deg); }
+        .nx-user-dropdown { display:none; position:absolute; top:calc(100% + 10px); right:0; width:220px; border-radius:16px; overflow:hidden; background:#10213f; border:1px solid rgba(255,255,255,.08); box-shadow:0 18px 42px rgba(15,29,54,.28); z-index:50; }
+        .nx-user-wrap.open .nx-user-dropdown { display:block; }
+        .nx-dd-header { padding:14px 16px 12px; border-bottom:1px solid rgba(255,255,255,.08); }
+        .nx-dd-email { color:rgba(255,255,255,.62); font-size:.72rem; word-break:break-word; }
+        .nx-dd-role { color:rgba(255,255,255,.4); font-size:.58rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; margin-top:4px; }
+        .nx-dd-item { display:flex; align-items:center; gap:10px; padding:10px 16px; color:rgba(255,255,255,.78); text-decoration:none; font-size:.78rem; font-weight:600; transition:background .18s ease, color .18s ease; }
+        .nx-dd-item:hover { background:rgba(255,255,255,.07); color:#fff; text-decoration:none; }
+        .nx-dd-item i { width:14px; text-align:center; font-size:.78rem; }
+        .nx-dd-divider { height:1px; background:rgba(255,255,255,.08); margin:4px 0; }
+        .nx-dd-item.nx-logout { color:#ff8a97; }
+        .nx-dd-item.nx-logout:hover { background:rgba(255,107,122,.12); color:#ff9aa5; }
+        .shell { flex:1; padding:18px 18px 28px; }
+        .workspace { display:grid; grid-template-columns:240px minmax(0,1fr); gap:18px; align-items:start; }
+        .sidebar, .panel { border-radius:22px; background:rgba(255,255,255,.96); box-shadow:0 18px 48px rgba(15,29,54,.08); border:1px solid rgba(15,29,54,.06); }
+        .sidebar { padding:18px 14px; position:sticky; top:18px; }
+        .panel { padding:22px; }
+        .eyebrow { display:inline-flex; align-items:center; gap:8px; margin-bottom:12px; padding:6px 11px; border-radius:999px; background:rgba(0,212,170,.1); color:#0f766e; font-size:.66rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+        .sidebar-title, .section-title, .card-title { margin:0; font-weight:800; color:#10213f; }
+        .sidebar-title { font-size:.9rem; margin-bottom:10px; }
+        .section-title { font-size:1.4rem; line-height:1.15; }
+        .sidebar-copy, .section-copy, .card-copy, .help-text, .editor-note { color:#6b7d98; font-size:.72rem; line-height:1.6; }
+        .sidebar-copy { margin:0 0 18px; }
+        .section-copy { margin:8px 0 0; max-width:760px; }
+        .sidebar-nav { display:grid; gap:8px; }
+        .sidebar-link { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:14px; border:1px solid rgba(15,29,54,.06); color:#274065; text-decoration:none; background:#fff; font-size:.75rem; font-weight:700; }
+        .sidebar-link:hover, .sidebar-link.active { color:#10213f; text-decoration:none; background:linear-gradient(135deg,rgba(0,212,170,.1),rgba(79,142,247,.14)); border-color:rgba(79,142,247,.18); }
+        .alert-stack, .surface-grid, .status-stack { display:grid; gap:16px; }
+        .alert-stack { margin-top:16px; gap:10px; }
+        .surface-grid { margin-top:18px; }
+        .metric-grid, .editor-grid, .form-grid { display:grid; gap:16px; }
+        .metric-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+        .editor-grid, .form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .card, .metric, .field-card { border:1px solid rgba(15,29,54,.06); border-radius:18px; background:linear-gradient(180deg,#fff 0%,#fbfdff 100%); box-shadow:0 10px 26px rgba(15,29,54,.06); padding:18px; }
+        .metric { padding:14px; background:#f8fbff; }
+        .metric-label, .form-label, .status-label { color:#48627f; font-size:.66rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+        .metric-value { margin-top:6px; font-size:1.15rem; font-weight:800; }
+        .table-shell { overflow-x:auto; border:1px solid rgba(15,29,54,.06); border-radius:16px; }
+        .table-shell.compact-scroll { max-height:360px; overflow:auto; }
+        .settings-table { width:100%; border-collapse:collapse; font-size:.72rem; background:#fff; }
+        .settings-table th, .settings-table td { padding:11px 12px; border-bottom:1px solid rgba(15,29,54,.06); text-align:left; vertical-align:top; }
+        .settings-table thead th { background:#f8fbff; color:#48627f; font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; }
+        .table-shell.compact-scroll .settings-table thead th { position:sticky; top:0; z-index:2; }
+        .badge-list { display:flex; flex-wrap:wrap; gap:6px; }
+        .soft-badge { display:inline-flex; align-items:center; padding:4px 8px; border-radius:999px; background:rgba(79,142,247,.1); color:#315f99; font-size:.66rem; font-weight:700; }
+        .soft-badge.empty { background:rgba(148,163,184,.12); color:#64748b; }
+        .soft-badge.member { background:rgba(0,212,170,.1); color:#0f766e; }
+        .card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+        .card-title { font-size:.92rem; }
+        .card-copy { margin:7px 0 0; }
+        .tab-shell { display:grid; gap:14px; }
+        .tab-list { display:flex; flex-wrap:wrap; gap:10px; }
+        .tab-button { display:inline-flex; align-items:center; gap:8px; min-height:36px; padding:0 14px; border-radius:999px; border:1px solid rgba(15,29,54,.08); background:#fff; color:#36557f; font-size:.72rem; font-weight:700; cursor:pointer; box-shadow:0 8px 18px rgba(15,29,54,.04); }
+        .tab-button:hover { background:#f8fbff; border-color:rgba(79,142,247,.18); }
+        .tab-button.active { background:linear-gradient(135deg,rgba(0,212,170,.12),rgba(79,142,247,.14)); color:#10213f; border-color:rgba(79,142,247,.18); }
+        .tab-panel[hidden] { display:none !important; }
+        .instruction-list { margin:10px 0 0; padding-left:18px; color:#6b7d98; font-size:.72rem; line-height:1.7; }
+        .instruction-list li + li { margin-top:4px; }
+        .field-card.soft-panel { background:linear-gradient(180deg,#f7fbff 0%,#eef6ff 100%); }
+        .members-toggle { display:inline-flex; align-items:center; gap:6px; min-height:30px; padding:0 10px; border:none; border-radius:999px; background:rgba(79,142,247,.1); color:#315f99; font-size:.7rem; font-weight:800; cursor:pointer; }
+        .members-toggle:hover { background:rgba(79,142,247,.16); }
+        .members-toggle.empty { background:rgba(148,163,184,.12); color:#64748b; cursor:default; }
+        .members-detail-row[hidden] { display:none; }
+        .members-detail-cell { padding:14px 12px !important; background:#f8fbff; }
+        .members-detail-title { margin:0 0 8px; color:#36557f; font-size:.7rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+        .members-detail-copy { margin:0 0 10px; color:#6b7d98; font-size:.7rem; line-height:1.5; }
+        .form-group label, .field-card label { display:block; margin-bottom:6px; color:#48627f; font-size:.68rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+        .password-field-wrap { position:relative; }
+        .password-field-wrap input { padding-right:42px; }
+        .password-toggle {
+            position:absolute;
+            top:50%;
+            right:10px;
+            transform:translateY(-50%);
+            width:28px;
+            height:28px;
+            border:none;
+            border-radius:8px;
+            background:rgba(79,142,247,.1);
+            color:#315f99;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+        }
+        .password-toggle:hover { background:rgba(79,142,247,.16); }
+        .password-actions {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:10px;
+            margin-bottom:6px;
+        }
+        .password-action-btn {
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            min-height:30px;
+            padding:0 10px;
+            border:none;
+            border-radius:10px;
+            background:rgba(0,212,170,.12);
+            color:#0f766e;
+            font-size:.68rem;
+            font-weight:800;
+            cursor:pointer;
+        }
+        .password-action-btn:hover { background:rgba(0,212,170,.18); }
+        .checkbox-box { padding:12px; border-radius:14px; border:1px solid rgba(15,29,54,.06); background:#fbfdff; max-height:280px; overflow-y:auto; }
+        .checkbox-box ul { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
+        .checkbox-box li label { display:flex; align-items:center; gap:10px; margin:0; padding:8px 10px; border-radius:12px; background:#fff; border:1px solid rgba(15,29,54,.06); color:#1f3556; font-size:.74rem; font-weight:600; text-transform:none; letter-spacing:normal; }
+        .editor-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; }
+        .primary-btn, .secondary-btn { min-height:34px; padding:0 14px; border-radius:12px; font-size:.72rem; border:none; cursor:pointer; }
+        .primary-btn { background:#10213f; color:#fff; }
+        .primary-btn:hover { background:#162849; }
+        .primary-btn:disabled { opacity:.55; cursor:not-allowed; }
+        .secondary-btn { background:#fff; color:#274065; border:1px solid rgba(15,29,54,.1); }
+        .field-card { background:#f8fbff; padding:14px; }
+        .toggle-field, .status-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .status-row { padding:11px 0; border-bottom:1px dashed rgba(15,29,54,.1); font-size:.74rem; }
+        .status-row:last-child { border-bottom:none; padding-bottom:0; }
+        .status-value { color:#10213f; font-weight:700; text-align:right; }
+        .footer-title, .footer-status { color:#31456b; font-weight:700; text-transform:uppercase; }
+        .footer-title { letter-spacing:.08em; }
+        .footer-status { display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border-radius:999px; background:#fff; border:1px solid rgba(11,26,53,.08); box-shadow:0 8px 18px rgba(15,29,54,.05); font-size:.64rem; letter-spacing:.08em; }
+        @media (max-width:1024px){ .workspace,.metric-grid,.editor-grid,.form-grid{grid-template-columns:1fr;} .sidebar{position:static;} }
+        @media (max-width:767px){ .topbar{flex-direction:column; align-items:stretch; gap:10px;} .brand{width:100%;} .brand-logo-frame{width:162px; height:52px;} .topbar-actions{justify-content:stretch;} .topbar-link{justify-content:center; width:100%;} .nx-user-pill{width:100%; justify-content:center;} .nx-user-dropdown{left:0; right:auto; width:100%;} .footer-inner{flex-direction:column; align-items:flex-start;} }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <div class="topbar">
+                <div class="brand">
+                    <a href="{% url 'modules_home' %}" class="brand-logo-frame">
+                        <img src="{% static 'images/login/bns_logo_trimmed.png' %}" alt="Brain Nexus Solution" class="brand-logo">
+                    </a>
+                    <div>
+                        <h1 class="brand-title">Nexa <span>Compliance</span></h1>
+                        <p class="brand-subtitle">Universal workspace launcher</p>
+                    </div>
+                </div>
+                <div class="topbar-actions">
+                    {% if request.user.is_superuser %}
+                    <a href="{% url 'admin:index' %}" class="topbar-link" target="_blank" rel="noopener noreferrer"><i class="fas fa-user-shield"></i><span>Admin</span></a>
+                    {% endif %}
+                    <a href="{% url 'modules_home' %}" class="topbar-link"><i class="fas fa-th-large"></i><span>Modules</span></a>
+                    {% if user.is_authenticated %}
+                    <div class="nx-user-wrap" id="nxUserWrap">
+                        <div class="nx-user-pill" id="nxUserPill" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" title="{{ user.email|default:user.phone_number }}">
+                            <div class="nx-user-avatar">{{ user|user_initials }}</div>
+                            <div class="nx-user-info">
+                                <span class="nx-user-name">{{ user|user_initials }}</span>
+                                <span class="nx-user-role">{% if user.is_superuser %}Super Admin{% else %}User{% endif %}</span>
+                            </div>
+                            <i class="fas fa-chevron-down nx-pill-caret"></i>
+                        </div>
+                        <div class="nx-user-dropdown" role="menu">
+                            <div class="nx-dd-header">
+                                <div class="nx-user-avatar" style="width:38px;height:38px;font-size:.88rem;margin-bottom:8px;">{{ user|user_initials }}</div>
+                                <div class="nx-dd-email">{{ user.email|default:user.phone_number }}</div>
+                                <div class="nx-dd-role">{% if user.is_superuser %}Super Admin{% else %}User{% endif %}</div>
+                            </div>
+                            <a class="nx-dd-item" href="{% url 'update_profile' %}" role="menuitem"><i class="fas fa-user-edit"></i><span>Update Profile</span></a>
+                            <a class="nx-dd-item" href="{% url 'change_password' %}" role="menuitem"><i class="fas fa-lock"></i><span>Change Password</span></a>
+                            <div class="nx-dd-divider"></div>
+                            <a class="nx-dd-item nx-logout" href="{% url 'logout' %}" role="menuitem"><i class="fas fa-sign-out-alt"></i><span>Sign Out</span></a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+    <div class="shell">
+        <div class="workspace">
+            <aside class="sidebar">
+                <div class="eyebrow"><i class="fas fa-sliders-h"></i><span>Settings</span></div>
+                <h2 class="sidebar-title">Users Control Center</h2>
+                <p class="sidebar-copy">Configure shared access rules and platform behavior outside the IFRS 9 module workspace.</p>
+                <nav class="sidebar-nav">
+                    {% for item in settings_nav_items %}
+                    <a href="{{ item.url }}" class="sidebar-link{% if active_section == item.key %} active{% endif %}">
+                        <i class="{{ item.icon }}"></i><span>{{ item.label }}</span>
+                    </a>
+                    {% endfor %}
+                </nav>
+            </aside>
+            <section class="panel">
+                <div class="eyebrow"><i class="{% if active_section == 'add_users' %}fas fa-user-plus{% elif active_section == 'user_roles' %}fas fa-users-cog{% elif active_section == 'authenticator' %}fas fa-mobile-screen-button{% else %}fas fa-sliders-h{% endif %}"></i><span>{{ page_title }}</span></div>
+                <h1 class="section-title">{{ page_title }}</h1>
+                <p class="section-copy">{{ page_intro }}</p>
+                {% if messages %}
+                <div class="alert-stack">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|default:'info' }} mb-0" role="alert" style="font-size:.78rem;">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if active_section == 'user_roles' %}
+                {% include 'users/partials/settings_user_roles.html' %}
+                {% endif %}
+                {% if active_section == 'add_users' %}
+                {% include 'users/partials/settings_add_users.html' %}
+                {% endif %}
+                {% if active_section == 'authenticator' %}
+                {% include 'users/partials/settings_authenticator.html' %}
+                {% endif %}
+                {% if active_section == 'system_settings' %}
+                {% include 'users/partials/settings_system_settings.html' %}
+                {% endif %}
+            </section>
+        </div>
+    </div>
+    <footer class="footer">
+        <div class="footer-inner">
+            <div>
+                <div class="footer-title">Brain Nexus Platform</div>
+                <div>Module launcher &middot; Version {{ app_version|default:"5.1.1" }}</div>
+            </div>
+            <div class="footer-status"><i class="fas fa-shield-alt"></i><span>Secure Access</span></div>
+        </div>
+    </footer>
+    <script>
+        document.querySelectorAll('[data-tab-group]').forEach(function (group) {
+            const buttons = group.querySelectorAll('[data-tab-target]');
+            const panels = group.querySelectorAll('[data-tab-panel]');
+            function activate(targetId) {
+                buttons.forEach(function (button) {
+                    const isActive = button.getAttribute('data-tab-target') === targetId;
+                    button.classList.toggle('active', isActive);
+                    button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                });
+                panels.forEach(function (panel) {
+                    panel.hidden = panel.getAttribute('data-tab-panel') !== targetId;
+                });
+            }
+            buttons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    activate(button.getAttribute('data-tab-target'));
+                });
+            });
+            const activeButton = group.querySelector('.tab-button.active') || buttons[0];
+            if (activeButton) {
+                activate(activeButton.getAttribute('data-tab-target'));
+            }
+        });
+        document.querySelectorAll('[data-members-toggle]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (button.classList.contains('empty')) {
+                    return;
+                }
+                const targetId = button.getAttribute('data-members-toggle');
+                const targetRow = document.getElementById(targetId);
+                if (!targetRow) {
+                    return;
+                }
+                const shouldOpen = targetRow.hidden;
+                targetRow.hidden = !shouldOpen;
+                button.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+            });
+        });
+        document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const targetId = button.getAttribute('data-password-toggle');
+                const input = document.getElementById(targetId);
+                if (!input) {
+                    return;
+                }
+                const showing = input.type === 'text';
+                input.type = showing ? 'password' : 'text';
+                const icon = button.querySelector('i');
+                if (icon) {
+                    icon.className = showing ? 'fas fa-eye' : 'fas fa-eye-slash';
+                }
+                button.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+                button.setAttribute('title', showing ? 'Show password' : 'Hide password');
+            });
+        });
+        (function () {
+            const wrap = document.getElementById('nxUserWrap');
+            const pill = document.getElementById('nxUserPill');
+            if (!wrap || !pill) return;
+
+            function toggle(event) {
+                event.stopPropagation();
+                const isOpen = wrap.classList.toggle('open');
+                pill.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            }
+
+            pill.addEventListener('click', toggle);
+            pill.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    toggle(event);
+                }
+            });
+
+            document.addEventListener('click', function () {
+                wrap.classList.remove('open');
+                pill.setAttribute('aria-expanded', 'false');
+            });
+
+            wrap.querySelector('.nx-user-dropdown').addEventListener('click', function (event) {
+                event.stopPropagation();
+            });
+        })();
+        document.querySelectorAll('[data-generate-password]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const targetId = button.getAttribute('data-generate-password');
+                const confirmId = button.getAttribute('data-confirm-target');
+                const input = document.getElementById(targetId);
+                const confirmInput = document.getElementById(confirmId);
+                if (!input || !confirmInput) {
+                    return;
+                }
+
+                const minLength = parseInt(button.getAttribute('data-min-length') || '8', 10);
+                const requireUpper = button.getAttribute('data-require-upper') === 'true';
+                const requireLower = button.getAttribute('data-require-lower') === 'true';
+                const requireDigit = button.getAttribute('data-require-digit') === 'true';
+                const requireSpecial = button.getAttribute('data-require-special') === 'true';
+
+                const pools = {
+                    upper: 'ABCDEFGHJKLMNPQRSTUVWXYZ',
+                    lower: 'abcdefghijkmnopqrstuvwxyz',
+                    digit: '23456789',
+                    special: '!@#$%&*?',
+                };
+
+                const chars = [];
+                if (requireUpper) chars.push(pools.upper[Math.floor(Math.random() * pools.upper.length)]);
+                if (requireLower) chars.push(pools.lower[Math.floor(Math.random() * pools.lower.length)]);
+                if (requireDigit) chars.push(pools.digit[Math.floor(Math.random() * pools.digit.length)]);
+                if (requireSpecial) chars.push(pools.special[Math.floor(Math.random() * pools.special.length)]);
+
+                let combined = pools.lower + pools.digit;
+                if (requireUpper) combined += pools.upper;
+                if (requireSpecial) combined += pools.special;
+                if (!requireLower) combined += pools.lower;
+                if (!requireDigit) combined += pools.digit;
+
+                while (chars.length < minLength) {
+                    chars.push(combined[Math.floor(Math.random() * combined.length)]);
+                }
+
+                for (let i = chars.length - 1; i > 0; i -= 1) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    const temp = chars[i];
+                    chars[i] = chars[j];
+                    chars[j] = temp;
+                }
+
+                const generatedPassword = chars.join('');
+                input.type = 'text';
+                confirmInput.type = 'text';
+                input.value = generatedPassword;
+                confirmInput.value = generatedPassword;
+
+                const toggleButtons = document.querySelectorAll('[data-password-toggle="' + targetId + '"], [data-password-toggle="' + confirmId + '"]');
+                toggleButtons.forEach(function (toggleButton) {
+                    const icon = toggleButton.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fas fa-eye-slash';
+                    }
+                    toggleButton.setAttribute('aria-label', 'Hide password');
+                    toggleButton.setAttribute('title', 'Hide password');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microsoft Authenticator &middot; NEXA</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background:
+                radial-gradient(circle at top left, rgba(14, 165, 164, 0.08), transparent 24%),
+                linear-gradient(160deg, #081224 0%, #0b1a35 48%, #132d52 100%);
+            font-family: 'Inter', sans-serif;
+        }
+        .auth-shell {
+            width: 100%;
+            max-width: 760px;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 28px 70px rgba(0, 0, 0, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            overflow: hidden;
+        }
+        .auth-header {
+            padding: 22px 28px 18px;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        }
+        .badge-line {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(37, 99, 235, 0.1);
+            color: #1d4ed8;
+            font-size: 0.67rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+        .auth-title {
+            margin: 0 0 6px;
+            font-size: 1.55rem;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1.15;
+        }
+        .auth-copy {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.87rem;
+            line-height: 1.6;
+            max-width: 560px;
+        }
+        .auth-body {
+            padding: 24px 28px 28px;
+        }
+        .auth-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 240px;
+            gap: 20px;
+            align-items: start;
+        }
+        .main-panel,
+        .side-panel {
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            border-radius: 18px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        }
+        .main-panel {
+            padding: 20px 22px;
+        }
+        .side-panel {
+            padding: 18px;
+        }
+        .alert {
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-bottom: 14px;
+        }
+        .section-title {
+            margin: 0 0 10px;
+            color: #0f172a;
+            font-size: 0.94rem;
+            font-weight: 800;
+        }
+        .step-list {
+            margin: 0;
+            padding-left: 18px;
+            color: #475569;
+            font-size: 0.82rem;
+            line-height: 1.8;
+        }
+        .step-list li + li {
+            margin-top: 2px;
+        }
+        .verification-banner {
+            margin: 0 0 16px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(14, 165, 164, 0.16), rgba(37, 99, 235, 0.08));
+            border: 1px solid rgba(14, 165, 164, 0.16);
+            color: #0f172a;
+            font-size: 0.8rem;
+            line-height: 1.55;
+        }
+        .qr-shell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            padding: 14px;
+            border-radius: 16px;
+            background: #fff;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+        }
+        .qr-shell img {
+            width: 190px;
+            height: 190px;
+            object-fit: contain;
+            background: #fff;
+            border-radius: 10px;
+        }
+        .manual-key {
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: #eff6ff;
+            color: #1e3a5f;
+            font-size: 0.78rem;
+            line-height: 1.55;
+            word-break: break-all;
+        }
+        .manual-key strong {
+            display: block;
+            margin-bottom: 6px;
+            color: #1d4ed8;
+            font-size: 0.68rem;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+        .form-group {
+            margin-top: 18px;
+            margin-bottom: 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #475569;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .form-control {
+            height: 56px;
+            border-radius: 16px;
+            border: 2px solid rgba(37, 99, 235, 0.18);
+            background: #fff;
+            color: #0f172a;
+            font-size: 1rem;
+            letter-spacing: 0.24em;
+            text-align: center;
+            font-weight: 700;
+            box-shadow: none;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .form-control:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
+        .field-help {
+            margin-top: 10px;
+            color: #64748b;
+            font-size: 0.76rem;
+            line-height: 1.55;
+        }
+        .action-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 22px;
+        }
+        .btn-primary {
+            min-width: 220px;
+            height: 46px;
+            border: none;
+            border-radius: 12px;
+            background: #2563eb;
+            font-weight: 700;
+        }
+        .btn-outline-secondary {
+            height: 46px;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+        .side-card {
+            padding: 14px 15px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 164, 0.1));
+            border: 1px solid rgba(37, 99, 235, 0.12);
+        }
+        .side-label {
+            margin-bottom: 6px;
+            color: #2563eb;
+            font-size: 0.66rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .side-title {
+            margin: 0 0 6px;
+            color: #0f172a;
+            font-size: 0.92rem;
+            font-weight: 800;
+            line-height: 1.35;
+        }
+        .side-copy {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.76rem;
+            line-height: 1.55;
+        }
+        @media (max-width: 820px) {
+            .auth-grid {
+                grid-template-columns: 1fr;
+            }
+            .side-panel {
+                order: -1;
+            }
+        }
+        @media (max-width: 520px) {
+            body {
+                padding: 14px;
+            }
+            .auth-header,
+            .auth-body {
+                padding-left: 18px;
+                padding-right: 18px;
+            }
+            .main-panel,
+            .side-panel {
+                padding: 16px;
+            }
+            .action-row {
+                flex-direction: column-reverse;
+            }
+            .btn-primary,
+            .btn-outline-secondary {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-shell">
+        <div class="auth-header">
+            <div class="badge-line">
+                <i class="fab fa-microsoft"></i>
+                <span>Microsoft Authenticator</span>
+            </div>
+            <h1 class="auth-title">
+                {% if challenge_mode == 'enroll' %}
+                Connect Your Phone
+                {% else %}
+                Verify Your Sign-In
+                {% endif %}
+            </h1>
+            <p class="auth-copy">
+                {% if challenge_mode == 'enroll' %}
+                Link Microsoft Authenticator once, then use the 6-digit code from your phone for future verification.
+                {% else %}
+                Use the current 6-digit code from Microsoft Authenticator for <strong>{{ user_email }}</strong>.
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="auth-body">
+            <div class="auth-grid">
+                <div class="main-panel">
+                    {% if messages %}
+                    <div class="mb-3">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="verification-banner">
+                        {% if challenge_mode == 'enroll' %}
+                        Complete these steps to finish linking your Microsoft Authenticator app.
+                        {% else %}
+                        Microsoft verification is required before you continue.
+                        {% endif %}
+                    </div>
+
+                    <h2 class="section-title">
+                        {% if challenge_mode == 'enroll' %}
+                        Setup Steps
+                        {% else %}
+                        Verification Steps
+                        {% endif %}
+                    </h2>
+
+                    {% if challenge_mode == 'enroll' %}
+                    <ol class="step-list">
+                        <li>Open Microsoft Authenticator on your phone.</li>
+                        <li>Add a new account and choose to scan a QR code.</li>
+                        <li>Scan the QR code shown on this page.</li>
+                        <li>Enter the 6-digit code generated by the app.</li>
+                    </ol>
+                    {% else %}
+                    <ol class="step-list">
+                        <li>Open Microsoft Authenticator on your phone.</li>
+                        <li>Find the account for {{ user_email }}.</li>
+                        <li>Enter the current 6-digit code below.</li>
+                    </ol>
+                    {% endif %}
+
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                        <input type="hidden" name="challenge_mode" value="{{ challenge_mode }}">
+
+                        <div class="form-group">
+                            <label for="id_token">Verification Code</label>
+                            <input type="text" id="id_token" name="token" class="form-control" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus>
+                            <div class="field-help">
+                                Enter the live 6-digit code from Microsoft Authenticator. A new code appears every 30 seconds.
+                            </div>
+                        </div>
+
+                        <div class="action-row">
+                            <a href="{% if purpose == 'login' %}{% url 'login' %}{% else %}{% url 'modules_home' %}{% endif %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                {% if challenge_mode == 'enroll' %}Complete Setup{% else %}Verify Code{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="side-panel">
+                    {% if challenge_mode == 'enroll' %}
+                    <div class="qr-shell">
+                        <img src="{{ qr_code_data_uri }}" alt="Microsoft Authenticator QR Code">
+                        <div style="font-size:0.74rem; color:#475569; text-align:center;">Scan with Microsoft Authenticator</div>
+                    </div>
+                    <div class="manual-key">
+                        <strong>Manual Setup Key</strong>
+                        {{ manual_secret }}
+                    </div>
+                    {% else %}
+                    <div class="side-card">
+                        <div class="side-label">Security Check</div>
+                        <div class="side-title">Confirm access from your phone</div>
+                        <p class="side-copy">
+                            This extra step protects your workspace and account settings by requiring a current code from your authenticator app.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

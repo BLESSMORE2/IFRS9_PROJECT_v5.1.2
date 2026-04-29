@@ -1,0 +1,103 @@
+<div class="surface-grid">
+    <div class="metric-grid">
+        <div class="metric">
+            <div class="metric-label">Feature Status</div>
+            <div class="metric-value">{% if authenticator_feature_enabled %}On{% else %}Off{% endif %}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">My Phone</div>
+            <div class="metric-value">{% if my_authenticator_enabled %}Connected{% else %}Not Connected{% endif %}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Users Enrolled</div>
+            <div class="metric-value">{{ enrolled_user_count }}</div>
+        </div>
+    </div>
+
+    <div class="editor-grid">
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h2 class="card-title">My Device</h2>
+                    <p class="card-copy">Use this section when you change phones, reinstall Microsoft Authenticator, or need to reconnect your device.</p>
+                </div>
+            </div>
+            <div class="status-stack">
+                <div class="status-row">
+                    <span class="status-label">Enrollment</span>
+                    <span class="status-value">{% if my_authenticator_enabled %}Connected{% else %}Not connected{% endif %}</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Phone Linked On</span>
+                    <span class="status-value">{% if my_authenticator_confirmed_at %}{{ my_authenticator_confirmed_at|date:"Y-m-d H:i" }}{% else %}Not yet linked{% endif %}</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Session Verification</span>
+                    <span class="status-value">{% if my_authenticator_verified_at %}Verified{% else %}Not verified in this session{% endif %}</span>
+                </div>
+            </div>
+            <div class="field-card soft-panel" style="margin-top:16px;">
+                <div style="font-weight:700; color:#10213f; font-size:.8rem; margin-bottom:6px;">Reconnect Phone</div>
+                <div class="help-text">
+                    This resets your current Microsoft Authenticator link and immediately opens a new QR-code setup page for your phone.
+                </div>
+            </div>
+            <form method="post" style="margin-top:16px;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reconnect_my_authenticator">
+                <div class="editor-actions">
+                    <div class="editor-note">
+                        {% if authenticator_feature_enabled %}
+                        Your old device code will stop working after reconnecting.
+                        {% else %}
+                        Microsoft Authenticator must be enabled in System Settings before you can connect a phone.
+                        {% endif %}
+                    </div>
+                    <button type="submit" class="primary-btn"{% if not authenticator_feature_enabled %} disabled{% endif %}>
+                        <i class="fas fa-qrcode"></i><span>{% if my_authenticator_enabled %}Reconnect My Phone{% else %}Connect My Phone{% endif %}</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {% if can_manage_authenticator_resets %}
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h2 class="card-title">Admin Reset</h2>
+                    <p class="card-copy">Reset another user's Microsoft Authenticator enrollment if they have changed phones or lost access.</p>
+                </div>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reset_user_authenticator">
+                <div class="field-card">
+                    <label for="{{ authenticator_admin_form.user.id_for_label }}">User</label>
+                    {{ authenticator_admin_form.user }}
+                    <div class="help-text">Choose the user whose Microsoft Authenticator device should be reset.</div>
+                </div>
+                <div class="status-stack" style="margin-top:16px;">
+                    <div class="status-row">
+                        <span class="status-label">Selected User</span>
+                        <span class="status-value">{{ selected_authenticator_user.email }}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Enrollment</span>
+                        <span class="status-value">{% if selected_authenticator_enabled %}Connected{% else %}Not connected{% endif %}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Last Linked On</span>
+                        <span class="status-value">{% if selected_authenticator_confirmed_at %}{{ selected_authenticator_confirmed_at|date:"Y-m-d H:i" }}{% else %}Never{% endif %}</span>
+                    </div>
+                </div>
+                <div class="editor-actions">
+                    <div class="editor-note">After reset, the selected user will need to scan a new QR code the next time Microsoft Authenticator verification is required.</div>
+                    <button type="submit" class="primary-btn">
+                        <i class="fas fa-user-shield"></i><span>Reset Selected User</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>

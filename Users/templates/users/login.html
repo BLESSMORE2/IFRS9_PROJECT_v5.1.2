@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in &middot; NEXA Modules</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --nx-navy: #0b1a35;
+            --nx-navy-deep: #060e1e;
+            --nx-teal: #00d4aa;
+            --nx-teal-dim: rgba(0, 212, 170, 0.15);
+            --nx-white-soft: rgba(255, 255, 255, 0.95);
+            --nx-border: rgba(255, 255, 255, 0.12);
+            --nx-microsoft: #2563eb;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: linear-gradient(180deg, #f3f4f6 0%, #e5e7eb 100%);
+            position: relative;
+            overflow-x: hidden;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 212, 170, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 100% 100%, rgba(79, 142, 247, 0.04) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .login-wrap {
+            position: relative;
+            width: 100%;
+            max-width: 440px;
+        }
+        .login-card {
+            background: var(--nx-white-soft);
+            border-radius: 20px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+            overflow: hidden;
+            padding: 40px 36px 36px;
+        }
+        .login-brand {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .login-brand .logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            object-fit: cover;
+            border: 2px solid var(--nx-teal);
+            margin-bottom: 12px;
+        }
+        .login-brand h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--nx-navy);
+            letter-spacing: 0.06em;
+            margin: 0 0 2px 0;
+        }
+        .login-brand h1 span { color: var(--nx-teal); }
+        .login-brand p {
+            font-size: 0.7rem;
+            color: #64748b;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin: 0;
+        }
+        .login-card h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 0 0 20px 0;
+            text-align: center;
+        }
+        .alert-stack { display: grid; gap: 10px; margin-bottom: 18px; }
+        .alert {
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-bottom: 0;
+            border: none;
+        }
+        .alert-info { background: rgba(0, 212, 170, 0.12); color: #0f766e; }
+        .alert-danger,
+        .alert-error {
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+        .alert-success { background: #ecfdf5; color: #047857; }
+        .alert-warning { background: #fff7ed; color: #c2410c; }
+        .policy-note {
+            margin-bottom: 18px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(37, 99, 235, 0.08);
+            color: #1d4ed8;
+            font-size: 0.78rem;
+            line-height: 1.55;
+        }
+        .btn-microsoft, .btn-login {
+            width: 100%;
+            height: 48px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+        }
+        .btn-microsoft {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            text-decoration: none;
+            background: #fff;
+            color: #1e3a5f;
+            border: 1px solid #dbe7f7;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        }
+        .btn-microsoft:hover {
+            text-decoration: none;
+            color: #0f172a;
+            background: #f8fbff;
+            transform: translateY(-1px);
+        }
+        .btn-login {
+            margin-top: 8px;
+            text-transform: uppercase;
+            color: var(--nx-navy);
+            background: var(--nx-teal);
+        }
+        .btn-login:hover {
+            background: #00b894;
+            color: var(--nx-navy);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(0, 212, 170, 0.35);
+        }
+        .btn-login:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 8px 0 18px;
+            color: #94a3b8;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .divider::before, .divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+        .form-group {
+            margin-bottom: 18px;
+            position: relative;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 6px;
+            letter-spacing: 0.02em;
+        }
+        .input-wrap {
+            position: relative;
+        }
+        .input-wrap .icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 0.9rem;
+            pointer-events: none;
+            transition: color 0.2s;
+        }
+        .form-group input {
+            width: 100%;
+            height: 48px;
+            padding: 0 46px 0 44px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            color: #1e293b;
+            background: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(37, 99, 235, 0.08);
+            color: #1d4ed8;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .password-toggle:hover { background: rgba(37, 99, 235, 0.14); }
+        .form-group input::placeholder { color: #94a3b8; }
+        .form-group input:hover { border-color: #cbd5e1; }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--nx-teal);
+            box-shadow: 0 0 0 3px var(--nx-teal-dim);
+        }
+        .form-group input:focus + .icon,
+        .input-wrap:focus-within .icon { color: var(--nx-teal); }
+        .field-note {
+            margin-top: 12px;
+            font-size: 0.72rem;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        @media (max-width: 480px) {
+            .login-card { padding: 32px 24px 28px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-wrap">
+        <div class="login-card">
+            <div class="login-brand">
+                {% load static %}
+                <img src="{% static 'images/login/bns_logo_trimmed.png' %}" alt="Brain Nexus Solution" class="logo" style="width: 128px; height: 56px; border-radius: 12px; object-fit: contain; border: 1px solid var(--nx-teal); background: #fff; padding: 4px 8px;">
+                <h1>Nexa <span>Compliance</span></h1>
+                <p>Universal Workspace Platform</p>
+            </div>
+            <h2>Sign in to your account</h2>
+
+            {% if messages %}
+            <div class="alert-stack">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if microsoft_login_available and not microsoft_authenticator_app_mode %}
+            <a href="{{ microsoft_login_url }}" class="btn-microsoft">
+                <i class="fab fa-microsoft" style="color: var(--nx-microsoft); font-size: 1rem;"></i>
+                <span>Continue with Microsoft</span>
+            </a>
+            {% endif %}
+
+            {% if microsoft_login_required and microsoft_authenticator_app_mode %}
+            <div class="policy-note">
+                Microsoft Authenticator is required for sign in. First enter your email and password, then scan the QR code on your phone or enter the 6-digit code from the Microsoft Authenticator app.
+            </div>
+            {% elif microsoft_login_required %}
+            <div class="policy-note">
+                Microsoft authentication is required for sign in on this platform. Use the Microsoft button above to continue.
+            </div>
+            {% elif microsoft_login_available %}
+            <div class="divider"><span>or use your local account</span></div>
+            {% endif %}
+
+            <form method="post" action="{% url 'login' %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next_url }}">
+                <div class="form-group">
+                    <label for="id_login_identifier">Email or username</label>
+                    <div class="input-wrap">
+                        <input type="text" id="id_login_identifier" name="login_identifier" class="form-control" placeholder="you@company.com or your email prefix" required autocomplete="username" autofocus {% if microsoft_login_required and not microsoft_authenticator_app_mode %}disabled{% endif %}>
+                        <i class="fas fa-user icon"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="id_password">Password</label>
+                    <div class="input-wrap">
+                        <input type="password" id="id_password" name="password" class="form-control" placeholder="Enter your password" required autocomplete="current-password" {% if microsoft_login_required and not microsoft_authenticator_app_mode %}disabled{% endif %}>
+                        <i class="fas fa-lock icon"></i>
+                        <button type="button" class="password-toggle" id="login-password-toggle" aria-label="Show password" title="Show password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn-login" {% if microsoft_login_required and not microsoft_authenticator_app_mode %}disabled{% endif %}>
+                    {% if microsoft_authenticator_app_mode and microsoft_login_required %}Continue{% else %}Sign in{% endif %}
+                </button>
+                {% if microsoft_login_available and not microsoft_authenticator_app_mode %}
+                <div class="field-note">
+                    Use Microsoft sign-in when your organization wants centralized identity verification. Your Microsoft account email must match an existing user account in this workspace.
+                </div>
+                {% endif %}
+            </form>
+
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script>
+        (function () {
+            const input = document.getElementById('id_password');
+            const button = document.getElementById('login-password-toggle');
+            if (!input || !button) return;
+            button.addEventListener('click', function () {
+                const showing = input.type === 'text';
+                input.type = showing ? 'password' : 'text';
+                const icon = button.querySelector('i');
+                if (icon) {
+                    icon.className = showing ? 'fas fa-eye' : 'fas fa-eye-slash';
+                }
+                button.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+                button.setAttribute('title', showing ? 'Show password' : 'Hide password');
+            });
+        })();
+    </script>
+</body>
+</html>

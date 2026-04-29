@@ -1,0 +1,501 @@
+<div class="surface-grid">
+    <div class="metric-grid">
+        <div class="metric">
+            <div class="metric-label">Idle Logout</div>
+            <div class="metric-value">{{ runtime_settings.idle_timeout_minutes }}m</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Absolute Session</div>
+            <div class="metric-value">{{ runtime_settings.absolute_session_timeout_minutes }}m</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Failed Attempts</div>
+            <div class="metric-value">{{ runtime_settings.failed_login_limit }}</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <div>
+                <h2 class="card-title">System Settings Workspace</h2>
+                <p class="card-copy">Use the tabs below to manage related platform controls without loading every setting in one long page.</p>
+            </div>
+        </div>
+
+        <div class="tab-shell" data-tab-group>
+            <div class="tab-list">
+                <button type="button" class="tab-button active" data-tab-target="system-overview" aria-selected="true">
+                    <i class="fas fa-chart-pie"></i><span>Overview</span>
+                </button>
+                <button type="button" class="tab-button" data-tab-target="system-session" aria-selected="false">
+                    <i class="fas fa-clock"></i><span>Session</span>
+                </button>
+                <button type="button" class="tab-button" data-tab-target="system-security" aria-selected="false">
+                    <i class="fas fa-shield-alt"></i><span>Security</span>
+                </button>
+                <button type="button" class="tab-button" data-tab-target="system-self-service" aria-selected="false">
+                    <i class="fas fa-user-cog"></i><span>Self Service</span>
+                </button>
+                <button type="button" class="tab-button" data-tab-target="system-password" aria-selected="false">
+                    <i class="fas fa-key"></i><span>Password</span>
+                </button>
+                <button type="button" class="tab-button" data-tab-target="system-microsoft-auth" aria-selected="false">
+                    <i class="fab fa-microsoft"></i><span>Microsoft Auth</span>
+                </button>
+                {% if perms.Users.can_view_settings_database or request.user.is_superuser %}
+                <button type="button" class="tab-button" data-tab-target="system-database" aria-selected="false">
+                    <i class="fas fa-database"></i><span>Database</span>
+                </button>
+                {% endif %}
+            </div>
+
+            <div class="tab-panel" data-tab-panel="system-overview">
+                <div class="editor-grid">
+                    <div class="field-card">
+                        <div class="status-stack">
+                            <div class="status-row">
+                                <span class="status-label">Idle Logout Timeout</span>
+                                <span class="status-value">{{ runtime_settings.idle_timeout_minutes }} minute{{ runtime_settings.idle_timeout_minutes|pluralize }}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Absolute Session Timeout</span>
+                                <span class="status-value">{{ runtime_settings.absolute_session_timeout_minutes }} minute{{ runtime_settings.absolute_session_timeout_minutes|pluralize }}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Landing Rule</span>
+                                <span class="status-value">{{ runtime_settings.get_default_landing_rule_display }}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Failed Login Limit</span>
+                                <span class="status-value">{{ runtime_settings.failed_login_limit }} attempt{{ runtime_settings.failed_login_limit|pluralize }}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Lockout Duration</span>
+                                <span class="status-value">{{ runtime_settings.lockout_duration_minutes }} minute{{ runtime_settings.lockout_duration_minutes|pluralize }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="field-card">
+                        <div class="status-stack">
+                            <div class="status-row">
+                                <span class="status-label">Self Profile Edit</span>
+                                <span class="status-value">{% if runtime_settings.enable_self_profile_edit %}Enabled{% else %}Disabled{% endif %}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Self Password Change</span>
+                                <span class="status-value">{% if runtime_settings.enable_self_password_change %}Enabled{% else %}Disabled{% endif %}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Password Expiry</span>
+                                <span class="status-value">{% if runtime_settings.password_expiry_days %}{{ runtime_settings.password_expiry_days }} day{{ runtime_settings.password_expiry_days|pluralize }}{% else %}Disabled{% endif %}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Password History</span>
+                                <span class="status-value">{% if runtime_settings.password_history_count %}Last {{ runtime_settings.password_history_count }} password{{ runtime_settings.password_history_count|pluralize }} blocked{% else %}Disabled{% endif %}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Password Policy</span>
+                                <span class="status-value">{{ runtime_settings.get_password_policy_display }}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Microsoft Authentication</span>
+                                <span class="status-value">{% if runtime_settings.enable_microsoft_authentication %}Enabled{% else %}Disabled{% endif %}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Login Enforcement</span>
+                                <span class="status-value">{% if runtime_settings.enable_microsoft_authentication and runtime_settings.microsoft_auth_on_login %}Enabled{% else %}Not in use{% endif %}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Periodic Verification</span>
+                                <span class="status-value">{% if runtime_settings.enable_microsoft_authentication and runtime_settings.microsoft_auth_enforce_periodically %}Every {{ runtime_settings.microsoft_auth_recheck_days }} day{{ runtime_settings.microsoft_auth_recheck_days|pluralize }}{% else %}Disabled{% endif %}</span>
+                            </div>
+                            {% if perms.Users.can_view_settings_database or request.user.is_superuser %}
+                            <div class="status-row">
+                                <span class="status-label">Active Backend</span>
+                                <span class="status-value">{{ backend_state.effective_database_vendor|upper }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-panel" data-tab-panel="system-session" hidden>
+                {% if system_settings_available %}
+                <form method="post" class="card">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save_runtime_controls">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Session Controls</h2>
+                            <p class="card-copy">These settings define when users are logged out automatically and where they land after sign in.</p>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field-card">
+                            <label for="{{ system_form.idle_timeout_minutes.id_for_label }}">Idle Logout Timeout</label>
+                            {{ system_form.idle_timeout_minutes }}
+                            <div class="help-text">{{ system_form.idle_timeout_minutes.help_text }}</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="{{ system_form.absolute_session_timeout_minutes.id_for_label }}">Absolute Session Timeout</label>
+                            {{ system_form.absolute_session_timeout_minutes }}
+                            <div class="help-text">{{ system_form.absolute_session_timeout_minutes.help_text }}</div>
+                        </div>
+                        <div class="field-card" style="grid-column:1 / -1;">
+                            <label for="{{ system_form.default_landing_rule.id_for_label }}">Default Landing Rule</label>
+                            {{ system_form.default_landing_rule }}
+                            <div class="help-text">{{ system_form.default_landing_rule.help_text }}</div>
+                        </div>
+                    </div>
+                    <div class="editor-actions">
+                        <div class="editor-note">Saved values apply to the shared Users workspace and module launcher.</div>
+                        <button type="submit" class="primary-btn"{% if not can_manage_system_settings %} disabled{% endif %}>
+                            <i class="fas fa-save"></i><span>Save Session Settings</span>
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="card">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Session Controls</h2>
+                            <p class="card-copy">This section will become editable after the latest Users migration is applied to the database.</p>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mb-0" role="alert" style="font-size:.78rem;">
+                        The shared Users settings tables are not available yet, so session controls are currently in read-only fallback mode.
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="tab-panel" data-tab-panel="system-security" hidden>
+                {% if system_settings_available %}
+                <form method="post" class="card">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save_runtime_controls">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Security Controls</h2>
+                            <p class="card-copy">Manage failed sign-in protection and temporary account lockout rules.</p>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field-card">
+                            <label for="{{ system_form.failed_login_limit.id_for_label }}">Failed Login Limit</label>
+                            {{ system_form.failed_login_limit }}
+                            <div class="help-text">{{ system_form.failed_login_limit.help_text }}</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="{{ system_form.lockout_duration_minutes.id_for_label }}">Lockout Duration</label>
+                            {{ system_form.lockout_duration_minutes }}
+                            <div class="help-text">{{ system_form.lockout_duration_minutes.help_text }}</div>
+                        </div>
+                    </div>
+                    <div class="editor-actions">
+                        <div class="editor-note">These limits help protect the shared sign-in experience from repeated failed attempts.</div>
+                        <button type="submit" class="primary-btn"{% if not can_manage_system_settings %} disabled{% endif %}>
+                            <i class="fas fa-save"></i><span>Save Security Settings</span>
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="card">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Security Controls</h2>
+                            <p class="card-copy">This section will become editable after the latest Users migration is applied to the database.</p>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mb-0" role="alert" style="font-size:.78rem;">
+                        The shared Users settings tables are not available yet, so security controls are currently in read-only fallback mode.
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="tab-panel" data-tab-panel="system-self-service" hidden>
+                {% if system_settings_available %}
+                <form method="post" class="card">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save_runtime_controls">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Self Service Controls</h2>
+                            <p class="card-copy">Choose whether users can maintain their own profile and password from the shared workspace.</p>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field-card">
+                            <div class="toggle-field">
+                                <div>
+                                    <label for="{{ system_form.enable_self_profile_edit.id_for_label }}">Allow Self Profile Edit</label>
+                                    <div class="help-text">{{ system_form.enable_self_profile_edit.help_text }}</div>
+                                </div>
+                                <input type="hidden" name="{{ system_form.enable_self_profile_edit.html_name }}" value="">
+                                {{ system_form.enable_self_profile_edit }}
+                            </div>
+                        </div>
+                        <div class="field-card">
+                            <div class="toggle-field">
+                                <div>
+                                    <label for="{{ system_form.enable_self_password_change.id_for_label }}">Allow Self Password Change</label>
+                                    <div class="help-text">{{ system_form.enable_self_password_change.help_text }}</div>
+                                </div>
+                                <input type="hidden" name="{{ system_form.enable_self_password_change.html_name }}" value="">
+                                {{ system_form.enable_self_password_change }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="editor-actions">
+                        <div class="editor-note">These controls apply only to user self-service actions in the shared Users workspace.</div>
+                        <button type="submit" class="primary-btn"{% if not can_manage_system_settings %} disabled{% endif %}>
+                            <i class="fas fa-save"></i><span>Save Self Service Settings</span>
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="card">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Self Service Controls</h2>
+                            <p class="card-copy">This section will become editable after the latest Users migration is applied to the database.</p>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mb-0" role="alert" style="font-size:.78rem;">
+                        The shared Users settings tables are not available yet, so self-service controls are currently in read-only fallback mode.
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="tab-panel" data-tab-panel="system-password" hidden>
+                {% if system_settings_available %}
+                <form method="post" class="card">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save_runtime_controls">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Password Policy</h2>
+                            <p class="card-copy">Control when passwords expire and what type of password is required for users. These same rules are enforced in the admin panel when passwords are created or reset.</p>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field-card">
+                            <label for="{{ system_form.password_expiry_days.id_for_label }}">Password Expiry Days</label>
+                            {{ system_form.password_expiry_days }}
+                            <div class="help-text">{{ system_form.password_expiry_days.help_text }}</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="{{ system_form.password_history_count.id_for_label }}">Password History Count</label>
+                            {{ system_form.password_history_count }}
+                            <div class="help-text">{{ system_form.password_history_count.help_text }}</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="{{ system_form.password_policy.id_for_label }}">Required Password Type</label>
+                            {{ system_form.password_policy }}
+                            <div class="help-text">{{ system_form.password_policy.help_text }}</div>
+                        </div>
+                        <div class="field-card" style="grid-column:1 / -1;">
+                            <div class="status-stack">
+                                <div class="status-row">
+                                    <span class="status-label">Admin Password Reset Behavior</span>
+                                    <span class="status-value">Force change on next login</span>
+                                </div>
+                                <div class="status-row">
+                                    <span class="status-label">User Expiry Behavior</span>
+                                    <span class="status-value">Redirect to password change when expired</span>
+                                </div>
+                                <div class="status-row">
+                                    <span class="status-label">Password Reuse Behavior</span>
+                                    <span class="status-value">{% if runtime_settings.password_history_count %}Block the last {{ runtime_settings.password_history_count }} password{{ runtime_settings.password_history_count|pluralize }}{% else %}Password reuse allowed{% endif %}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="editor-actions">
+                        <div class="editor-note">When an administrator sets or resets a user's password, the user will be forced to change that password at the next login under this policy, and recent passwords cannot be reused when history is enabled.</div>
+                        <button type="submit" class="primary-btn"{% if not can_manage_system_settings %} disabled{% endif %}>
+                            <i class="fas fa-save"></i><span>Save Password Policy</span>
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="card">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Password Policy</h2>
+                            <p class="card-copy">This section will become editable after the latest Users migration is applied to the database.</p>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mb-0" role="alert" style="font-size:.78rem;">
+                        The shared Users settings tables are not available yet, so password policy controls are currently in read-only fallback mode.
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="tab-panel" data-tab-panel="system-microsoft-auth" hidden>
+                {% if system_settings_available %}
+                <form method="post" class="card">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save_runtime_controls">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Microsoft Authentication</h2>
+                            <p class="card-copy">Configure how Microsoft Authenticator phone verification should be applied across shared sign-in and account security flows.</p>
+                        </div>
+                    </div>
+                    <div class="editor-grid">
+                        <div class="field-card soft-panel">
+                            <label for="{{ system_form.enable_microsoft_authentication.id_for_label }}">Feature Status</label>
+                            <div class="toggle-field">
+                                <div>
+                                    <div style="font-weight:700; color:#10213f; font-size:.78rem;">Enable Microsoft Authentication</div>
+                                    <div class="help-text">{{ system_form.enable_microsoft_authentication.help_text }}</div>
+                                </div>
+                                <input type="hidden" name="{{ system_form.enable_microsoft_authentication.html_name }}" value="">
+                                {{ system_form.enable_microsoft_authentication }}
+                            </div>
+                            <ul class="instruction-list">
+                                <li>Users sign in with their normal password first, then verify with Microsoft Authenticator on their phone.</li>
+                                <li>When a user changes devices, they can reconnect their own phone from the Authenticator page in Users Settings.</li>
+                                <li>Administrators can reset another user's phone link from the same Authenticator page when support is needed.</li>
+                                <li>Choose where Microsoft verification should be enforced: during sign in, during password changes, or on a periodic recheck.</li>
+                            </ul>
+                        </div>
+                        <div class="field-card">
+                            <div class="status-stack">
+                            <div class="status-row">
+                                <span class="status-label">Current Status</span>
+                                <span class="status-value">{% if runtime_settings.enable_microsoft_authentication %}Enabled{% else %}Disabled{% endif %}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Use On Login</span>
+                                <span class="status-value">{% if runtime_settings.enable_microsoft_authentication and runtime_settings.microsoft_auth_on_login %}Yes{% else %}No{% endif %}</span>
+                                </div>
+                                <div class="status-row">
+                                    <span class="status-label">Use On Password Change</span>
+                                    <span class="status-value">{% if runtime_settings.enable_microsoft_authentication and runtime_settings.microsoft_auth_on_password_change %}Yes{% else %}No{% endif %}</span>
+                                </div>
+                                <div class="status-row">
+                                    <span class="status-label">Periodic Recheck</span>
+                                    <span class="status-value">{% if runtime_settings.enable_microsoft_authentication and runtime_settings.microsoft_auth_enforce_periodically %}Every {{ runtime_settings.microsoft_auth_recheck_days }} day{{ runtime_settings.microsoft_auth_recheck_days|pluralize }}{% else %}No{% endif %}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-grid" style="margin-top:16px;">
+                        <div class="field-card">
+                            <div class="toggle-field">
+                                <div>
+                                    <label for="{{ system_form.microsoft_auth_on_login.id_for_label }}">Use On Login</label>
+                                    <div class="help-text">{{ system_form.microsoft_auth_on_login.help_text }}</div>
+                                </div>
+                                <input type="hidden" name="{{ system_form.microsoft_auth_on_login.html_name }}" value="">
+                                {{ system_form.microsoft_auth_on_login }}
+                            </div>
+                        </div>
+                        <div class="field-card">
+                            <div class="toggle-field">
+                                <div>
+                                    <label for="{{ system_form.microsoft_auth_on_password_change.id_for_label }}">Use On Password Change</label>
+                                    <div class="help-text">{{ system_form.microsoft_auth_on_password_change.help_text }}</div>
+                                </div>
+                                <input type="hidden" name="{{ system_form.microsoft_auth_on_password_change.html_name }}" value="">
+                                {{ system_form.microsoft_auth_on_password_change }}
+                            </div>
+                        </div>
+                        <div class="field-card">
+                            <div class="toggle-field">
+                                <div>
+                                    <label for="{{ system_form.microsoft_auth_enforce_periodically.id_for_label }}">Use Periodic Verification</label>
+                                    <div class="help-text">{{ system_form.microsoft_auth_enforce_periodically.help_text }}</div>
+                                </div>
+                                <input type="hidden" name="{{ system_form.microsoft_auth_enforce_periodically.html_name }}" value="">
+                                {{ system_form.microsoft_auth_enforce_periodically }}
+                            </div>
+                        </div>
+                        <div class="field-card">
+                            <label for="{{ system_form.microsoft_auth_recheck_days.id_for_label }}">Recheck After</label>
+                            {{ system_form.microsoft_auth_recheck_days }}
+                            <div class="help-text">{{ system_form.microsoft_auth_recheck_days.help_text }}</div>
+                        </div>
+                    </div>
+                    <div class="editor-actions">
+                        <div class="editor-note">This workspace controls where Microsoft Authenticator verification is required. Device connection and reset are handled from the Authenticator page in Users Settings.</div>
+                        <button type="submit" class="primary-btn"{% if not can_manage_system_settings %} disabled{% endif %}>
+                            <i class="fas fa-save"></i><span>Save Microsoft Auth Settings</span>
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="card">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Microsoft Authentication</h2>
+                            <p class="card-copy">This section will become editable after the latest Users migration is applied to the database.</p>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mb-0" role="alert" style="font-size:.78rem;">
+                        The shared Users settings tables are not available yet, so Microsoft authentication policy is currently in read-only fallback mode.
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if perms.Users.can_view_settings_database or request.user.is_superuser %}
+            <div class="tab-panel" data-tab-panel="system-database" hidden>
+                <form method="post" class="card">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save_database_backend">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Database Backend</h2>
+                            <p class="card-copy">This runtime backend setting has been moved out of IFRS 9 and is now managed from the shared Users system settings workspace.</p>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field-card">
+                            <label for="id_database_vendor">Saved Database Backend</label>
+                            <select id="id_database_vendor" name="database_vendor" class="form-control form-control-sm" {% if not can_manage_database_setting %}disabled{% endif %}>
+                                {% for vendor in backend_state.supported_vendors %}
+                                <option value="{{ vendor }}" {% if vendor == backend_state.saved_database_vendor %}selected{% endif %}>{{ vendor|upper }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="help-text">Choose the runtime database backend that should be used after the next application restart.</div>
+                        </div>
+                        <div class="field-card">
+                            <div class="status-stack">
+                                <div class="status-row">
+                                    <span class="status-label">Current Active Backend</span>
+                                    <span class="status-value">{{ backend_state.effective_database_vendor|upper }}</span>
+                                </div>
+                                <div class="status-row">
+                                    <span class="status-label">Functions Backend</span>
+                                    <span class="status-value">{{ backend_state.effective_functions_backend|upper }}</span>
+                                </div>
+                                <div class="status-row">
+                                    <span class="status-label">Config Source</span>
+                                    <span class="status-value">{{ backend_state.config_source }}</span>
+                                </div>
+                                <div class="status-row">
+                                    <span class="status-label">Config File</span>
+                                    <span class="status-value">{{ backend_state.config_path.name }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="editor-actions">
+                        <div class="editor-note">Changing this setting updates the runtime config file and requires an application restart before the new backend becomes active.</div>
+                        <button type="submit" class="primary-btn"{% if not can_manage_database_setting %} disabled{% endif %}>
+                            <i class="fas fa-database"></i><span>Save Database Backend</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
