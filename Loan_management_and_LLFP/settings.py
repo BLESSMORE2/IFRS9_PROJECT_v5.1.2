@@ -51,9 +51,9 @@ INSTALLED_APPS = [
 ]
 
 if IFRS9_PACKAGE_AVAILABLE:
-    INSTALLED_APPS.append('IFRS9')
+    INSTALLED_APPS.append('IFRS9.apps.Ifrs9Config')
 if SCORECARD_PACKAGE_AVAILABLE:
-    INSTALLED_APPS.append('scorecard')
+    INSTALLED_APPS.append('scorecard.apps.ScorecardConfig')
 
 JAZZMIN_SETTINGS = {
     "site_title": "Nexa Compliance Admin",

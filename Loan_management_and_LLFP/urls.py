@@ -48,8 +48,8 @@ if ifrs9_status['usable']:
     from IFRS9.Functions_view.ead_and_cashflows import rule_execution_guide
 
     urlpatterns.extend([
-        path('cashflow-projections/rule-execution-guide/', rule_execution_guide, name='rule_execution_guide'),
-        path('', include('IFRS9.urls')),
+        path('ifrs9/cashflow-projections/rule-execution-guide/', rule_execution_guide, name='rule_execution_guide'),
+        path('ifrs9/', include('IFRS9.urls')),
     ])
 
 if scorecard_status['usable']:
