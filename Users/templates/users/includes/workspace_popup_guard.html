@@ -1,0 +1,106 @@
+{% if workspace_popup_mode %}
+<script>
+    (function () {
+        const popupWindowName = "{{ workspace_popup_window_name|escapejs }}";
+        const launcherPath = "{{ workspace_launcher_path|escapejs }}";
+        const isWorkspaceWindow = !!window.opener || window.name === popupWindowName;
+
+        function isSameOriginUrl(urlValue) {
+            if (!urlValue) {
+                return false;
+            }
+            try {
+                const resolvedUrl = new URL(urlValue, window.location.href);
+                return resolvedUrl.origin === window.location.origin;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        if (!isWorkspaceWindow) {
+            const resume = encodeURIComponent(
+                window.location.pathname + window.location.search + window.location.hash
+            );
+            window.location.replace(launcherPath + "?next=" + resume);
+            return;
+        }
+
+        try {
+            window.name = popupWindowName;
+        } catch (error) {
+            // Ignore name assignment issues and continue enforcing popup navigation.
+        }
+
+        const nativeWindowOpen = window.open ? window.open.bind(window) : null;
+
+        function retargetElement(element) {
+            if (!element) {
+                return;
+            }
+            const configuredTarget = (element.getAttribute("target") || "").trim().toLowerCase();
+            if (configuredTarget !== "_blank" && configuredTarget !== "_new") {
+                return;
+            }
+
+            const candidateUrl = element.tagName === "FORM"
+                ? (element.getAttribute("action") || window.location.href)
+                : (element.getAttribute("href") || "");
+
+            if (!isSameOriginUrl(candidateUrl)) {
+                return;
+            }
+
+            element.setAttribute("target", popupWindowName);
+
+            if (element.tagName === "A") {
+                const relValue = (element.getAttribute("rel") || "").trim();
+                if (relValue) {
+                    const cleanedRel = relValue
+                        .split(/\s+/)
+                        .filter(function (token) {
+                            const normalized = token.toLowerCase();
+                            return normalized !== "noopener" && normalized !== "noreferrer";
+                        })
+                        .join(" ");
+                    if (cleanedRel) {
+                        element.setAttribute("rel", cleanedRel);
+                    } else {
+                        element.removeAttribute("rel");
+                    }
+                }
+            }
+        }
+
+        function normalizePopupTargets() {
+            document.querySelectorAll("a[target], form[target]").forEach(retargetElement);
+        }
+
+        if (nativeWindowOpen) {
+            window.open = function (url, target, features) {
+                const normalizedTarget = (target || "").toString().trim().toLowerCase();
+                if (
+                    (!normalizedTarget || normalizedTarget === "_blank" || normalizedTarget === "_new") &&
+                    isSameOriginUrl(url || window.location.href)
+                ) {
+                    return nativeWindowOpen(url, popupWindowName, features);
+                }
+                return nativeWindowOpen(url, target, features);
+            };
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", normalizePopupTargets);
+        } else {
+            normalizePopupTargets();
+        }
+
+        document.addEventListener("click", function (event) {
+            retargetElement(event.target.closest("a[target]"));
+        }, true);
+
+        document.addEventListener("submit", function (event) {
+            retargetElement(event.target.closest("form[target]"));
+        }, true);
+    })();
+</script>
+{% endif %}

@@ -7,6 +7,20 @@
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% if workspace_popup_mode %}
+    <script>
+        (function () {
+            const popupWindowName = "{{ workspace_popup_window_name|escapejs }}";
+            const isWorkspaceWindow = !!window.opener || window.name === popupWindowName;
+            if (isWorkspaceWindow) {
+                try { window.name = popupWindowName; } catch (error) {}
+                return;
+            }
+            const resume = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+            window.location.replace("{{ workspace_launcher_path|escapejs }}?next=" + resume);
+        })();
+    </script>
+    {% endif %}
     <style>
         body {
             margin: 0;

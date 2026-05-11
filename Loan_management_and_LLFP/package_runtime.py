@@ -1,5 +1,6 @@
 import importlib
 import importlib.util
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +27,10 @@ PACKAGE_EXPIRY_FILENAMES = {
     SCORECARD_PACKAGE_ALIAS: ".scorecard_expiry_date",
 }
 PACKAGE_WARNING_THRESHOLD_DAYS = 31
+ENABLE_SOURCE_PACKAGE_FALLBACK = (
+    os.getenv("NEXA9_USE_SOURCE_PACKAGE_FALLBACK", "1").strip().lower()
+    not in {"0", "false", "no"}
+)
 
 
 def _prepend_candidate_roots(source_name):
@@ -45,7 +50,6 @@ def _find_spec(name):
 
 def _bootstrap_alias(alias, source):
     importlib.invalidate_caches()
-    _prepend_candidate_roots(source)
 
     if alias in sys.modules:
         return True
@@ -59,6 +63,11 @@ def _bootstrap_alias(alias, source):
             pass
 
     source_spec = _find_spec(source)
+    if source_spec is None and ENABLE_SOURCE_PACKAGE_FALLBACK:
+        _prepend_candidate_roots(source)
+        importlib.invalidate_caches()
+        source_spec = _find_spec(source)
+
     if source_spec is None:
         return False
 

@@ -2,6 +2,7 @@
 import io
 import os
 import urllib.parse
+from time import perf_counter
 
 import pyotp
 import qrcode
@@ -11,6 +12,7 @@ from django.contrib.auth import login,logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
 from django.db import DatabaseError
+from django.db.utils import ConnectionHandler
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -31,6 +33,7 @@ from IFRS9.Functions_view.audit import save_audit_trail
 from Loan_management_and_LLFP.runtime_database_config import (
     get_runtime_database_config_path,
     load_runtime_database_config,
+    save_runtime_dr_database_config,
     save_runtime_database_config,
 )
 from Loan_management_and_LLFP.package_runtime import (
@@ -68,6 +71,27 @@ def get_app_version():
 MICROSOFT_AUTH_PURPOSE_KEY = "users_microsoft_auth_purpose"
 MICROSOFT_AUTH_NEXT_KEY = "users_microsoft_auth_next"
 MICROSOFT_AUTH_PENDING_USER_ID_KEY = "users_pending_microsoft_auth_user_id"
+WORKSPACE_POPUP_SESSION_KEY = "users_workspace_popup_mode"
+WORKSPACE_POPUP_WINDOW_NAME = "nexaWorkspaceWindow"
+
+
+def _set_workspace_popup_mode(request, enabled=True):
+    if enabled:
+        request.session[WORKSPACE_POPUP_SESSION_KEY] = True
+    else:
+        request.session.pop(WORKSPACE_POPUP_SESSION_KEY, None)
+
+
+def _workspace_popup_enabled(request):
+    return bool(request.session.get(WORKSPACE_POPUP_SESSION_KEY))
+
+
+def _workspace_launcher_target(user, next_target=""):
+    if next_target:
+        return next_target
+    if user and getattr(user, "is_authenticated", False):
+        return get_post_login_redirect(user)
+    return reverse("login_popup")
 
 
  
@@ -82,33 +106,50 @@ PACKAGE_EXPIRED = is_package_expired_or_missing()
 
 
 def login_view(request):
-    """Login view with expiry check."""
-    # Invalidate caches immediately before checking package status
+    runtime_settings = apply_runtime_security_settings()
+    next_target = _get_safe_next_value(request.GET.get("next") or request.POST.get("next"))
+    popup_login_url = reverse("login_popup")
+    popup_query = urllib.parse.urlencode({"next": next_target}) if next_target else ""
+    popup_url = f"{popup_login_url}?{popup_query}" if popup_query else popup_login_url
+
+    return render(
+        request,
+        "users/workspace_launcher.html",
+        {
+            "app_version": get_app_version(),
+            "next_url": next_target,
+            "workspace_popup_window_name": WORKSPACE_POPUP_WINDOW_NAME,
+            "workspace_popup_url": popup_url,
+            "workspace_target_url": _workspace_launcher_target(request.user, next_target),
+            "workspace_already_authenticated": bool(request.user.is_authenticated),
+            "microsoft_login_available": microsoft_auth_is_available(runtime_settings),
+        },
+    )
+
+
+def login_popup_view(request):
+    """Popup login view for the dedicated workspace window."""
     runtime_settings = apply_runtime_security_settings()
     microsoft_login_available = microsoft_auth_is_available(runtime_settings)
     authenticator_app_mode = microsoft_auth_uses_authenticator_app_mode(runtime_settings)
-    # If the package is missing/expired, disallow logging in
-    # if PACKAGE_EXPIRED:
-    #     messages.error(request, "ðŸ”´ Your license expired ,you no longer have access to this application please contact the product owner.")
-    #     return render(request, "users/login.html") 
 
-
-    
     if request.method == "POST":
         identifier = (request.POST.get("login_identifier") or request.POST.get("email") or "").strip()
         password = request.POST.get("password", None)
         next_target = _get_safe_next_value(request.POST.get("next"))
+        _set_workspace_popup_mode(request, True)
         user = auth.authenticate(request, username=identifier, email=identifier, password=password)
         if user is not None:
             if microsoft_login_available and runtime_settings.microsoft_auth_on_login and authenticator_app_mode:
                 request.session[MICROSOFT_AUTH_PENDING_USER_ID_KEY] = user.pk
                 request.session[MICROSOFT_AUTH_PURPOSE_KEY] = "login"
                 request.session[MICROSOFT_AUTH_NEXT_KEY] = next_target or ""
-                return redirect("microsoft_auth_start")
+                return redirect(f"{reverse('microsoft_auth_start')}?{urllib.parse.urlencode({'popup': '1'})}")
 
             auth.login(request, user)
             _clear_microsoft_verification(request)
             _clear_pending_microsoft_auth(request)
+            _set_workspace_popup_mode(request, True)
 
             if password_change_required(user, runtime_settings):
                 if user.must_change_password:
@@ -124,8 +165,8 @@ def login_view(request):
             else:
                 messages.error(request, "Incorrect password.")
             if next_target:
-                return redirect(f"{reverse('login')}?{urllib.parse.urlencode({'next': next_target})}")
-            return redirect("login")
+                return redirect(f"{reverse('login_popup')}?{urllib.parse.urlencode({'next': next_target})}")
+            return redirect("login_popup")
 
     return render(
         request,
@@ -133,16 +174,21 @@ def login_view(request):
         {
             "app_version": get_app_version(),
             "next_url": _get_safe_next_value(request.GET.get("next")),
+            "popup_mode": True,
+            "login_form_action": reverse("login_popup"),
+            "workspace_popup_window_name": WORKSPACE_POPUP_WINDOW_NAME,
             "microsoft_login_available": microsoft_login_available,
             "microsoft_login_required": microsoft_login_available and runtime_settings.microsoft_auth_on_login,
             "microsoft_authenticator_app_mode": authenticator_app_mode,
-            "microsoft_login_url": f"{reverse('microsoft_auth_start')}?{urllib.parse.urlencode({'purpose': 'login', 'next': _get_safe_next_value(request.GET.get('next')) or ''})}",
+            "microsoft_login_url": f"{reverse('microsoft_auth_start')}?{urllib.parse.urlencode({'purpose': 'login', 'next': _get_safe_next_value(request.GET.get('next')) or '', 'popup': '1'})}",
         },
     )
 
 
 def microsoft_auth_start_view(request):
     runtime_settings = get_system_settings()
+    if request.GET.get("popup") == "1":
+        _set_workspace_popup_mode(request, True)
     if not microsoft_auth_is_available(runtime_settings):
         messages.error(
             request,
@@ -404,6 +450,7 @@ def user_settings_system_view(request):
 
     runtime_settings = get_system_settings()
     backend_state = _load_database_backend_state()
+    system_active_tab = _normalize_system_settings_tab(request.GET.get("tab"))
     system_settings_available = hasattr(runtime_settings, "_meta")
     form = SystemSettingsForm(instance=runtime_settings) if system_settings_available else None
 
@@ -446,34 +493,94 @@ def user_settings_system_view(request):
                 request,
                 f"Database backend saved as {selected_vendor}. Restart the application for the new database backend to take effect.",
             )
-            return redirect("user_settings_system")
+            return redirect(f"{reverse('user_settings_system')}?tab=database")
 
-        if not system_settings_available:
+        if action in {"save_dr_database_config", "test_dr_database_config"}:
+            if not (request.user.is_superuser or request.user.has_perm("Users.can_manage_settings_database")):
+                messages.error(request, "You do not have permission to change DR database settings.")
+                return redirect("user_settings_system")
+
+            system_active_tab = "system-database"
+            current_dr_config = backend_state.get("dr_database", {})
+            dr_payload = _dr_database_payload_from_post(request.POST, current_dr_config)
+
+            if action == "test_dr_database_config":
+                backend_state["dr_database"] = dr_payload
+                backend_state["dr_test_result"] = _test_dr_database_connection(dr_payload)
+                if backend_state["dr_test_result"]["ok"]:
+                    messages.success(request, "DR database connectivity test succeeded. Review the result below, then save when ready.")
+                else:
+                    messages.error(request, "DR database connectivity test failed. Review the result below before saving.")
+                action = "dr_test_complete"
+
+            if action == "save_dr_database_config" and dr_payload["enabled"] and not (dr_payload["host"] and dr_payload["name"]):
+                messages.error(request, "Please enter the DR server IP/host and DR database name before enabling DR.")
+                return redirect(f"{reverse('user_settings_system')}?tab=database")
+
+            if action == "save_dr_database_config":
+                if dr_payload["enabled"]:
+                    backend_state["dr_database"] = dr_payload
+                    backend_state["dr_test_result"] = _test_dr_database_connection(dr_payload)
+                    if not backend_state["dr_test_result"]["ok"]:
+                        messages.error(request, "DR database settings were not saved because the connection test failed.")
+                        action = "dr_test_complete"
+
+                if action != "dr_test_complete":
+                    save_runtime_dr_database_config(
+                        settings.BASE_DIR,
+                        dr_payload,
+                        backend_state["saved_database_vendor"],
+                        backend_state["supported_vendors"],
+                    )
+                    save_audit_trail(
+                        request.user,
+                        "RuntimeDatabaseConfig",
+                        "update",
+                        "dr",
+                        (
+                            "Updated DR database configuration from System Settings. "
+                            f"Enabled: {dr_payload['enabled']}. "
+                            f"Host: {dr_payload['host'] or 'not set'}. "
+                            f"Database: {dr_payload['name'] or 'not set'}. "
+                            f"Backup method: {dr_payload['backup_method']}. "
+                            "Application restart is required before the DR connection is registered in Django DATABASES."
+                        ),
+                    )
+                    messages.success(
+                        request,
+                        "DR database settings saved. Restart the application so the DR connection becomes active in Django settings.",
+                    )
+                    return redirect(f"{reverse('user_settings_system')}?tab=database")
+
+        if action == "dr_test_complete":
+            pass
+        elif not system_settings_available:
             messages.error(
                 request,
                 "The shared Users system settings tables are not available yet. Apply the latest Users migration first.",
             )
             return redirect("user_settings_system")
 
-        if not _can_manage_system_settings(request.user):
+        elif not _can_manage_system_settings(request.user):
             messages.error(request, "You do not have permission to change system settings.")
             return redirect("user_settings_system")
 
-        form = SystemSettingsForm(
-            _merge_system_settings_post_data(request.POST, runtime_settings),
-            instance=runtime_settings,
-        )
-        if form.is_valid():
-            saved_settings = form.save(commit=False)
-            saved_settings.microsoft_auth_mode = SystemSetting.MICROSOFT_AUTH_MODE_SIMULATED
-            saved_settings.microsoft_tenant_id = ""
-            saved_settings.microsoft_client_id = ""
-            saved_settings.microsoft_redirect_uri = ""
-            saved_settings.save()
-            clear_runtime_caches()
-            apply_runtime_security_settings()
-            messages.success(request, "System settings were updated successfully.")
-            return redirect("user_settings_system")
+        else:
+            form = SystemSettingsForm(
+                _merge_system_settings_post_data(request.POST, runtime_settings),
+                instance=runtime_settings,
+            )
+            if form.is_valid():
+                saved_settings = form.save(commit=False)
+                saved_settings.microsoft_auth_mode = SystemSetting.MICROSOFT_AUTH_MODE_SIMULATED
+                saved_settings.microsoft_tenant_id = ""
+                saved_settings.microsoft_client_id = ""
+                saved_settings.microsoft_redirect_uri = ""
+                saved_settings.save()
+                clear_runtime_caches()
+                apply_runtime_security_settings()
+                messages.success(request, "System settings were updated successfully.")
+                return redirect("user_settings_system")
     context = _build_settings_context(
         request,
         active_section="system_settings",
@@ -486,6 +593,7 @@ def user_settings_system_view(request):
             "runtime_settings": runtime_settings,
             "system_settings_available": system_settings_available,
             "backend_state": backend_state,
+            "system_active_tab": system_active_tab,
             "can_manage_system_settings": _can_manage_system_settings(request.user),
             "can_manage_database_setting": request.user.is_superuser or request.user.has_perm("Users.can_manage_settings_database"),
         }
@@ -663,12 +771,16 @@ def password_change_done(request):
     return render(request, 'users/password_change_done.html')
 
 def custom_logout_view(request):
+    popup_mode = _workspace_popup_enabled(request)
     _clear_pending_microsoft_auth(request)
     _clear_microsoft_verification(request)
     _clear_microsoft_oauth_handshake(request)
+    _set_workspace_popup_mode(request, False)
     logout(request)
     messages.success(request, "Successfully logged out.")
-    return redirect(reverse('login'))  # Redirect to login page after logout
+    if popup_mode:
+        return redirect(reverse('login_popup'))
+    return redirect(reverse('login'))
 
 
 def _can_view_user_roles(user):
@@ -782,7 +894,129 @@ def _load_database_backend_state():
         "effective_functions_backend": effective_functions_backend,
         "config_path": runtime_config["path"],
         "config_source": getattr(settings, "DATABASE_RUNTIME_CONFIG_SOURCE", runtime_config["source"]),
+        "dr_database": runtime_config.get("dr_database", {}),
+        "dr_connection_active": "dr" in getattr(settings, "DATABASES", {}),
+        "dr_backup_methods": (
+            ("sql_server_native", "SQL Server native backup/restore"),
+            ("scheduled_copy", "Scheduled table copy into DR database"),
+            ("manual_copy", "Manual copy on demand"),
+        ),
+        "dr_backup_frequencies": (
+            ("manual", "Manual only"),
+            ("hourly", "Hourly"),
+            ("daily", "Daily"),
+            ("weekly", "Weekly"),
+        ),
+        "dr_table_scopes": (
+            ("full_database", "Full database"),
+            ("ifrs9_core", "IFRS9 core tables only"),
+            ("staging_and_reporting", "Staging and reporting tables"),
+        ),
     }
+
+
+def _normalize_system_settings_tab(value):
+    value = (value or "").strip().lower().replace("_", "-")
+    aliases = {
+        "overview": "system-overview",
+        "session": "system-session",
+        "security": "system-security",
+        "self-service": "system-self-service",
+        "password": "system-password",
+        "microsoft-auth": "system-microsoft-auth",
+        "database": "system-database",
+    }
+    if value in aliases.values():
+        return value
+    return aliases.get(value, "system-overview")
+
+
+def _dr_database_payload_from_post(post_data, current_config):
+    posted_password = (post_data.get("dr_password") or "").strip()
+    return {
+        "enabled": post_data.get("dr_enabled") == "on",
+        "engine": (post_data.get("dr_engine") or "mssql").strip(),
+        "name": (post_data.get("dr_name") or "").strip(),
+        "user": (post_data.get("dr_user") or "").strip(),
+        "password": posted_password or current_config.get("password", ""),
+        "host": (post_data.get("dr_host") or "").strip(),
+        "port": (post_data.get("dr_port") or "1433").strip(),
+        "driver": (post_data.get("dr_driver") or "ODBC Driver 17 for SQL Server").strip(),
+        "extra_params": (post_data.get("dr_extra_params") or "Encrypt=no;TrustServerCertificate=yes").strip(),
+        "backup_method": (post_data.get("dr_backup_method") or "sql_server_native").strip(),
+        "backup_frequency": (post_data.get("dr_backup_frequency") or "daily").strip(),
+        "backup_window": (post_data.get("dr_backup_window") or "22:00").strip(),
+        "table_scope": (post_data.get("dr_table_scope") or "full_database").strip(),
+    }
+
+
+def _dr_database_engine_name(engine):
+    engine = (engine or "mssql").strip().lower()
+    if engine == "postgresql":
+        return "django.db.backends.postgresql"
+    if engine == "oracle":
+        return "django.db.backends.oracle"
+    return "mssql"
+
+
+def _dr_database_settings_from_payload(dr_payload):
+    return {
+        "ENGINE": _dr_database_engine_name(dr_payload.get("engine")),
+        "NAME": dr_payload.get("name", ""),
+        "USER": dr_payload.get("user", ""),
+        "PASSWORD": dr_payload.get("password", ""),
+        "HOST": dr_payload.get("host", ""),
+        "PORT": dr_payload.get("port", "1433"),
+        "OPTIONS": {
+            "driver": dr_payload.get("driver", "ODBC Driver 17 for SQL Server"),
+            "extra_params": dr_payload.get("extra_params", "Encrypt=no;TrustServerCertificate=yes"),
+        },
+    }
+
+
+def _test_dr_database_connection(dr_payload):
+    required_fields = {
+        "host": "DR server IP / host",
+        "name": "DR database name",
+    }
+    missing = [label for key, label in required_fields.items() if not dr_payload.get(key)]
+    if missing:
+        return {
+            "ok": False,
+            "title": "Connection details incomplete",
+            "message": "Please enter " + ", ".join(missing) + " before testing.",
+            "duration": None,
+        }
+
+    started_at = perf_counter()
+    handler = ConnectionHandler(
+        {
+            "default": settings.DATABASES["default"],
+            "dr_test": _dr_database_settings_from_payload(dr_payload),
+        }
+    )
+    connection = None
+    try:
+        connection = handler["dr_test"]
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+        return {
+            "ok": True,
+            "title": "DR database reachable",
+            "message": "Connection test succeeded. You can now save these DR database settings.",
+            "duration": round(perf_counter() - started_at, 2),
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "title": "DR database not reachable",
+            "message": str(exc),
+            "duration": round(perf_counter() - started_at, 2),
+        }
+    finally:
+        if connection is not None:
+            connection.close()
 
 
 def _merge_system_settings_post_data(post_data, runtime_settings):

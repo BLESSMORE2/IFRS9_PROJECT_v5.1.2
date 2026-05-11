@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign in &middot; NEXA Modules</title>
+    <title>{% if popup_mode %}Workspace Login{% else %}Sign in{% endif %} &middot; NEXA Modules</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -245,7 +245,7 @@
         }
     </style>
 </head>
-<body>
+<body{% if popup_mode %} class="popup-mode"{% endif %}>
     <div class="login-wrap">
         <div class="login-card">
             <div class="login-brand">
@@ -285,7 +285,7 @@
             <div class="divider"><span>or use your local account</span></div>
             {% endif %}
 
-            <form method="post" action="{% url 'login' %}">
+            <form method="post" action="{{ login_form_action|default:''|default_if_none:'' }}{% if not login_form_action %}{% url 'login' %}{% endif %}">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ next_url }}">
                 <div class="form-group">
@@ -321,6 +321,14 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
     <script>
+        (function () {
+            {% if popup_mode %}
+            try {
+                window.name = "{{ workspace_popup_window_name|default:'nexaWorkspaceWindow'|escapejs }}";
+            } catch (error) {}
+            {% endif %}
+        })();
+
         (function () {
             const input = document.getElementById('id_password');
             const button = document.getElementById('login-password-toggle');

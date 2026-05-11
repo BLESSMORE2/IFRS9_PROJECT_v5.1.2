@@ -24,32 +24,32 @@
 
         <div class="tab-shell" data-tab-group>
             <div class="tab-list">
-                <button type="button" class="tab-button active" data-tab-target="system-overview" aria-selected="true">
+                <button type="button" class="tab-button{% if system_active_tab == 'system-overview' %} active{% endif %}" data-tab-target="system-overview" aria-selected="{% if system_active_tab == 'system-overview' %}true{% else %}false{% endif %}">
                     <i class="fas fa-chart-pie"></i><span>Overview</span>
                 </button>
-                <button type="button" class="tab-button" data-tab-target="system-session" aria-selected="false">
+                <button type="button" class="tab-button{% if system_active_tab == 'system-session' %} active{% endif %}" data-tab-target="system-session" aria-selected="{% if system_active_tab == 'system-session' %}true{% else %}false{% endif %}">
                     <i class="fas fa-clock"></i><span>Session</span>
                 </button>
-                <button type="button" class="tab-button" data-tab-target="system-security" aria-selected="false">
+                <button type="button" class="tab-button{% if system_active_tab == 'system-security' %} active{% endif %}" data-tab-target="system-security" aria-selected="{% if system_active_tab == 'system-security' %}true{% else %}false{% endif %}">
                     <i class="fas fa-shield-alt"></i><span>Security</span>
                 </button>
-                <button type="button" class="tab-button" data-tab-target="system-self-service" aria-selected="false">
+                <button type="button" class="tab-button{% if system_active_tab == 'system-self-service' %} active{% endif %}" data-tab-target="system-self-service" aria-selected="{% if system_active_tab == 'system-self-service' %}true{% else %}false{% endif %}">
                     <i class="fas fa-user-cog"></i><span>Self Service</span>
                 </button>
-                <button type="button" class="tab-button" data-tab-target="system-password" aria-selected="false">
+                <button type="button" class="tab-button{% if system_active_tab == 'system-password' %} active{% endif %}" data-tab-target="system-password" aria-selected="{% if system_active_tab == 'system-password' %}true{% else %}false{% endif %}">
                     <i class="fas fa-key"></i><span>Password</span>
                 </button>
-                <button type="button" class="tab-button" data-tab-target="system-microsoft-auth" aria-selected="false">
+                <button type="button" class="tab-button{% if system_active_tab == 'system-microsoft-auth' %} active{% endif %}" data-tab-target="system-microsoft-auth" aria-selected="{% if system_active_tab == 'system-microsoft-auth' %}true{% else %}false{% endif %}">
                     <i class="fab fa-microsoft"></i><span>Microsoft Auth</span>
                 </button>
                 {% if perms.Users.can_view_settings_database or request.user.is_superuser %}
-                <button type="button" class="tab-button" data-tab-target="system-database" aria-selected="false">
+                <button type="button" class="tab-button{% if system_active_tab == 'system-database' %} active{% endif %}" data-tab-target="system-database" aria-selected="{% if system_active_tab == 'system-database' %}true{% else %}false{% endif %}">
                     <i class="fas fa-database"></i><span>Database</span>
                 </button>
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-tab-panel="system-overview">
+            <div class="tab-panel" data-tab-panel="system-overview"{% if system_active_tab != 'system-overview' %} hidden{% endif %}>
                 <div class="editor-grid">
                     <div class="field-card">
                         <div class="status-stack">
@@ -120,7 +120,7 @@
                 </div>
             </div>
 
-            <div class="tab-panel" data-tab-panel="system-session" hidden>
+            <div class="tab-panel" data-tab-panel="system-session"{% if system_active_tab != 'system-session' %} hidden{% endif %}>
                 {% if system_settings_available %}
                 <form method="post" class="card">
                     {% csrf_token %}
@@ -170,7 +170,7 @@
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-tab-panel="system-security" hidden>
+            <div class="tab-panel" data-tab-panel="system-security"{% if system_active_tab != 'system-security' %} hidden{% endif %}>
                 {% if system_settings_available %}
                 <form method="post" class="card">
                     {% csrf_token %}
@@ -215,7 +215,7 @@
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-tab-panel="system-self-service" hidden>
+            <div class="tab-panel" data-tab-panel="system-self-service"{% if system_active_tab != 'system-self-service' %} hidden{% endif %}>
                 {% if system_settings_available %}
                 <form method="post" class="card">
                     {% csrf_token %}
@@ -270,7 +270,7 @@
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-tab-panel="system-password" hidden>
+            <div class="tab-panel" data-tab-panel="system-password"{% if system_active_tab != 'system-password' %} hidden{% endif %}>
                 {% if system_settings_available %}
                 <form method="post" class="card">
                     {% csrf_token %}
@@ -336,7 +336,7 @@
                 {% endif %}
             </div>
 
-            <div class="tab-panel" data-tab-panel="system-microsoft-auth" hidden>
+            <div class="tab-panel" data-tab-panel="system-microsoft-auth"{% if system_active_tab != 'system-microsoft-auth' %} hidden{% endif %}>
                 {% if system_settings_available %}
                 <form method="post" class="card">
                     {% csrf_token %}
@@ -446,7 +446,7 @@
             </div>
 
             {% if perms.Users.can_view_settings_database or request.user.is_superuser %}
-            <div class="tab-panel" data-tab-panel="system-database" hidden>
+            <div class="tab-panel" data-tab-panel="system-database"{% if system_active_tab != 'system-database' %} hidden{% endif %}>
                 <form method="post" class="card">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="save_database_backend">
@@ -491,6 +491,146 @@
                         <div class="editor-note">Changing this setting updates the runtime config file and requires an application restart before the new backend becomes active.</div>
                         <button type="submit" class="primary-btn"{% if not can_manage_database_setting %} disabled{% endif %}>
                             <i class="fas fa-database"></i><span>Save Database Backend</span>
+                        </button>
+                    </div>
+                </form>
+
+                <form method="post" class="card" style="margin-top:14px;">
+                    {% csrf_token %}
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">DR / Backup Database</h2>
+                            <p class="card-copy">Enter the standby database credentials, test reachability first, then save. Once enabled and restarted, Django registers this connection as <strong>DATABASES['dr']</strong>.</p>
+                        </div>
+                        <span class="soft-badge {% if backend_state.dr_database.enabled %}status-manual{% else %}status-timeout{% endif %}">
+                            {% if backend_state.dr_database.enabled %}Enabled{% else %}Disabled{% endif %}
+                        </span>
+                    </div>
+
+                    <div class="editor-note" style="margin-bottom:14px;">
+                        <strong>Setup flow:</strong> 1. Fill in DR server and credentials. 2. Click <strong>Test Connection</strong>. 3. Save after the test succeeds. 4. Restart the application so the DR alias becomes active.
+                    </div>
+
+                    <div class="status-stack" style="margin-bottom:14px;">
+                        <div class="status-row">
+                            <span class="status-label">DR Connection In Current Runtime</span>
+                            <span class="status-value">{% if backend_state.dr_connection_active %}Registered as DATABASES['dr']{% else %}Not active until enabled and restarted{% endif %}</span>
+                        </div>
+                        <div class="status-row">
+                            <span class="status-label">Saved DR Host</span>
+                            <span class="status-value">{{ backend_state.dr_database.host|default:"Not set" }}</span>
+                        </div>
+                        <div class="status-row">
+                            <span class="status-label">Saved DR Database</span>
+                            <span class="status-value">{{ backend_state.dr_database.name|default:"Not set" }}</span>
+                        </div>
+                    </div>
+
+                    {% if backend_state.dr_test_result %}
+                    <div class="alert {% if backend_state.dr_test_result.ok %}alert-success{% else %}alert-danger{% endif %}" role="alert" style="font-size:.78rem; margin-bottom:14px;">
+                        <strong>{{ backend_state.dr_test_result.title }}</strong>
+                        <div>{{ backend_state.dr_test_result.message }}</div>
+                        {% if backend_state.dr_test_result.duration != None %}
+                        <div style="margin-top:4px;">Test duration: {{ backend_state.dr_test_result.duration }}s</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div class="form-grid">
+                        <div class="field-card">
+                            <label class="toggle-row" for="id_dr_enabled">
+                                <span>
+                                    <span class="status-label">Enable DR Backup Database</span>
+                                    <span class="help-text">Turn this on when the DR server details are ready. Restart is required for the connection alias to become active.</span>
+                                </span>
+                                <input type="checkbox" id="id_dr_enabled" name="dr_enabled" {% if backend_state.dr_database.enabled %}checked{% endif %} {% if not can_manage_database_setting %}disabled{% endif %}>
+                            </label>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_engine">Database Engine</label>
+                            <select id="id_dr_engine" name="dr_engine" class="form-control form-control-sm" {% if not can_manage_database_setting %}disabled{% endif %}>
+                                {% for vendor in backend_state.supported_vendors %}
+                                <option value="{{ vendor }}" {% if vendor == backend_state.dr_database.engine %}selected{% endif %}>{{ vendor|upper }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="help-text">Use MSSQL for the current SQL Server backup target.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_host">DR Server IP / Host</label>
+                            <input id="id_dr_host" name="dr_host" class="form-control form-control-sm" value="{{ backend_state.dr_database.host|default:'' }}" placeholder="e.g. 192.168.4.50" {% if not can_manage_database_setting %}disabled{% endif %}>
+                            <div class="help-text">IP address or hostname of the backup/DR SQL Server.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_port">Port</label>
+                            <input id="id_dr_port" name="dr_port" class="form-control form-control-sm" value="{{ backend_state.dr_database.port|default:'1433' }}" placeholder="1433" {% if not can_manage_database_setting %}disabled{% endif %}>
+                            <div class="help-text">Default SQL Server port is 1433.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_name">DR Database Name</label>
+                            <input id="id_dr_name" name="dr_name" class="form-control form-control-sm" value="{{ backend_state.dr_database.name|default:'' }}" placeholder="NEXA_DR" {% if not can_manage_database_setting %}disabled{% endif %}>
+                            <div class="help-text">Database that will receive backups or copied data.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_user">Username</label>
+                            <input id="id_dr_user" name="dr_user" class="form-control form-control-sm" value="{{ backend_state.dr_database.user|default:'' }}" placeholder="dr_user" autocomplete="off" {% if not can_manage_database_setting %}disabled{% endif %}>
+                            <div class="help-text">Login used by the application or backup job to connect to DR.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_password">Password</label>
+                            <input id="id_dr_password" name="dr_password" type="password" class="form-control form-control-sm" value="" placeholder="{% if backend_state.dr_database.password %}Saved - leave blank to keep{% else %}Enter password{% endif %}" autocomplete="new-password" {% if not can_manage_database_setting %}disabled{% endif %}>
+                            <div class="help-text">Leave blank to keep the currently saved password.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_driver">ODBC Driver</label>
+                            <input id="id_dr_driver" name="dr_driver" class="form-control form-control-sm" value="{{ backend_state.dr_database.driver|default:'ODBC Driver 17 for SQL Server' }}" {% if not can_manage_database_setting %}disabled{% endif %}>
+                            <div class="help-text">Usually ODBC Driver 17 for SQL Server in this environment.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_extra_params">Connection Extra Params</label>
+                            <input id="id_dr_extra_params" name="dr_extra_params" class="form-control form-control-sm" value="{{ backend_state.dr_database.extra_params|default:'Encrypt=no;TrustServerCertificate=yes' }}" {% if not can_manage_database_setting %}disabled{% endif %}>
+                            <div class="help-text">Encryption/trust settings for the DR connection string.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_backup_method">Backup Method</label>
+                            <select id="id_dr_backup_method" name="dr_backup_method" class="form-control form-control-sm" {% if not can_manage_database_setting %}disabled{% endif %}>
+                                {% for value, label in backend_state.dr_backup_methods %}
+                                <option value="{{ value }}" {% if value == backend_state.dr_database.backup_method %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="help-text">Native SQL Server backup is recommended for full DR.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_backup_frequency">Backup Frequency</label>
+                            <select id="id_dr_backup_frequency" name="dr_backup_frequency" class="form-control form-control-sm" {% if not can_manage_database_setting %}disabled{% endif %}>
+                                {% for value, label in backend_state.dr_backup_frequencies %}
+                                <option value="{{ value }}" {% if value == backend_state.dr_database.backup_frequency %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="help-text">Defines how the backup job should be scheduled.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_table_scope">Backup Scope</label>
+                            <select id="id_dr_table_scope" name="dr_table_scope" class="form-control form-control-sm" {% if not can_manage_database_setting %}disabled{% endif %}>
+                                {% for value, label in backend_state.dr_table_scopes %}
+                                <option value="{{ value }}" {% if value == backend_state.dr_database.table_scope %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="help-text">Full database is safest for DR; table copy is useful for reporting-only backup.</div>
+                        </div>
+                        <div class="field-card">
+                            <label for="id_dr_backup_window">Preferred Backup Window</label>
+                            <input id="id_dr_backup_window" name="dr_backup_window" class="form-control form-control-sm" value="{{ backend_state.dr_database.backup_window|default:'22:00' }}" placeholder="22:00" {% if not can_manage_database_setting %}disabled{% endif %}>
+                            <div class="help-text">Default is 22:00. Edit this time when the backup should run at a different window.</div>
+                        </div>
+                    </div>
+
+                    <div class="editor-actions">
+                        <div class="editor-note">The test button checks the typed credentials without saving. Saving stores the DR connection and backup preference in <strong>{{ backend_state.config_path.name }}</strong>.</div>
+                        <button type="submit" name="action" value="test_dr_database_config" class="secondary-btn"{% if not can_manage_database_setting %} disabled{% endif %}>
+                            <i class="fas fa-plug"></i><span>Test Connection</span>
+                        </button>
+                        <button type="submit" name="action" value="save_dr_database_config" class="primary-btn"{% if not can_manage_database_setting %} disabled{% endif %}>
+                            <i class="fas fa-save"></i><span>Save DR Database Settings</span>
                         </button>
                     </div>
                 </form>

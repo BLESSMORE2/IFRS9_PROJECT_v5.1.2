@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Launch Workspace · NEXA Compliance</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --nx-navy: #07162f;
+            --nx-emerald: #00d4aa;
+            --nx-sky: #5ea7ff;
+            --nx-panel: rgba(255,255,255,0.96);
+            --nx-text: #10213f;
+            --nx-muted: #64748b;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            color: var(--nx-text);
+            background:
+                radial-gradient(circle at top left, rgba(0, 212, 170, 0.08), transparent 22%),
+                radial-gradient(circle at bottom right, rgba(94, 167, 255, 0.08), transparent 26%),
+                linear-gradient(160deg, #eef4fb 0%, #e5eef7 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .launcher-shell {
+            width: min(100%, 520px);
+            display: block;
+        }
+        .launcher-panel {
+            border-radius: 28px;
+            overflow: hidden;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 28px 70px rgba(15, 23, 42, 0.12);
+            background: var(--nx-panel);
+            padding: 26px 24px 24px;
+            display: flex;
+            flex-direction: column;
+        }
+        .brand-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .brand-row img {
+            width: 126px;
+            height: 52px;
+            object-fit: contain;
+            border-radius: 12px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            background: #fff;
+            padding: 4px 8px;
+        }
+        .brand-name {
+            margin: 0;
+            color: var(--nx-text);
+            font-size: 1.05rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .brand-name span { color: var(--nx-emerald); }
+        .brand-subtitle {
+            margin: 2px 0 0;
+            color: var(--nx-muted);
+            font-size: 0.65rem;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+        }
+        .panel-title {
+            margin: 0;
+            color: var(--nx-text);
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+        .panel-copy {
+            margin: 10px 0 0;
+            color: var(--nx-muted);
+            font-size: 0.9rem;
+            line-height: 1.65;
+        }
+        .panel-note {
+            margin-top: 16px;
+            padding: 14px 15px;
+            border-radius: 18px;
+            background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+            border: 1px solid rgba(94, 167, 255, 0.18);
+        }
+        .panel-note strong {
+            display: block;
+            color: var(--nx-text);
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+        }
+        .panel-note span {
+            display: block;
+            color: var(--nx-muted);
+            font-size: 0.8rem;
+            line-height: 1.55;
+        }
+        .launch-status {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #f8fbff 0%, #f1f6fd 100%);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            color: var(--nx-muted);
+            font-size: 0.8rem;
+            line-height: 1.55;
+        }
+        .launch-status strong {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--nx-text);
+            font-size: 0.84rem;
+        }
+        .launch-actions {
+            margin-top: auto;
+            padding-top: 22px;
+            display: grid;
+            gap: 12px;
+        }
+        .launch-button {
+            width: 100%;
+            min-height: 50px;
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            font-weight: 800;
+            border: 0;
+            text-decoration: none;
+            transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+            cursor: pointer;
+            background: linear-gradient(135deg, #0b1a35 0%, #17417a 100%);
+            color: #fff;
+            box-shadow: 0 18px 34px rgba(12, 32, 66, 0.2);
+        }
+        .launch-button:hover {
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+        .launch-feedback {
+            display: none;
+            border-radius: 16px;
+            padding: 14px 15px;
+            background: #fff7ed;
+            border: 1px solid #fdba74;
+            color: #9a3412;
+            font-size: 0.82rem;
+            line-height: 1.55;
+        }
+        .launch-feedback strong {
+            display: block;
+            margin-bottom: 5px;
+            color: #7c2d12;
+        }
+    </style>
+</head>
+<body>
+    {% load static %}
+    <div class="launcher-shell">
+        <aside class="launcher-panel">
+            <div class="brand-row">
+                <img src="{% static 'images/login/bns_logo_trimmed.png' %}" alt="Brain Nexus Solution">
+                <div>
+                    <p class="brand-name">Nexa <span>Compliance</span></p>
+                    <p class="brand-subtitle">Universal Workspace Launcher</p>
+                </div>
+            </div>
+
+            <h2 class="panel-title">{% if workspace_already_authenticated %}Re-open your workspace{% else %}Launch secure login{% endif %}</h2>
+            <p class="panel-copy">
+                {% if workspace_already_authenticated %}
+                Your session is already active. Open the workspace window to continue inside the dedicated application shell.
+                {% else %}
+                The login page and the rest of the platform will open in a dedicated workspace window so users can work inside a single controlled shell instead of the main browser tab.
+                {% endif %}
+            </p>
+
+            <div class="panel-note">
+                <strong>Popup permission may be required</strong>
+                <span>If Chrome blocks the window the first time, allow popups for this site and click the launch button again.</span>
+            </div>
+
+            <div id="launch-status" class="launch-status">
+                <strong>Preparing workspace launch</strong>
+                <span>The launcher will automatically try to open the login workspace window as soon as this page loads.</span>
+            </div>
+
+            <div id="popup-feedback" class="launch-feedback">
+                <strong>Popup blocked by the browser</strong>
+                Please allow popups for this site in Chrome, then click the launch button again to open the workspace window.
+            </div>
+
+            <div class="launch-actions">
+                <button id="launch-workspace-button" class="launch-button" type="button" data-popup-url="{{ workspace_popup_url }}" data-target-url="{{ workspace_target_url }}">
+                    <i class="fas fa-up-right-from-square"></i>
+                    {% if workspace_already_authenticated %}Open Workspace Window{% else %}Open Login Window{% endif %}
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        (function () {
+            const button = document.getElementById("launch-workspace-button");
+            const feedback = document.getElementById("popup-feedback");
+            const status = document.getElementById("launch-status");
+            if (!button) return;
+
+            const popupName = "{{ workspace_popup_window_name|escapejs }}";
+            const popupUrl = button.dataset.popupUrl;
+            const targetUrl = button.dataset.targetUrl;
+
+            function openWorkspace(urlToOpen) {
+                if (feedback) feedback.style.display = "none";
+                if (status) {
+                    status.innerHTML = "<strong>Launching workspace</strong><span>The system is opening the dedicated login window now. If nothing appears, Chrome may have blocked the popup.</span>";
+                }
+                const width = Math.max(1180, Math.min(window.screen.availWidth - 40, 1420));
+                const height = Math.max(760, Math.min(window.screen.availHeight - 60, 980));
+                const left = Math.max(20, Math.round((window.screen.availWidth - width) / 2));
+                const top = Math.max(20, Math.round((window.screen.availHeight - height) / 2));
+                const features = [
+                    "popup=yes",
+                    "toolbar=no",
+                    "menubar=no",
+                    "location=no",
+                    "status=no",
+                    "resizable=yes",
+                    "scrollbars=yes",
+                    "width=" + width,
+                    "height=" + height,
+                    "left=" + left,
+                    "top=" + top
+                ].join(",");
+
+                const popup = window.open(urlToOpen, popupName, features);
+                if (!popup || popup.closed || typeof popup.closed === "undefined") {
+                    if (feedback) feedback.style.display = "block";
+                    if (status) {
+                        status.innerHTML = "<strong>Workspace window blocked</strong><span>Allow popups for this site in Chrome, then use the launch button again to continue.</span>";
+                    }
+                    return false;
+                }
+
+                try {
+                    popup.focus();
+                } catch (error) {}
+                if (status) {
+                    status.innerHTML = "<strong>Workspace window opened</strong><span>Continue inside the new window. You can use the button below again if you need to reopen or refocus it.</span>";
+                }
+                return true;
+            }
+
+            button.addEventListener("click", function () {
+                const urlToOpen = {{ workspace_already_authenticated|yesno:"true,false" }} ? targetUrl : popupUrl;
+                openWorkspace(urlToOpen);
+            });
+
+            window.addEventListener("load", function () {
+                const urlToOpen = {{ workspace_already_authenticated|yesno:"true,false" }} ? targetUrl : popupUrl;
+                openWorkspace(urlToOpen);
+            }, { once: true });
+        })();
+    </script>
+</body>
+</html>

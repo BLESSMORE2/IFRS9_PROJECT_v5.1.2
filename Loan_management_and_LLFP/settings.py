@@ -112,6 +112,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'Users.context_processors.workspace_popup',
             ],
         },
     },
@@ -158,6 +159,25 @@ _runtime_database_config = load_runtime_database_config(
     _infer_database_vendor(DATABASES['default']['ENGINE']),
     SUPPORTED_DATABASE_VENDORS,
 )
+DR_DATABASE_CONFIG = _runtime_database_config.get('dr_database', {})
+if DR_DATABASE_CONFIG.get('enabled'):
+    dr_engine = DR_DATABASE_CONFIG.get('engine') or _infer_database_vendor(DATABASES['default']['ENGINE'])
+    if dr_engine == 'postgresql':
+        dr_engine = 'django.db.backends.postgresql'
+    elif dr_engine == 'oracle':
+        dr_engine = 'django.db.backends.oracle'
+    DATABASES['dr'] = {
+        'ENGINE': dr_engine or 'mssql',
+        'NAME': DR_DATABASE_CONFIG.get('name', ''),
+        'USER': DR_DATABASE_CONFIG.get('user', ''),
+        'PASSWORD': DR_DATABASE_CONFIG.get('password', ''),
+        'HOST': DR_DATABASE_CONFIG.get('host', ''),
+        'PORT': DR_DATABASE_CONFIG.get('port', '1433'),
+        'OPTIONS': {
+            'driver': DR_DATABASE_CONFIG.get('driver', 'ODBC Driver 17 for SQL Server'),
+            'extra_params': DR_DATABASE_CONFIG.get('extra_params', 'Encrypt=no;TrustServerCertificate=yes'),
+        },
+    }
 
 DATABASE_VENDOR = os.getenv(
     'IFRS9_DATABASE_VENDOR',

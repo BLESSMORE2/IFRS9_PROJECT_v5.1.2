@@ -6,6 +6,20 @@
     <title>Profile</title>
     <!-- Bootstrap CSS from CDN -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    {% if workspace_popup_mode %}
+    <script>
+        (function () {
+            const popupWindowName = "{{ workspace_popup_window_name|escapejs }}";
+            const isWorkspaceWindow = !!window.opener || window.name === popupWindowName;
+            if (isWorkspaceWindow) {
+                try { window.name = popupWindowName; } catch (error) {}
+                return;
+            }
+            const resume = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+            window.location.replace("{{ workspace_launcher_path|escapejs }}?next=" + resume);
+        })();
+    </script>
+    {% endif %}
 </head>
 <body>
     <div class="container mt-5">
