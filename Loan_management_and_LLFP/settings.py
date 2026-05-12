@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 import os
 
+from Loan_management_and_LLFP.env_secrets import load_root_env_file
 from Loan_management_and_LLFP.package_runtime import (
     get_ifrs9_package_status,
     get_scorecard_package_status,
@@ -13,6 +14,16 @@ from Loan_management_and_LLFP.package_runtime import (
 from Loan_management_and_LLFP.runtime_database_config import load_runtime_database_config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+load_root_env_file(BASE_DIR)
 
 IFRS9_PACKAGE_STATUS = get_ifrs9_package_status()
 IFRS9_PACKAGE_AVAILABLE = IFRS9_PACKAGE_STATUS["usable"]
@@ -29,9 +40,13 @@ if SCORECARD_PACKAGE_AVAILABLE:
 else:
     print(f"[WARNING] {SCORECARD_PACKAGE_STATUS['message']}")
 
-SECRET_KEY = 'django-insecure-jn+)3jddi9#0j%!5voeznr+t383172xh#^^fem_rhv5vgy@-so'
-DEBUG = True
-ALLOWED_HOSTS = []
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-change-me-in-env')
+DEBUG = _env_bool('DJANGO_DEBUG', True)
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',')
+    if host.strip()
+]
 
 INSTALLED_APPS = [
     'jazzmin',
@@ -72,6 +87,9 @@ JAZZMIN_SETTINGS = {
 AXES_FAILURE_LIMIT = 3
 AXES_COOLOFF_TIME = 1
 AXES_LOCKOUT_TEMPLATE = 'axes/lockout.html'
+AXES_LOCKOUT_PARAMETERS = ["username"]
+AXES_ENABLE_ACCESS_FAILURE_LOG = True
+AXES_RESET_ON_SUCCESS = True
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 AUTH_USER_MODEL = 'Users.CustomUser'
@@ -112,6 +130,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'Users.context_processors.password_expiry_reminder',
                 'Users.context_processors.workspace_popup',
             ],
         },
@@ -120,20 +139,23 @@ TEMPLATES = [
 
 if IFRS9_PACKAGE_AVAILABLE:
     TEMPLATES[0]['OPTIONS']['context_processors'].append('IFRS9.context_processors.app_version')
+if SCORECARD_PACKAGE_AVAILABLE:
+    TEMPLATES[0]['OPTIONS']['context_processors'].append('scorecard.context_processors.scorecard_base_context')
 
 WSGI_APPLICATION = 'Loan_management_and_LLFP.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'mssql',
-        'NAME': 'NEXA',
-        'USER': 'nexa_user',
-        'PASSWORD': '1234',
-        'HOST': '127.0.0.1',
-        'PORT': '1433',
+        'ENGINE': os.getenv('DB_ENGINE', 'mssql'),
+        'NAME': os.getenv('DB_NAME', ''),
+        'USER': os.getenv('DB_USER', ''),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', ''),
+        'PORT': os.getenv('DB_PORT', '1433'),
         'OPTIONS': {
-            'driver': 'ODBC Driver 17 for SQL Server',
-            'extra_params': 'Encrypt=no;TrustServerCertificate=yes',
+            'driver': os.getenv('DB_DRIVER', 'ODBC Driver 17 for SQL Server'),
+            'host_is_server': True,
+            'extra_params': os.getenv('DB_EXTRA_PARAMS', 'Encrypt=no;TrustServerCertificate=yes'),
         },
     }
 }
@@ -338,5 +360,6 @@ SWAGGER_SETTINGS = {
     ],
 }
 
-SCORECARD_FIXED_SENDER_EMAIL = 'nexascorecard@bns.co.zw'
-SCORECARD_FIXED_SENDER_PASSWORD = 'brainnexussolutions'
+# Scorecard fixed sender mailbox runtime settings
+SCORECARD_FIXED_SENDER_EMAIL = os.getenv("SCORECARD_FIXED_SENDER_EMAIL", "")
+SCORECARD_FIXED_SENDER_PASSWORD = os.getenv("SCORECARD_FIXED_SENDER_PASSWORD", "")
