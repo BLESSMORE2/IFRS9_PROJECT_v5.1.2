@@ -668,6 +668,16 @@
                 <span>Available Modules</span>
             </div>
 
+            {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %} shadow-sm" role="alert" style="border-radius: 14px;">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
             <div class="modules-grid">
                 {% for module in modules %}
                 <a href="{{ module.url }}" class="module-card {{ module.accent }}">
