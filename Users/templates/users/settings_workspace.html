@@ -238,7 +238,7 @@
                 </nav>
             </aside>
             <section class="panel">
-                <div class="eyebrow"><i class="{% if active_section == 'add_users' %}fas fa-user-plus{% elif active_section == 'user_roles' %}fas fa-users-cog{% elif active_section == 'authenticator' %}fas fa-mobile-screen-button{% else %}fas fa-sliders-h{% endif %}"></i><span>{{ page_title }}</span></div>
+                <div class="eyebrow"><i class="{% if active_section == 'add_users' %}fas fa-user-plus{% elif active_section == 'user_roles' %}fas fa-users-cog{% elif active_section == 'authenticator' %}fas fa-mobile-screen-button{% elif active_section == 'access_logs' %}fas fa-clock-rotate-left{% else %}fas fa-sliders-h{% endif %}"></i><span>{{ page_title }}</span></div>
                 <h1 class="section-title">{{ page_title }}</h1>
                 <p class="section-copy">{{ page_intro }}</p>
                 {% if messages %}
@@ -256,6 +256,9 @@
                 {% endif %}
                 {% if active_section == 'authenticator' %}
                 {% include 'users/partials/settings_authenticator.html' %}
+                {% endif %}
+                {% if active_section == 'access_logs' %}
+                {% include 'users/partials/settings_access_logs.html' %}
                 {% endif %}
                 {% if active_section == 'system_settings' %}
                 {% include 'users/partials/settings_system_settings.html' %}

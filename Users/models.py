@@ -51,6 +51,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(default=timezone.now)
     password_changed_at = models.DateTimeField(default=timezone.now)
     must_change_password = models.BooleanField(default=False)
+    failed_login_attempts = models.PositiveSmallIntegerField(default=0)
+    lockout_until = models.DateTimeField(blank=True, null=True)
+    lock_immediately_on_next_failure = models.BooleanField(default=False)
+    permanently_locked = models.BooleanField(default=False)
     microsoft_authenticator_secret = models.CharField(max_length=64, blank=True, default="")
     microsoft_authenticator_enabled = models.BooleanField(default=False)
     microsoft_authenticator_confirmed_at = models.DateTimeField(blank=True, null=True)
@@ -247,6 +251,7 @@ class SystemSetting(models.Model):
     enable_self_profile_edit = models.BooleanField(default=True)
     enable_self_password_change = models.BooleanField(default=True)
     password_expiry_days = models.PositiveSmallIntegerField(default=90)
+    password_expiry_warning_days = models.PositiveSmallIntegerField(default=7)
     password_history_count = models.PositiveSmallIntegerField(default=5)
     password_policy = models.CharField(
         max_length=20,
@@ -309,3 +314,57 @@ class PasswordHistory(models.Model):
 
     def __str__(self):
         return f"{self.user_id} password at {self.created_at}"
+
+
+class UserAccessLog(models.Model):
+    END_REASON_ACTIVE = "active"
+    END_REASON_MANUAL_LOGOUT = "manual_logout"
+    END_REASON_IDLE_TIMEOUT = "idle_timeout"
+    END_REASON_ABSOLUTE_TIMEOUT = "absolute_timeout"
+    END_REASON_CHOICES = [
+        (END_REASON_ACTIVE, "Active"),
+        (END_REASON_MANUAL_LOGOUT, "Manual Sign Out"),
+        (END_REASON_IDLE_TIMEOUT, "Idle Timeout"),
+        (END_REASON_ABSOLUTE_TIMEOUT, "Maximum Session Timeout"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="access_log_entries",
+    )
+    session_key = models.CharField(max_length=64, db_index=True)
+    login_time = models.DateTimeField(default=timezone.now, db_index=True)
+    logout_time = models.DateTimeField(blank=True, null=True, db_index=True)
+    session_duration_seconds = models.PositiveIntegerField(blank=True, null=True)
+    end_reason = models.CharField(
+        max_length=32,
+        choices=END_REASON_CHOICES,
+        default=END_REASON_ACTIVE,
+        db_index=True,
+    )
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        ordering = ["-login_time", "-id"]
+        verbose_name = "User Access Log"
+        verbose_name_plural = "User Access Logs"
+
+    def __str__(self):
+        return f"{self.user.email} session at {self.login_time:%Y-%m-%d %H:%M:%S}"
+
+    @property
+    def duration_display(self):
+        duration_seconds = self.session_duration_seconds
+        if duration_seconds is None:
+            end_time = self.logout_time or timezone.now()
+            duration_seconds = max(int((end_time - self.login_time).total_seconds()), 0)
+
+        hours, remainder = divmod(duration_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours:
+            return f"{hours}h {minutes}m {seconds}s"
+        if minutes:
+            return f"{minutes}m {seconds}s"
+        return f"{seconds}s"

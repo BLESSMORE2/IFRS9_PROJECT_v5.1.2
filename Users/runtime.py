@@ -126,6 +126,10 @@ def apply_runtime_security_settings():
     runtime_settings = get_system_settings()
     django_settings.AXES_FAILURE_LIMIT = runtime_settings.failed_login_limit
     django_settings.AXES_COOLOFF_TIME = runtime_settings.lockout_duration_minutes / 60.0
+    django_settings.AXES_LOCKOUT_PARAMETERS = ["username"]
+    django_settings.AXES_USERNAME_CALLABLE = "Users.axes_helpers.get_axes_username"
+    django_settings.AXES_ENABLE_ACCESS_FAILURE_LOG = True
+    django_settings.AXES_RESET_ON_SUCCESS = True
     return runtime_settings
 
 
