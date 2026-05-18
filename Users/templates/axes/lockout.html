@@ -1,90 +1,208 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Account Locked</title>
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-  <style>
-    /* Reset and basic styles */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: 'Roboto', sans-serif;
-      background: linear-gradient(135deg, #1e3c72, #2a5298);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      color: #333;
-    }
-    /* Card container */
-    .card {
-      background: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-      max-width: 500px;
-      width: 90%;
-      padding: 2rem;
-      text-align: center;
-      animation: fadeIn 1s ease-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    /* Heading styling */
-    h1 {
-      font-size: 2.5rem;
-      color: #e63946;
-      margin-bottom: 1rem;
-    }
-    /* Paragraph styling */
-    p {
-      font-size: 1.125rem;
-      line-height: 1.6;
-      color: #555;
-      margin-bottom: 2rem;
-    }
-    /* Button styling */
-    .btn {
-      background: #1d3557;
-      color: #ffffff;
-      padding: 0.75rem 1.5rem;
-      text-decoration: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: bold;
-      transition: background 0.3s ease;
-    }
-    .btn:hover {
-      background: #457b9d;
-    }
-    /* Footer note */
-    .footer {
-      margin-top: 2rem;
-      font-size: 0.875rem;
-      color: #888;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Locked &middot; NEXA Modules</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --nx-navy: #0b1a35;
+            --nx-navy-deep: #060e1e;
+            --nx-teal: #00d4aa;
+            --nx-teal-dim: rgba(0, 212, 170, 0.15);
+            --nx-white-soft: rgba(255, 255, 255, 0.95);
+            --nx-danger: #dc2626;
+            --nx-warning: #ea580c;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: linear-gradient(180deg, #f3f4f6 0%, #e5e7eb 100%);
+            position: relative;
+            overflow-x: hidden;
+        }
+        body::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 212, 170, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 100% 100%, rgba(79, 142, 247, 0.04) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .lockout-wrap {
+            position: relative;
+            width: 100%;
+            max-width: 460px;
+        }
+        .lockout-card {
+            background: var(--nx-white-soft);
+            border-radius: 22px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.14);
+            overflow: hidden;
+            padding: 40px 36px 34px;
+            text-align: center;
+        }
+        .brand-mark {
+            width: 58px;
+            height: 58px;
+            margin: 0 auto 14px;
+            border-radius: 16px;
+            background: rgba(220, 38, 38, 0.08);
+            color: var(--nx-danger);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        .brand-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--nx-navy);
+            letter-spacing: 0.05em;
+            margin: 0 0 2px;
+        }
+        .brand-title span { color: var(--nx-teal); }
+        .brand-copy {
+            font-size: 0.72rem;
+            color: #64748b;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin: 0 0 26px;
+        }
+        h1 {
+            font-size: 1.45rem;
+            color: #0f172a;
+            margin: 0 0 10px;
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: 999px;
+            padding: 8px 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+        .status-pill.permanent {
+            background: rgba(220, 38, 38, 0.10);
+            color: var(--nx-danger);
+        }
+        .status-pill.temporary {
+            background: rgba(234, 88, 12, 0.10);
+            color: var(--nx-warning);
+        }
+        .lockout-copy {
+            font-size: 0.92rem;
+            line-height: 1.65;
+            color: #475569;
+            margin: 0 auto 20px;
+            max-width: 340px;
+        }
+        .lockout-meta {
+            margin: 0 0 22px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.04);
+            color: #334155;
+            font-size: 0.82rem;
+        }
+        .lockout-meta strong {
+            display: block;
+            margin-bottom: 4px;
+            color: #0f172a;
+            font-size: 0.78rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .primary-btn {
+            width: 100%;
+            min-height: 48px;
+            border: none;
+            border-radius: 12px;
+            background: var(--nx-navy);
+            color: #fff;
+            font-size: 0.84rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+        }
+        .primary-btn:hover {
+            color: #fff;
+            text-decoration: none;
+            background: #10244a;
+            transform: translateY(-1px);
+            box-shadow: 0 10px 24px rgba(11, 26, 53, 0.25);
+        }
+        .footer-note {
+            margin-top: 18px;
+            font-size: 0.74rem;
+            color: #64748b;
+        }
+    </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Account Locked</h1>
-    <p>
-      Your account has been temporarily locked due to multiple unsuccessful login attempts.
-      For your security, please try again in 1 hour.
-    </p>
-    <a href="{% url 'login' %}" class="btn">Return Home</a>
-    <div class="footer">
-      If you need immediate assistance, please contact support.
+    <div class="lockout-wrap">
+        <div class="lockout-card">
+            <div class="brand-mark">
+                <i class="fas fa-shield-halved"></i>
+            </div>
+            <div class="brand-title">NEXA <span>Compliance</span></div>
+            <p class="brand-copy">Universal Workspace Launcher</p>
+
+            <div class="status-pill {% if permanent_lock %}permanent{% else %}temporary{% endif %}">
+                <i class="fas {% if permanent_lock %}fa-user-lock{% else %}fa-clock{% endif %}"></i>
+                <span>{% if permanent_lock %}Administrator Reset Required{% else %}Account Temporarily Locked{% endif %}</span>
+            </div>
+
+            <h1>{% if permanent_lock %}Account Locked After Repeated Failures{% else %}Too Many Sign-In Attempts{% endif %}</h1>
+
+            <p class="lockout-copy">
+                {% if permanent_lock %}
+                Your account is protected and can no longer accept password attempts from this login screen. An administrator must unlock it before you can sign in again.
+                {% else %}
+                Your account is temporarily locked for security reasons. The normal password form is intentionally blocked until the lockout period expires.
+                {% endif %}
+            </p>
+
+            <div class="lockout-meta">
+                <strong>Next Step</strong>
+                {% if permanent_lock %}
+                Contact your system administrator to release the lockout state, then return to the login page and sign in again.
+                {% elif lockout_until %}
+                You can try again after {{ lockout_until|date:"Y-m-d H:i:s" }}.
+                {% else %}
+                Please wait for the lockout window to expire before trying again.
+                {% endif %}
+            </div>
+
+            <a href="{% if popup_mode %}{% url 'login_popup' %}{% else %}{% url 'login' %}{% endif %}" class="primary-btn">
+                <i class="fas fa-arrow-left"></i>
+                <span>Return to Sign In</span>
+            </a>
+
+            <div class="footer-note">
+                Security lockout screen{% if app_version %} &middot; Version {{ app_version }}{% endif %}
+            </div>
+        </div>
     </div>
-  </div>
 </body>
 </html>

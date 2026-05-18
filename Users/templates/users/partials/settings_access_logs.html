@@ -1,0 +1,573 @@
+<div class="surface-grid">
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">Access Log Options</h3>
+                <p class="card-copy">Switch between authenticated sessions, access attempts, and failed sign-ins from one security workspace.</p>
+            </div>
+            <a href="{{ access_log_export_url }}" class="primary-btn"><i class="fas fa-download"></i><span>Download Current View</span></a>
+        </div>
+        <div class="tab-list">
+            <a href="{% url 'user_settings_access_logs' %}?log_view=sessions" class="tab-button{% if access_log_view == 'sessions' %} active{% endif %}">
+                <i class="fas fa-user-clock"></i><span>Sessions</span>
+            </a>
+            <a href="{% url 'user_settings_access_logs' %}?log_view=users" class="tab-button{% if access_log_view == 'users' %} active{% endif %}">
+                <i class="fas fa-users"></i><span>Users</span>
+            </a>
+            <a href="{% url 'user_settings_access_logs' %}?log_view=attempts" class="tab-button{% if access_log_view == 'attempts' %} active{% endif %}">
+                <i class="fas fa-right-to-bracket"></i><span>Access Attempts</span>
+            </a>
+            <a href="{% url 'user_settings_access_logs' %}?log_view=failures" class="tab-button{% if access_log_view == 'failures' %} active{% endif %}">
+                <i class="fas fa-triangle-exclamation"></i><span>Access Failures</span>
+            </a>
+            <a href="{% url 'user_settings_access_logs' %}?log_view=history" class="tab-button{% if access_log_view == 'history' %} active{% endif %}">
+                <i class="fas fa-timeline"></i><span>Access History</span>
+            </a>
+        </div>
+    </article>
+
+    {% if access_log_view == 'sessions' %}
+    {% if not session_log_available %}
+    <article class="card">
+        <div class="alert alert-warning mb-0" role="alert" style="font-size:.78rem;">
+            The session access-log table is not available in the current database yet. Apply the latest Users migration to enable authenticated session history.
+        </div>
+    </article>
+    {% endif %}
+
+    <div class="metric-grid">
+        <article class="metric">
+            <div class="metric-label">Total Sessions</div>
+            <div class="metric-value">{{ session_log_metrics.total_sessions|default:0 }}</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Active Sessions</div>
+            <div class="metric-value">{{ session_log_metrics.active_sessions|default:0 }}</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Timeout Exits</div>
+            <div class="metric-value">{{ session_log_metrics.timeout_sessions|default:0 }}</div>
+        </article>
+    </div>
+
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">Session Filters</h3>
+                <p class="card-copy">Review login time, logout time, session duration, and whether the user signed out manually or was pushed out by timeout.</p>
+            </div>
+        </div>
+        <form method="get" class="inline-filter-grid">
+            <input type="hidden" name="log_view" value="sessions">
+            <div class="form-group">
+                <label for="access-log-user">User</label>
+                <select id="access-log-user" name="user" class="form-control form-control-sm">
+                    <option value="">All users</option>
+                    {% for user_option in access_log_user_choices %}
+                    <option value="{{ user_option.pk }}"{% if selected_access_log_user == user_option.pk|stringformat:"s" %} selected{% endif %}>
+                        {{ user_option.email }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="access-log-end-reason">Session End</label>
+                <select id="access-log-end-reason" name="end_reason" class="form-control form-control-sm">
+                    <option value="">All outcomes</option>
+                    {% for end_reason_value, end_reason_label in access_log_reason_choices %}
+                    <option value="{{ end_reason_value }}"{% if selected_access_log_end_reason == end_reason_value %} selected{% endif %}>
+                        {{ end_reason_label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="editor-actions" style="margin-top:24px;">
+                <button type="submit" class="primary-btn"><i class="fas fa-filter"></i><span>Apply Filters</span></button>
+                <a href="{% url 'user_settings_access_logs' %}?log_view=sessions" class="secondary-btn"><i class="fas fa-rotate-left"></i><span>Reset</span></a>
+            </div>
+        </form>
+    </article>
+
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">Authenticated Sessions</h3>
+                <p class="card-copy">Successful sessions recorded by the platform, including manual sign-out and automatic timeout outcomes.</p>
+            </div>
+            <div class="badge-list">
+                <span class="soft-badge status-manual">Manual: {{ session_log_metrics.manual_sessions|default:0 }}</span>
+                <span class="soft-badge status-timeout">Timeout: {{ session_log_metrics.timeout_sessions|default:0 }}</span>
+            </div>
+        </div>
+        <div class="table-shell compact-scroll">
+            <table class="settings-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Login Time</th>
+                        <th>Logout Time</th>
+                        <th>Session Duration</th>
+                        <th>Session End</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in session_log_rows %}
+                    <tr>
+                        <td>
+                            <strong>{{ log.user.email }}</strong><br>
+                            <span class="help-text">{{ log.user.name }} {{ log.user.surname }}</span>
+                        </td>
+                        <td>{{ log.login_time|date:"Y-m-d H:i:s" }}</td>
+                        <td>
+                            {% if log.logout_time %}
+                                {{ log.logout_time|date:"Y-m-d H:i:s" }}
+                            {% else %}
+                                <span class="soft-badge status-active">Still active</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.duration_display }}</td>
+                        <td>
+                            {% if log.end_reason == 'manual_logout' %}
+                            <span class="soft-badge status-manual">{{ log.get_end_reason_display }}</span>
+                            {% elif log.end_reason == 'idle_timeout' or log.end_reason == 'absolute_timeout' %}
+                            <span class="soft-badge status-timeout">{{ log.get_end_reason_display }}</span>
+                            {% else %}
+                            <span class="soft-badge status-active">{{ log.get_end_reason_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.ip_address|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center"><div class="help-text" style="padding:18px 0;">No authenticated sessions match the current filters yet.</div></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+    {% endif %}
+
+    {% if access_log_view == 'users' %}
+    {% if not user_roster_tracking_available %}
+    <article class="card">
+        <div class="alert alert-warning mb-0" role="alert" style="font-size:.78rem;">
+            Current-session tracking is not available in the current database yet. User accounts and last-login details are still shown below.
+        </div>
+    </article>
+    {% endif %}
+
+    <div class="metric-grid">
+        <article class="metric">
+            <div class="metric-label">Users in Scope</div>
+            <div class="metric-value">{{ user_roster_metrics.total_users|default:0 }}</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Currently Active</div>
+            <div class="metric-value">{{ user_roster_metrics.currently_active_users|default:0 }}</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Never Logged In</div>
+            <div class="metric-value">{{ user_roster_metrics.never_logged_in_users|default:0 }}</div>
+        </article>
+    </div>
+
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">User Activity Filters</h3>
+                <p class="card-copy">Review all users, filter currently active accounts, and inspect last-login activity without opening the admin panel.</p>
+            </div>
+        </div>
+        <form method="get" class="inline-filter-grid">
+            <input type="hidden" name="log_view" value="users">
+            <div class="form-group">
+                <label for="access-log-user-search">Search Users</label>
+                <input id="access-log-user-search" type="text" name="search" class="form-control form-control-sm" value="{{ access_log_search_query }}" placeholder="Email, name, or department">
+            </div>
+            <div class="form-group">
+                <label for="access-log-user-activity">Activity State</label>
+                <select id="access-log-user-activity" name="user_activity" class="form-control form-control-sm">
+                    {% for activity_value, activity_label in user_roster_activity_choices %}
+                    <option value="{{ activity_value }}"{% if selected_user_activity_state == activity_value %} selected{% endif %}>{{ activity_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="editor-actions" style="margin-top:24px;">
+                <button type="submit" class="primary-btn"><i class="fas fa-filter"></i><span>Apply Filters</span></button>
+                <a href="{% url 'user_settings_access_logs' %}?log_view=users" class="secondary-btn"><i class="fas fa-rotate-left"></i><span>Reset</span></a>
+            </div>
+        </form>
+    </article>
+
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">User Access Roster</h3>
+                <p class="card-copy">A compact roster of user accounts showing account status, current login state, last login, and joined date.</p>
+            </div>
+        </div>
+        <div class="table-shell compact-scroll">
+            <table class="settings-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Department</th>
+                        <th>Account Status</th>
+                        <th>Current Session</th>
+                        <th>Last Login</th>
+                        <th>Lockout State</th>
+                        <th>Joined</th>
+                        {% if can_reset_user_lockout %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user_row in user_roster_rows %}
+                    <tr>
+                        <td>
+                            <strong>{{ user_row.email }}</strong><br>
+                            <span class="help-text">{{ user_row.name }} {{ user_row.surname }}</span>
+                        </td>
+                        <td>{{ user_row.department|default:"-" }}</td>
+                        <td>
+                            {% if user_row.is_active %}
+                            <span class="soft-badge status-manual">Active Account</span>
+                            {% else %}
+                            <span class="soft-badge empty">Disabled</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user_roster_tracking_available %}
+                                {% if user_row.active_session_count|default:0 > 0 %}
+                                <span class="soft-badge status-active">Logged In</span>
+                                {% else %}
+                                <span class="soft-badge empty">Offline</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="soft-badge empty">Unavailable</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user_row.last_login %}
+                                {{ user_row.last_login|date:"Y-m-d H:i:s" }}
+                            {% else %}
+                                <span class="soft-badge empty">Never</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user_row.permanently_locked %}
+                                <span class="soft-badge status-timeout">Admin Lock</span><br>
+                                <span class="help-text">Locked until an administrator resets the account</span>
+                            {% elif user_row.lockout_until and user_row.lockout_until > access_log_now %}
+                                <span class="soft-badge status-timeout">Locked</span><br>
+                                <span class="help-text">Until {{ user_row.lockout_until|date:"Y-m-d H:i:s" }}</span>
+                            {% elif user_row.lock_immediately_on_next_failure %}
+                                <span class="soft-badge" style="background:rgba(59,130,246,.12);color:#1d4ed8;">Armed</span><br>
+                                <span class="help-text">Next bad password triggers administrator lock</span>
+                            {% else %}
+                                <span class="soft-badge empty">Clear</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user_row.date_joined|date:"Y-m-d H:i:s" }}</td>
+                        {% if can_reset_user_lockout %}
+                        <td>
+                            <form method="post" action="{% url 'user_settings_access_logs' %}?log_view=users{% if access_log_search_query %}&search={{ access_log_search_query|urlencode }}{% endif %}{% if selected_user_activity_state %}&user_activity={{ selected_user_activity_state|urlencode }}{% endif %}" onsubmit="return confirm('Reset lockout state for {{ user_row.email }}?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="reset_user_lockout">
+                                <input type="hidden" name="target_user_id" value="{{ user_row.pk }}">
+                                <button type="submit" class="secondary-btn" style="min-height:30px;padding:0 10px;font-size:.68rem;">
+                                    <i class="fas fa-unlock-alt"></i><span>Reset</span>
+                                </button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if can_reset_user_lockout %}8{% else %}7{% endif %}" class="text-center"><div class="help-text" style="padding:18px 0;">No users match the current roster filters.</div></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+    {% endif %}
+
+    {% if access_log_view == 'history' %}
+    {% if not history_log_available %}
+    <article class="card">
+        <div class="alert alert-warning mb-0" role="alert" style="font-size:.78rem;">
+            Access history sources are not available in the current database yet.
+        </div>
+    </article>
+    {% endif %}
+
+    <div class="metric-grid">
+        <article class="metric">
+            <div class="metric-label">Events in Scope</div>
+            <div class="metric-value">{{ history_metrics.events_in_scope|default:0 }}</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Session Events</div>
+            <div class="metric-value">{{ history_metrics.session_events|default:0 }}</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Failure Events</div>
+            <div class="metric-value">{{ history_metrics.failure_events|default:0 }}</div>
+        </article>
+    </div>
+
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">History Filter</h3>
+                <p class="card-copy">Search one chronological timeline that combines sessions, attempts, and failure events.</p>
+            </div>
+        </div>
+        <form method="get" class="inline-filter-grid">
+            <input type="hidden" name="log_view" value="history">
+            <div class="form-group">
+                <label for="access-log-history-search">Search</label>
+                <input id="access-log-history-search" type="text" name="search" class="form-control form-control-sm" value="{{ access_log_search_query }}" placeholder="Email, username, or name">
+            </div>
+            <div></div>
+            <div class="editor-actions" style="margin-top:24px;">
+                <button type="submit" class="primary-btn"><i class="fas fa-filter"></i><span>Apply Filters</span></button>
+                <a href="{% url 'user_settings_access_logs' %}?log_view=history" class="secondary-btn"><i class="fas fa-rotate-left"></i><span>Reset</span></a>
+            </div>
+        </form>
+    </article>
+
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">Combined Access History</h3>
+                <p class="card-copy">A chronological access timeline showing user sessions, failed sign-ins, and access-control events in one place.</p>
+            </div>
+        </div>
+        <div class="table-shell compact-scroll">
+            <table class="settings-table">
+                <thead>
+                    <tr>
+                        <th>Event Time</th>
+                        <th>Event Type</th>
+                        <th>Actor</th>
+                        <th>Outcome</th>
+                        <th>Details</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in access_history_rows %}
+                    <tr>
+                        <td>{{ event.event_time|date:"Y-m-d H:i:s" }}</td>
+                        <td>{{ event.event_type }}</td>
+                        <td>
+                            <strong>{{ event.actor }}</strong><br>
+                            <span class="help-text">{{ event.secondary }}</span>
+                        </td>
+                        <td>
+                            {% if event.status_class %}
+                            <span class="soft-badge {{ event.status_class }}">{{ event.outcome }}</span>
+                            {% else %}
+                            <span class="soft-badge">{{ event.outcome }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ event.details }}</td>
+                        <td>{{ event.source }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center"><div class="help-text" style="padding:18px 0;">No access-history events match the current filters yet.</div></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+    {% endif %}
+
+    {% if access_log_view == 'attempts' %}
+    {% if not attempt_log_available %}
+    <article class="card">
+        <div class="alert alert-warning mb-0" role="alert" style="font-size:.78rem;">
+            Access attempt records are not available in the current database yet.
+        </div>
+    </article>
+    {% endif %}
+
+    <div class="metric-grid">
+        <article class="metric">
+            <div class="metric-label">Total Attempts</div>
+            <div class="metric-value">{{ attempt_log_metrics.total_attempts|default:0 }}</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Distinct Usernames</div>
+            <div class="metric-value">{{ attempt_log_metrics.unique_usernames|default:0 }}</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Attempts with Failures</div>
+            <div class="metric-value">{{ attempt_log_metrics.latest_failures|default:0 }}</div>
+        </article>
+    </div>
+
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">Attempt Filters</h3>
+                <p class="card-copy">Search access-attempt traces by username or email fragment.</p>
+            </div>
+            {% if can_clear_access_attempts %}
+            <form method="post" action="{% url 'user_settings_access_logs' %}?log_view=attempts{% if access_log_search_query %}&search={{ access_log_search_query|urlencode }}{% endif %}" onsubmit="return confirm('Clear the current access-attempt records from this view?');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="clear_access_attempts">
+                <button type="submit" class="secondary-btn" style="border-color:rgba(220,38,38,.18);color:#b91c1c;background:#fff5f5;">
+                    <i class="fas fa-trash-alt"></i><span>Clear Attempts</span>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        <form method="get" class="inline-filter-grid">
+            <input type="hidden" name="log_view" value="attempts">
+            <div class="form-group">
+                <label for="access-log-username-attempt">Username</label>
+                <input id="access-log-username-attempt" type="text" name="search" class="form-control form-control-sm" value="{{ access_log_search_query }}" placeholder="Search username or email">
+            </div>
+            <div></div>
+            <div class="editor-actions" style="margin-top:24px;">
+                <button type="submit" class="primary-btn"><i class="fas fa-filter"></i><span>Apply Filters</span></button>
+                <a href="{% url 'user_settings_access_logs' %}?log_view=attempts" class="secondary-btn"><i class="fas fa-rotate-left"></i><span>Reset</span></a>
+            </div>
+        </form>
+    </article>
+
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">Access Attempts</h3>
+                <p class="card-copy">Attempts captured by the access-control layer, including username, source IP, path, and cumulative failure count.</p>
+            </div>
+        </div>
+        <div class="table-shell compact-scroll">
+            <table class="settings-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Attempt Time</th>
+                        <th>Failures Since Start</th>
+                        <th>IP Address</th>
+                        <th>Path</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in attempt_log_rows %}
+                    <tr>
+                        <td>{{ log.username|default:"-" }}</td>
+                        <td>{{ log.attempt_time|date:"Y-m-d H:i:s" }}</td>
+                        <td>{{ log.failures_since_start }}</td>
+                        <td>{{ log.ip_address|default:"-" }}</td>
+                        <td>{{ log.path_info|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center"><div class="help-text" style="padding:18px 0;">No access attempts match the current filters yet.</div></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+    {% endif %}
+
+    {% if access_log_view == 'failures' %}
+    {% if not failure_log_available %}
+    <article class="card">
+        <div class="alert alert-warning mb-0" role="alert" style="font-size:.78rem;">
+            Access failure records are not available in the current database yet.
+        </div>
+    </article>
+    {% endif %}
+
+    <div class="metric-grid">
+        <article class="metric">
+            <div class="metric-label">Total Failures</div>
+            <div class="metric-value">{{ failure_log_metrics.total_failures|default:0 }}</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Locked Out</div>
+            <div class="metric-value">{{ failure_log_metrics.locked_out_failures|default:0 }}</div>
+        </article>
+        <article class="metric">
+            <div class="metric-label">Distinct Usernames</div>
+            <div class="metric-value">{{ failure_log_metrics.unique_usernames|default:0 }}</div>
+        </article>
+    </div>
+
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">Failure Filters</h3>
+                <p class="card-copy">Search failed sign-ins by username or email fragment to investigate repeated invalid access.</p>
+            </div>
+        </div>
+        <form method="get" class="inline-filter-grid">
+            <input type="hidden" name="log_view" value="failures">
+            <div class="form-group">
+                <label for="access-log-username-failure">Username</label>
+                <input id="access-log-username-failure" type="text" name="search" class="form-control form-control-sm" value="{{ access_log_search_query }}" placeholder="Search username or email">
+            </div>
+            <div></div>
+            <div class="editor-actions" style="margin-top:24px;">
+                <button type="submit" class="primary-btn"><i class="fas fa-filter"></i><span>Apply Filters</span></button>
+                <a href="{% url 'user_settings_access_logs' %}?log_view=failures" class="secondary-btn"><i class="fas fa-rotate-left"></i><span>Reset</span></a>
+            </div>
+        </form>
+    </article>
+
+    <article class="card">
+        <div class="card-head">
+            <div>
+                <h3 class="card-title">Access Failures</h3>
+                <p class="card-copy">Failed access records showing whether the event escalated into a lockout.</p>
+            </div>
+        </div>
+        <div class="table-shell compact-scroll">
+            <table class="settings-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Failure Time</th>
+                        <th>Locked Out</th>
+                        <th>IP Address</th>
+                        <th>Path</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in failure_log_rows %}
+                    <tr>
+                        <td>{{ log.username|default:"-" }}</td>
+                        <td>{{ log.attempt_time|date:"Y-m-d H:i:s" }}</td>
+                        <td>
+                            {% if log.locked_out %}
+                            <span class="soft-badge status-timeout">Locked Out</span>
+                            {% else %}
+                            <span class="soft-badge">No</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.ip_address|default:"-" }}</td>
+                        <td>{{ log.path_info|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center"><div class="help-text" style="padding:18px 0;">No access failures match the current filters yet.</div></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+    {% endif %}
+</div>

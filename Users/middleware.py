@@ -5,6 +5,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import urlencode
 
+from .access_logs import close_user_session_log
+from .models import UserAccessLog
 from .security import password_change_required
 from .runtime import (
     MICROSOFT_AUTH_VERIFIED_AT_KEY,
@@ -39,6 +41,7 @@ class RuntimeSessionControlMiddleware:
 
             idle_timeout = runtime_settings.idle_timeout_minutes
             if idle_timeout and (now - last_activity_at).total_seconds() > idle_timeout * 60:
+                close_user_session_log(request, UserAccessLog.END_REASON_IDLE_TIMEOUT)
                 logout(request)
                 messages.warning(
                     request,
@@ -48,6 +51,7 @@ class RuntimeSessionControlMiddleware:
 
             absolute_timeout = runtime_settings.absolute_session_timeout_minutes
             if absolute_timeout and (now - started_at).total_seconds() > absolute_timeout * 60:
+                close_user_session_log(request, UserAccessLog.END_REASON_ABSOLUTE_TIMEOUT)
                 logout(request)
                 messages.warning(
                     request,

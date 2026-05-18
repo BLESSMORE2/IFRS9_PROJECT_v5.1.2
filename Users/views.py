@@ -1,7 +1,9 @@
 ﻿import base64
+import csv
 import io
 import os
 import urllib.parse
+from datetime import timedelta
 from time import perf_counter
 
 import pyotp
@@ -10,9 +12,12 @@ from django import forms as django_forms
 from django.contrib import messages, auth
 from django.contrib.auth import login,logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
+from django.contrib.contenttypes.models import ContentType
 from django.db import DatabaseError
+from django.db.models import Count, Q
 from django.db.utils import ConnectionHandler
+from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -24,8 +29,9 @@ from .forms import (
     UserWorkspaceCreationForm,
     UserRoleAssignmentForm,
 )
-from .models import CustomUser, SystemModule, SystemSetting, UserModuleAccess
+from .models import CustomUser, SystemModule, SystemSetting, UserModuleAccess, UserAccessLog
 from .backends import resolve_login_user
+from .access_logs import begin_user_session_log, close_user_session_log
 from .security import password_change_required, password_policy_requirements
 from django.urls import reverse
 from django.conf import settings
@@ -54,6 +60,12 @@ from .runtime import (
     read_session_timestamp,
 )
 
+try:
+    from axes.models import AccessAttempt, AccessFailureLog
+except Exception:  # pragma: no cover - graceful fallback if axes is unavailable
+    AccessAttempt = None
+    AccessFailureLog = None
+
 
 def get_app_version():
     """Return current app version from IFRS9 AppVersion table, or None if not available."""
@@ -66,6 +78,22 @@ def get_app_version():
         return v.version if v else None
     except Exception:
         return None
+
+
+def _render_lockout_response(request, target_user=None, permanent_lock=False):
+    popup_mode = _workspace_popup_enabled(request)
+    lockout_until = getattr(target_user, "lockout_until", None) if target_user is not None else None
+    return render(
+        request,
+        "axes/lockout.html",
+        {
+            "app_version": get_app_version(),
+            "popup_mode": popup_mode,
+            "permanent_lock": permanent_lock,
+            "lockout_until": lockout_until,
+        },
+        status=429,
+    )
 
 
 MICROSOFT_AUTH_PURPOSE_KEY = "users_microsoft_auth_purpose"
@@ -137,9 +165,15 @@ def login_popup_view(request):
         identifier = (request.POST.get("login_identifier") or request.POST.get("email") or "").strip()
         password = request.POST.get("password", None)
         next_target = _get_safe_next_value(request.POST.get("next"))
+        target_user = resolve_login_user(identifier) if identifier else None
         _set_workspace_popup_mode(request, True)
+        if target_user and _is_user_permanently_locked(target_user):
+            return _render_lockout_response(request, target_user, permanent_lock=True)
+        if target_user and _is_user_in_custom_lockout(target_user):
+            return _render_lockout_response(request, target_user)
         user = auth.authenticate(request, username=identifier, email=identifier, password=password)
         if user is not None:
+            _reset_user_failed_login_state(user)
             if microsoft_login_available and runtime_settings.microsoft_auth_on_login and authenticator_app_mode:
                 request.session[MICROSOFT_AUTH_PENDING_USER_ID_KEY] = user.pk
                 request.session[MICROSOFT_AUTH_PURPOSE_KEY] = "login"
@@ -147,6 +181,7 @@ def login_popup_view(request):
                 return redirect(f"{reverse('microsoft_auth_start')}?{urllib.parse.urlencode({'popup': '1'})}")
 
             auth.login(request, user)
+            begin_user_session_log(request, user)
             _clear_microsoft_verification(request)
             _clear_pending_microsoft_auth(request)
             _set_workspace_popup_mode(request, True)
@@ -160,7 +195,13 @@ def login_popup_view(request):
 
             return redirect(next_target or get_post_login_redirect(user))
         else:
-            if identifier and resolve_login_user(identifier) is None:
+            if target_user is not None:
+                lockout_state = _register_failed_login_attempt(target_user, runtime_settings)
+                if lockout_state == "permanent":
+                    return _render_lockout_response(request, target_user, permanent_lock=True)
+                if lockout_state == "temporary":
+                    return _render_lockout_response(request, target_user)
+            if identifier and target_user is None:
                 messages.error(request, "No account found for that email or username.")
             else:
                 messages.error(request, "Incorrect password.")
@@ -248,6 +289,8 @@ def user_settings_view(request):
         return redirect("user_settings_authenticator")
     if _can_view_user_roles(request.user):
         return redirect("user_settings_roles")
+    if _can_view_access_logs(request.user):
+        return redirect("user_settings_access_logs")
     if _can_view_system_settings(request.user):
         return redirect("user_settings_system")
 
@@ -602,6 +645,597 @@ def user_settings_system_view(request):
 
 
 @login_required
+def user_settings_access_logs_view(request):
+    if not _can_view_access_logs(request.user):
+        messages.error(request, "You do not have permission to view access logs.")
+        return redirect("modules_home")
+
+    try:
+        _safe_ensure_access_log_security_roles()
+    except DatabaseError:
+        pass
+
+    access_log_view = _normalize_access_log_view(request.GET.get("log_view"))
+    selected_user_id = (request.GET.get("user") or "").strip()
+    selected_end_reason = (request.GET.get("end_reason") or "").strip()
+    search_query = (request.GET.get("search") or request.GET.get("username") or "").strip()
+    selected_user_activity_state = (request.GET.get("user_activity") or "").strip().lower()
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+        if action == "clear_access_attempts":
+            if not _can_clear_access_attempts(request.user):
+                messages.error(request, "You do not have permission to clear access attempts.")
+                return redirect(_build_access_logs_view_url("attempts", search_query=search_query))
+            if AccessAttempt is None:
+                messages.warning(request, "Access attempt logs are not available in the current environment.")
+                return redirect(_build_access_logs_view_url("attempts", search_query=search_query))
+            try:
+                attempts_qs = AccessAttempt.objects.order_by("-attempt_time", "-id")
+                if search_query:
+                    attempts_qs = attempts_qs.filter(username__icontains=search_query)
+                deleted_count, _ = attempts_qs.delete()
+                save_audit_trail(
+                    request.user,
+                    "AccessAttempt",
+                    "delete",
+                    None,
+                    "Cleared access attempts from the Access Logs settings workspace."
+                    if not search_query
+                    else f"Cleared filtered access attempts matching '{search_query}'.",
+                )
+                if search_query:
+                    messages.success(request, f"Cleared {deleted_count} access-attempt records matching '{search_query}'.")
+                else:
+                    messages.success(request, f"Cleared {deleted_count} access-attempt records.")
+            except DatabaseError:
+                messages.warning(request, "Access attempt logs could not be cleared from the current database.")
+            return redirect(_build_access_logs_view_url("attempts"))
+        if action == "reset_user_lockout":
+            if not _can_reset_user_lockout(request.user):
+                messages.error(request, "You do not have permission to reset user lockout state.")
+                return redirect(
+                    _build_access_logs_view_url(
+                        "users",
+                        search_query=search_query,
+                        user_activity_state=selected_user_activity_state,
+                    )
+                )
+            target_user_id = (request.POST.get("target_user_id") or "").strip()
+            target_user = CustomUser.objects.filter(pk=target_user_id).first()
+            if target_user is None:
+                messages.warning(request, "The selected user could not be found.")
+                return redirect(
+                    _build_access_logs_view_url(
+                        "users",
+                        search_query=search_query,
+                        user_activity_state=selected_user_activity_state,
+                    )
+                )
+
+            _release_user_lockout_by_admin(target_user)
+            save_audit_trail(
+                request.user,
+                "CustomUser",
+                "update",
+                target_user.pk,
+                f"Released lockout state for user {target_user.email} from the Access Logs workspace and armed permanent lock on the next failed password while preserving history.",
+            )
+            messages.success(
+                request,
+                f"Released {target_user.email}. History was preserved, and the next failed password will require another administrator reset.",
+            )
+            return redirect(
+                _build_access_logs_view_url(
+                    "users",
+                    search_query=search_query,
+                    user_activity_state=selected_user_activity_state,
+                )
+            )
+
+    session_log_available = True
+    attempt_log_available = True
+    failure_log_available = True
+    user_roster_tracking_available = True
+    history_log_available = True
+
+    session_rows = []
+    attempt_rows = []
+    failure_rows = []
+    user_roster_rows = []
+    access_history_rows = []
+    session_metrics = {
+        "total_sessions": 0,
+        "active_sessions": 0,
+        "manual_sessions": 0,
+        "timeout_sessions": 0,
+    }
+    attempt_metrics = {
+        "total_attempts": 0,
+        "unique_usernames": 0,
+        "latest_failures": 0,
+    }
+    failure_metrics = {
+        "total_failures": 0,
+        "locked_out_failures": 0,
+        "unique_usernames": 0,
+    }
+    user_roster_metrics = {
+        "total_users": 0,
+        "currently_active_users": 0,
+        "never_logged_in_users": 0,
+    }
+    history_metrics = {
+        "events_in_scope": 0,
+        "session_events": 0,
+        "attempt_events": 0,
+        "failure_events": 0,
+    }
+
+    try:
+        access_logs_qs = UserAccessLog.objects.select_related("user").order_by("-login_time", "-id")
+        if selected_user_id:
+            access_logs_qs = access_logs_qs.filter(user_id=selected_user_id)
+        if selected_end_reason:
+            access_logs_qs = access_logs_qs.filter(end_reason=selected_end_reason)
+
+        session_rows = list(access_logs_qs[:120])
+        session_metrics = UserAccessLog.objects.aggregate(
+            total_sessions=Count("id"),
+            active_sessions=Count("id", filter=Q(end_reason=UserAccessLog.END_REASON_ACTIVE)),
+            manual_sessions=Count("id", filter=Q(end_reason=UserAccessLog.END_REASON_MANUAL_LOGOUT)),
+            timeout_sessions=Count(
+                "id",
+                filter=Q(end_reason__in=[UserAccessLog.END_REASON_IDLE_TIMEOUT, UserAccessLog.END_REASON_ABSOLUTE_TIMEOUT]),
+            ),
+        )
+    except DatabaseError:
+        session_log_available = False
+        if access_log_view == "sessions":
+            messages.warning(
+                request,
+                "Session log storage is not available yet in this database. Apply the latest Users migration to enable session history.",
+            )
+
+    if AccessAttempt is None:
+        attempt_log_available = False
+    else:
+        try:
+            attempt_qs = AccessAttempt.objects.order_by("-attempt_time", "-id")
+            if search_query:
+                attempt_qs = attempt_qs.filter(username__icontains=search_query)
+            attempt_rows = list(attempt_qs[:120])
+            attempt_metrics = {
+                "total_attempts": AccessAttempt.objects.count(),
+                "unique_usernames": AccessAttempt.objects.exclude(username__isnull=True).exclude(username="").values("username").distinct().count(),
+                "latest_failures": AccessAttempt.objects.aggregate(max_failures=Count("id", filter=Q(failures_since_start__gt=0))).get("max_failures", 0),
+            }
+        except DatabaseError:
+            attempt_log_available = False
+            if access_log_view == "attempts":
+                messages.warning(
+                    request,
+                    "Access attempt logs are not available in the current database yet.",
+                )
+
+    if AccessFailureLog is None:
+        failure_log_available = False
+    else:
+        try:
+            failure_qs = AccessFailureLog.objects.order_by("-attempt_time", "-id")
+            if search_query:
+                failure_qs = failure_qs.filter(username__icontains=search_query)
+            failure_rows = list(failure_qs[:120])
+            failure_metrics = {
+                "total_failures": AccessFailureLog.objects.count(),
+                "locked_out_failures": AccessFailureLog.objects.filter(locked_out=True).count(),
+                "unique_usernames": AccessFailureLog.objects.exclude(username__isnull=True).exclude(username="").values("username").distinct().count(),
+            }
+        except DatabaseError:
+            failure_log_available = False
+            if access_log_view == "failures":
+                messages.warning(
+                    request,
+                    "Access failure logs are not available in the current database yet.",
+                )
+
+    user_roster_base_qs = CustomUser.objects.all().order_by("email")
+    if search_query:
+        user_roster_base_qs = user_roster_base_qs.filter(
+            Q(email__icontains=search_query)
+            | Q(name__icontains=search_query)
+            | Q(surname__icontains=search_query)
+            | Q(department__icontains=search_query)
+        )
+
+    try:
+        user_roster_base_qs = user_roster_base_qs.annotate(
+            active_session_count=Count(
+                "access_log_entries",
+                filter=Q(
+                    access_log_entries__end_reason=UserAccessLog.END_REASON_ACTIVE,
+                    access_log_entries__logout_time__isnull=True,
+                ),
+                distinct=True,
+            )
+        )
+        if selected_user_activity_state == "active":
+            user_roster_base_qs = user_roster_base_qs.filter(active_session_count__gt=0)
+        elif selected_user_activity_state == "inactive":
+            user_roster_base_qs = user_roster_base_qs.filter(active_session_count=0)
+        elif selected_user_activity_state == "never_logged":
+            user_roster_base_qs = user_roster_base_qs.filter(last_login__isnull=True)
+
+        user_roster_metrics = {
+            "total_users": user_roster_base_qs.count(),
+            "currently_active_users": user_roster_base_qs.filter(active_session_count__gt=0).count(),
+            "never_logged_in_users": user_roster_base_qs.filter(last_login__isnull=True).count(),
+        }
+        user_roster_rows = list(user_roster_base_qs[:200])
+    except DatabaseError:
+        user_roster_tracking_available = False
+        if selected_user_activity_state == "never_logged":
+            user_roster_base_qs = user_roster_base_qs.filter(last_login__isnull=True)
+        elif selected_user_activity_state in {"active", "inactive"}:
+            user_roster_base_qs = user_roster_base_qs.none()
+
+        user_roster_metrics = {
+            "total_users": user_roster_base_qs.count(),
+            "currently_active_users": 0,
+            "never_logged_in_users": user_roster_base_qs.filter(last_login__isnull=True).count(),
+        }
+        user_roster_rows = list(user_roster_base_qs[:200])
+        if access_log_view == "users":
+            messages.warning(
+                request,
+                "Current-session tracking is not available yet in this database. User account details are still shown below.",
+            )
+
+    history_session_rows = []
+    history_attempt_rows = []
+    history_failure_rows = []
+
+    try:
+        history_session_qs = UserAccessLog.objects.select_related("user").order_by("-login_time", "-id")
+        if search_query:
+            history_session_qs = history_session_qs.filter(
+                Q(user__email__icontains=search_query)
+                | Q(user__name__icontains=search_query)
+                | Q(user__surname__icontains=search_query)
+            )
+        history_session_rows = list(history_session_qs[:120])
+    except DatabaseError:
+        if access_log_view == "history" and not AccessAttempt and not AccessFailureLog:
+            history_log_available = False
+
+    if AccessAttempt is not None:
+        try:
+            history_attempt_qs = AccessAttempt.objects.order_by("-attempt_time", "-id")
+            if search_query:
+                history_attempt_qs = history_attempt_qs.filter(username__icontains=search_query)
+            history_attempt_rows = list(history_attempt_qs[:120])
+        except DatabaseError:
+            if access_log_view == "history" and not session_log_available and AccessFailureLog is None:
+                history_log_available = False
+
+    if AccessFailureLog is not None:
+        try:
+            history_failure_qs = AccessFailureLog.objects.order_by("-attempt_time", "-id")
+            if search_query:
+                history_failure_qs = history_failure_qs.filter(username__icontains=search_query)
+            history_failure_rows = list(history_failure_qs[:120])
+        except DatabaseError:
+            if access_log_view == "history" and not session_log_available and AccessAttempt is None:
+                history_log_available = False
+
+    for row in history_session_rows:
+        access_history_rows.append(
+            {
+                "event_time": row.login_time,
+                "event_type": "Session",
+                "actor": row.user.email,
+                "secondary": f"{row.user.name} {row.user.surname}".strip(),
+                "outcome": row.get_end_reason_display(),
+                "status_class": "status-active" if row.end_reason == UserAccessLog.END_REASON_ACTIVE else ("status-manual" if row.end_reason == UserAccessLog.END_REASON_MANUAL_LOGOUT else "status-timeout"),
+                "details": f"Started from {row.ip_address or 'unknown IP'}",
+                "source": "Authenticated Session",
+            }
+        )
+        if row.logout_time:
+            access_history_rows.append(
+                {
+                    "event_time": row.logout_time,
+                    "event_type": "Session End",
+                    "actor": row.user.email,
+                    "secondary": f"{row.user.name} {row.user.surname}".strip(),
+                    "outcome": row.get_end_reason_display(),
+                    "status_class": "status-manual" if row.end_reason == UserAccessLog.END_REASON_MANUAL_LOGOUT else "status-timeout",
+                    "details": f"Session duration {row.duration_display}",
+                    "source": "Authenticated Session",
+                }
+            )
+
+    for row in history_attempt_rows:
+        access_history_rows.append(
+            {
+                "event_time": row.attempt_time,
+                "event_type": "Access Attempt",
+                "actor": row.username or "-",
+                "secondary": row.ip_address or "-",
+                "outcome": "Failed Attempt" if (row.failures_since_start or 0) > 0 else "Attempt Recorded",
+                "status_class": "status-timeout" if (row.failures_since_start or 0) > 0 else "",
+                "details": f"Failures since start: {row.failures_since_start}",
+                "source": row.path_info or "-",
+            }
+        )
+
+    for row in history_failure_rows:
+        access_history_rows.append(
+            {
+                "event_time": row.attempt_time,
+                "event_type": "Access Failure",
+                "actor": row.username or "-",
+                "secondary": row.ip_address or "-",
+                "outcome": "Locked Out" if row.locked_out else "Failed Sign-In",
+                "status_class": "status-timeout",
+                "details": row.user_agent or "Failure recorded by access-control layer",
+                "source": row.path_info or "-",
+            }
+        )
+
+    access_history_rows.sort(
+        key=lambda item: (item["event_time"] is not None, item["event_time"]),
+        reverse=True,
+    )
+    access_history_rows = access_history_rows[:220]
+    history_metrics = {
+        "events_in_scope": len(access_history_rows),
+        "session_events": sum(1 for item in access_history_rows if item["event_type"] in {"Session", "Session End"}),
+        "attempt_events": sum(1 for item in access_history_rows if item["event_type"] == "Access Attempt"),
+        "failure_events": sum(1 for item in access_history_rows if item["event_type"] == "Access Failure"),
+    }
+    if access_log_view == "history" and not access_history_rows and not (session_log_available or attempt_log_available or failure_log_available):
+        history_log_available = False
+
+    context = _build_settings_context(
+        request,
+        active_section="access_logs",
+        page_title="Access Logs",
+        page_intro="Review authenticated sessions, monitor access attempts, inspect failed sign-ins, review user login status, and open one combined access history whenever you need an audit extract.",
+    )
+    context.update(
+        {
+            "access_log_view": access_log_view,
+            "session_log_rows": session_rows,
+            "attempt_log_rows": attempt_rows,
+            "failure_log_rows": failure_rows,
+            "user_roster_rows": user_roster_rows,
+            "access_history_rows": access_history_rows,
+            "access_log_user_choices": CustomUser.objects.order_by("email"),
+            "selected_access_log_user": selected_user_id,
+            "selected_access_log_end_reason": selected_end_reason,
+            "access_log_search_query": search_query,
+            "selected_user_activity_state": selected_user_activity_state,
+            "session_log_metrics": session_metrics,
+            "attempt_log_metrics": attempt_metrics,
+            "failure_log_metrics": failure_metrics,
+            "user_roster_metrics": user_roster_metrics,
+            "history_metrics": history_metrics,
+            "access_log_reason_choices": UserAccessLog.END_REASON_CHOICES,
+            "user_roster_activity_choices": (
+                ("all", "All users"),
+                ("active", "Currently active"),
+                ("inactive", "Not currently active"),
+                ("never_logged", "Never logged in"),
+            ),
+            "access_log_now": timezone.now(),
+            "session_log_available": session_log_available,
+            "attempt_log_available": attempt_log_available,
+            "failure_log_available": failure_log_available,
+            "user_roster_tracking_available": user_roster_tracking_available,
+            "history_log_available": history_log_available,
+            "can_clear_access_attempts": _can_clear_access_attempts(request.user),
+            "can_reset_user_lockout": _can_reset_user_lockout(request.user),
+            "access_log_export_url": _build_access_logs_export_url(
+                access_log_view,
+                selected_user_id=selected_user_id,
+                selected_end_reason=selected_end_reason,
+                search_query=search_query,
+                user_activity_state=selected_user_activity_state,
+            ),
+        }
+    )
+    return render(request, "users/settings_workspace.html", context)
+
+
+@login_required
+def user_settings_access_logs_download_view(request):
+    if not _can_view_access_logs(request.user):
+        messages.error(request, "You do not have permission to download access logs.")
+        return redirect("modules_home")
+
+    access_log_view = _normalize_access_log_view(request.GET.get("log_view"))
+    selected_user_id = (request.GET.get("user") or "").strip()
+    selected_end_reason = (request.GET.get("end_reason") or "").strip()
+    search_query = (request.GET.get("search") or request.GET.get("username") or "").strip()
+    selected_user_activity_state = (request.GET.get("user_activity") or "").strip().lower()
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="{access_log_view}_access_logs.csv"'
+    writer = csv.writer(response)
+
+    try:
+        if access_log_view == "sessions":
+            queryset = UserAccessLog.objects.select_related("user").order_by("-login_time", "-id")
+            if selected_user_id:
+                queryset = queryset.filter(user_id=selected_user_id)
+            if selected_end_reason:
+                queryset = queryset.filter(end_reason=selected_end_reason)
+
+            writer.writerow(["User", "Email", "Login Time", "Logout Time", "Session Duration (seconds)", "Session End", "IP Address", "User Agent"])
+            for row in queryset[:5000]:
+                writer.writerow([
+                    f"{row.user.name} {row.user.surname}".strip(),
+                    row.user.email,
+                    row.login_time.strftime("%Y-%m-%d %H:%M:%S") if row.login_time else "",
+                    row.logout_time.strftime("%Y-%m-%d %H:%M:%S") if row.logout_time else "",
+                    row.session_duration_seconds if row.session_duration_seconds is not None else "",
+                    row.get_end_reason_display(),
+                    row.ip_address or "",
+                    row.user_agent or "",
+                ])
+        elif access_log_view == "attempts" and AccessAttempt is not None:
+            queryset = AccessAttempt.objects.order_by("-attempt_time", "-id")
+            if search_query:
+                queryset = queryset.filter(username__icontains=search_query)
+            writer.writerow(["Username", "Attempt Time", "Failures Since Start", "IP Address", "Path", "User Agent"])
+            for row in queryset[:5000]:
+                writer.writerow([
+                    row.username or "",
+                    row.attempt_time.strftime("%Y-%m-%d %H:%M:%S") if row.attempt_time else "",
+                    row.failures_since_start,
+                    row.ip_address or "",
+                    row.path_info or "",
+                    row.user_agent or "",
+                ])
+        elif access_log_view == "failures" and AccessFailureLog is not None:
+            queryset = AccessFailureLog.objects.order_by("-attempt_time", "-id")
+            if search_query:
+                queryset = queryset.filter(username__icontains=search_query)
+            writer.writerow(["Username", "Failure Time", "Locked Out", "IP Address", "Path", "User Agent"])
+            for row in queryset[:5000]:
+                writer.writerow([
+                    row.username or "",
+                    row.attempt_time.strftime("%Y-%m-%d %H:%M:%S") if row.attempt_time else "",
+                    "Yes" if row.locked_out else "No",
+                    row.ip_address or "",
+                    row.path_info or "",
+                    row.user_agent or "",
+                ])
+        elif access_log_view == "history":
+            history_export_rows = []
+
+            session_queryset = UserAccessLog.objects.select_related("user").order_by("-login_time", "-id")
+            if search_query:
+                session_queryset = session_queryset.filter(
+                    Q(user__email__icontains=search_query)
+                    | Q(user__name__icontains=search_query)
+                    | Q(user__surname__icontains=search_query)
+                )
+            for row in session_queryset[:2000]:
+                history_export_rows.append([
+                    row.login_time.strftime("%Y-%m-%d %H:%M:%S") if row.login_time else "",
+                    "Session",
+                    row.user.email,
+                    f"{row.user.name} {row.user.surname}".strip(),
+                    row.get_end_reason_display(),
+                    f"Started from {row.ip_address or 'unknown IP'}",
+                    "Authenticated Session",
+                ])
+                if row.logout_time:
+                    history_export_rows.append([
+                        row.logout_time.strftime("%Y-%m-%d %H:%M:%S") if row.logout_time else "",
+                        "Session End",
+                        row.user.email,
+                        f"{row.user.name} {row.user.surname}".strip(),
+                        row.get_end_reason_display(),
+                        f"Session duration {row.duration_display}",
+                        "Authenticated Session",
+                    ])
+
+            if AccessAttempt is not None:
+                attempt_queryset = AccessAttempt.objects.order_by("-attempt_time", "-id")
+                if search_query:
+                    attempt_queryset = attempt_queryset.filter(username__icontains=search_query)
+                for row in attempt_queryset[:2000]:
+                    history_export_rows.append([
+                        row.attempt_time.strftime("%Y-%m-%d %H:%M:%S") if row.attempt_time else "",
+                        "Access Attempt",
+                        row.username or "",
+                        row.ip_address or "",
+                        "Failed Attempt" if (row.failures_since_start or 0) > 0 else "Attempt Recorded",
+                        f"Failures since start: {row.failures_since_start}",
+                        row.path_info or "",
+                    ])
+            if AccessFailureLog is not None:
+                failure_queryset = AccessFailureLog.objects.order_by("-attempt_time", "-id")
+                if search_query:
+                    failure_queryset = failure_queryset.filter(username__icontains=search_query)
+                for row in failure_queryset[:2000]:
+                    history_export_rows.append([
+                        row.attempt_time.strftime("%Y-%m-%d %H:%M:%S") if row.attempt_time else "",
+                        "Access Failure",
+                        row.username or "",
+                        row.ip_address or "",
+                        "Locked Out" if row.locked_out else "Failed Sign-In",
+                        row.user_agent or "Failure recorded by access-control layer",
+                        row.path_info or "",
+                    ])
+            history_export_rows.sort(key=lambda row: row[0], reverse=True)
+            writer.writerow(["Event Time", "Event Type", "Actor", "Secondary", "Outcome", "Details", "Source"])
+            for row in history_export_rows[:5000]:
+                writer.writerow(row)
+        elif access_log_view == "users":
+            queryset = CustomUser.objects.all().order_by("email")
+            if search_query:
+                queryset = queryset.filter(
+                    Q(email__icontains=search_query)
+                    | Q(name__icontains=search_query)
+                    | Q(surname__icontains=search_query)
+                    | Q(department__icontains=search_query)
+                )
+
+            roster_tracking_available = True
+            try:
+                queryset = queryset.annotate(
+                    active_session_count=Count(
+                        "access_log_entries",
+                        filter=Q(
+                            access_log_entries__end_reason=UserAccessLog.END_REASON_ACTIVE,
+                            access_log_entries__logout_time__isnull=True,
+                        ),
+                        distinct=True,
+                    )
+                )
+                if selected_user_activity_state == "active":
+                    queryset = queryset.filter(active_session_count__gt=0)
+                elif selected_user_activity_state == "inactive":
+                    queryset = queryset.filter(active_session_count=0)
+                elif selected_user_activity_state == "never_logged":
+                    queryset = queryset.filter(last_login__isnull=True)
+            except DatabaseError:
+                roster_tracking_available = False
+                if selected_user_activity_state == "never_logged":
+                    queryset = queryset.filter(last_login__isnull=True)
+                elif selected_user_activity_state in {"active", "inactive"}:
+                    queryset = queryset.none()
+
+            writer.writerow(["Name", "Email", "Department", "Account Status", "Currently Logged In", "Last Login", "Joined"])
+            for row in queryset[:5000]:
+                if roster_tracking_available:
+                    current_status = "Yes" if getattr(row, "active_session_count", 0) > 0 else "No"
+                else:
+                    current_status = "Unavailable"
+                writer.writerow([
+                    f"{row.name} {row.surname}".strip(),
+                    row.email,
+                    row.department or "",
+                    "Active" if row.is_active else "Disabled",
+                    current_status,
+                    row.last_login.strftime("%Y-%m-%d %H:%M:%S") if row.last_login else "",
+                    row.date_joined.strftime("%Y-%m-%d %H:%M:%S") if row.date_joined else "",
+                ])
+        else:
+            messages.warning(request, "The requested access-log dataset is not available for download.")
+            return redirect("user_settings_access_logs")
+    except DatabaseError:
+        messages.warning(request, "The selected access-log dataset is not available in the current database yet.")
+        return redirect("user_settings_access_logs")
+
+    return response
+
+
+@login_required
 def user_settings_authenticator_view(request):
     if not _can_view_authenticator_settings(request.user):
         messages.error(request, "You do not have permission to view authenticator settings.")
@@ -772,6 +1406,8 @@ def password_change_done(request):
 
 def custom_logout_view(request):
     popup_mode = _workspace_popup_enabled(request)
+    if request.user.is_authenticated:
+        close_user_session_log(request, UserAccessLog.END_REASON_MANUAL_LOGOUT)
     _clear_pending_microsoft_auth(request)
     _clear_microsoft_verification(request)
     _clear_microsoft_oauth_handshake(request)
@@ -781,6 +1417,70 @@ def custom_logout_view(request):
     if popup_mode:
         return redirect(reverse('login_popup'))
     return redirect(reverse('login'))
+
+
+def _is_user_in_custom_lockout(user, current_time=None):
+    if not user:
+        return False
+    current_time = current_time or timezone.now()
+    lockout_until = getattr(user, "lockout_until", None)
+    return bool(lockout_until and lockout_until > current_time)
+
+
+def _is_user_permanently_locked(user):
+    if not user:
+        return False
+    return bool(getattr(user, "permanently_locked", False))
+
+
+def _reset_user_failed_login_state(user):
+    if not user:
+        return
+    user.failed_login_attempts = 0
+    user.lockout_until = None
+    user.lock_immediately_on_next_failure = False
+    user.permanently_locked = False
+    user.save(update_fields=["failed_login_attempts", "lockout_until", "lock_immediately_on_next_failure", "permanently_locked"])
+
+
+def _register_failed_login_attempt(user, runtime_settings):
+    if not user:
+        return None
+
+    current_time = timezone.now()
+    failure_limit = max(int(getattr(runtime_settings, "failed_login_limit", 3) or 3), 1)
+    lockout_minutes = max(int(getattr(runtime_settings, "lockout_duration_minutes", 60) or 60), 1)
+    lockout_expires_at = current_time + timedelta(minutes=lockout_minutes)
+
+    if getattr(user, "lock_immediately_on_next_failure", False):
+        user.failed_login_attempts = failure_limit
+        user.lockout_until = None
+        user.lock_immediately_on_next_failure = False
+        user.permanently_locked = True
+        user.save(update_fields=["failed_login_attempts", "lockout_until", "lock_immediately_on_next_failure", "permanently_locked"])
+        return "permanent"
+
+    prior_lockout_until = getattr(user, "lockout_until", None)
+    prior_failed_attempts = int(getattr(user, "failed_login_attempts", 0) or 0)
+    if prior_failed_attempts >= failure_limit and prior_lockout_until and prior_lockout_until <= current_time:
+        user.failed_login_attempts = failure_limit
+        user.lockout_until = None
+        user.lock_immediately_on_next_failure = False
+        user.permanently_locked = True
+        user.save(update_fields=["failed_login_attempts", "lockout_until", "lock_immediately_on_next_failure", "permanently_locked"])
+        return "permanent"
+
+    next_attempt_total = int(getattr(user, "failed_login_attempts", 0) or 0) + 1
+    user.failed_login_attempts = next_attempt_total
+    if next_attempt_total >= failure_limit:
+        user.lockout_until = lockout_expires_at
+        user.lock_immediately_on_next_failure = False
+        user.permanently_locked = False
+        user.save(update_fields=["failed_login_attempts", "lockout_until", "lock_immediately_on_next_failure", "permanently_locked"])
+        return "temporary"
+
+    user.save(update_fields=["failed_login_attempts"])
+    return None
 
 
 def _can_view_user_roles(user):
@@ -807,6 +1507,28 @@ def _can_manage_system_settings(user):
     return user.is_superuser or user.has_perm("Users.can_manage_settings_database")
 
 
+def _can_view_access_logs(user):
+    return _can_view_system_settings(user)
+
+
+def _can_clear_access_attempts(user):
+    return user.is_superuser or user.has_perm("Users.can_clear_access_attempts")
+
+
+def _can_reset_user_lockout(user):
+    return _can_manage_system_settings(user)
+
+
+def _release_user_lockout_by_admin(user):
+    if not user:
+        return
+    user.failed_login_attempts = 0
+    user.lockout_until = None
+    user.lock_immediately_on_next_failure = True
+    user.permanently_locked = False
+    user.save(update_fields=["failed_login_attempts", "lockout_until", "lock_immediately_on_next_failure", "permanently_locked"])
+
+
 def _can_view_authenticator_settings(user):
     return user.is_authenticated
 
@@ -817,6 +1539,75 @@ def _can_manage_authenticator_resets(user):
 
 def _can_open_users_settings(user):
     return user.is_authenticated
+
+
+def _normalize_access_log_view(value):
+    value = (value or "").strip().lower()
+    return value if value in {"sessions", "attempts", "failures", "users", "history"} else "sessions"
+
+
+def _build_access_logs_view_url(
+    log_view,
+    selected_user_id="",
+    selected_end_reason="",
+    search_query="",
+    user_activity_state="",
+):
+    params = {"log_view": _normalize_access_log_view(log_view)}
+    if selected_user_id:
+        params["user"] = selected_user_id
+    if selected_end_reason:
+        params["end_reason"] = selected_end_reason
+    if search_query:
+        params["search"] = search_query
+    if user_activity_state:
+        params["user_activity"] = user_activity_state
+    return f"/settings/access-logs/?{urllib.parse.urlencode(params)}"
+
+
+def _build_access_logs_export_url(
+    log_view,
+    selected_user_id="",
+    selected_end_reason="",
+    search_query="",
+    user_activity_state="",
+):
+    params = {"log_view": _normalize_access_log_view(log_view)}
+    if selected_user_id:
+        params["user"] = selected_user_id
+    if selected_end_reason:
+        params["end_reason"] = selected_end_reason
+    if search_query:
+        params["search"] = search_query
+    if user_activity_state:
+        params["user_activity"] = user_activity_state
+    return f"/settings/access-logs/download/?{urllib.parse.urlencode(params)}"
+
+
+def _safe_ensure_access_log_security_roles():
+    helper = globals().get("_ensure_access_log_security_roles")
+    if callable(helper):
+        return helper()
+
+    content_type = ContentType.objects.get_for_model(CustomUser)
+    permission, _ = Permission.objects.get_or_create(
+        content_type=content_type,
+        codename="can_clear_access_attempts",
+        defaults={"name": "Can clear access attempts"},
+    )
+    cleanup_group, _ = Group.objects.get_or_create(name="Access Attempt Cleanup")
+    cleanup_group.permissions.add(permission)
+
+
+def _ensure_access_log_security_roles():
+    content_type = ContentType.objects.get_for_model(CustomUser)
+    permission, _ = Permission.objects.get_or_create(
+        content_type=content_type,
+        codename="can_clear_access_attempts",
+        defaults={"name": "Can clear access attempts"},
+    )
+    cleanup_group, _ = Group.objects.get_or_create(name="Access Attempt Cleanup")
+    cleanup_group.permissions.add(permission)
 
 
 def _build_settings_context(request, active_section, page_title, page_intro):
@@ -846,6 +1637,15 @@ def _build_settings_context(request, active_section, page_title, page_intro):
                 "icon": "fas fa-users-cog",
                 "url": reverse("user_settings_roles"),
                 "key": "user_roles",
+            }
+        )
+    if _can_view_access_logs(request.user):
+        nav_items.append(
+            {
+                "label": "Access Logs",
+                "icon": "fas fa-clock-rotate-left",
+                "url": reverse("user_settings_access_logs"),
+                "key": "access_logs",
             }
         )
     if _can_view_system_settings(request.user):
@@ -1172,6 +1972,7 @@ def _handle_authenticator_app_challenge(request, runtime_settings, purpose):
     if purpose == "login":
         user.backend = "Users.backends.CaseInsensitiveEmailOrAliasBackend"
         login(request, user)
+        begin_user_session_log(request, user)
         _clear_pending_microsoft_auth(request)
         messages.success(request, "Microsoft Authenticator verification completed successfully.")
         if password_change_required(user, runtime_settings):

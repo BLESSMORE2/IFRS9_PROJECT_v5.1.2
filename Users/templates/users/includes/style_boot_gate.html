@@ -1,0 +1,46 @@
+<style>
+    /*
+      Keep the browser from briefly painting unstyled markup, but do not show
+      a visible loader. The guard is intentionally tiny because it runs on
+      every major workspace page.
+    */
+    html.nx-style-booting body {
+        opacity: 0;
+    }
+
+    html.nx-style-booting *,
+    html.nx-style-revealing * {
+        transition: none !important;
+    }
+</style>
+<script>
+    (function () {
+        var root = document.documentElement;
+        root.classList.add('nx-style-booting');
+
+        function reveal() {
+            root.classList.remove('nx-style-booting');
+            root.classList.add('nx-style-revealing');
+            window.setTimeout(function () {
+                root.classList.remove('nx-style-revealing');
+            }, 80);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function () {
+                window.requestAnimationFrame(reveal);
+            }, { once: true });
+        } else {
+            window.requestAnimationFrame(reveal);
+        }
+
+        window.setTimeout(reveal, 1200);
+    })();
+</script>
+<noscript>
+    <style>
+        html.nx-style-booting body {
+            opacity: 1;
+        }
+    </style>
+</noscript>
