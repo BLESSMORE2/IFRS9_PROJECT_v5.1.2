@@ -1,4 +1,4 @@
-{% load static custom_filters %}
+{% load static user_custom_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -80,7 +80,7 @@
         .alert-stack { margin-top:16px; gap:10px; }
         .surface-grid { margin-top:18px; }
         .metric-grid, .editor-grid, .form-grid { display:grid; gap:16px; }
-        .metric-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+        .metric-grid { grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); }
         .editor-grid, .form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
         .card, .metric, .field-card { border:1px solid rgba(15,29,54,.06); border-radius:18px; background:linear-gradient(180deg,#fff 0%,#fbfdff 100%); box-shadow:0 10px 26px rgba(15,29,54,.06); padding:18px; }
         .metric { padding:14px; background:#f8fbff; }
@@ -116,6 +116,24 @@
         .members-detail-title { margin:0 0 8px; color:#36557f; font-size:.7rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
         .members-detail-copy { margin:0 0 10px; color:#6b7d98; font-size:.7rem; line-height:1.5; }
         .form-group label, .field-card label { display:block; margin-bottom:6px; color:#48627f; font-size:.68rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+        .user-search-select { position:relative; }
+        .user-search-select select { position:absolute !important; width:1px !important; height:1px !important; overflow:hidden !important; opacity:0 !important; pointer-events:none !important; }
+        .user-search-control { position:relative; }
+        .user-search-input { width:100%; min-height:38px; padding:0 38px 0 12px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#10213f; font-size:.78rem; font-weight:600; outline:none; transition:border-color .15s ease, box-shadow .15s ease, background .15s ease; }
+        .user-search-input:focus { border-color:#4f8ef7; box-shadow:0 0 0 3px rgba(79,142,247,.16); background:#fbfdff; }
+        .user-search-input:disabled { background:#f1f5f9; color:#64748b; cursor:not-allowed; }
+        .user-search-icon { position:absolute; right:12px; top:50%; transform:translateY(-50%); color:#64748b; font-size:.75rem; pointer-events:none; }
+        .user-search-list { position:absolute; z-index:50; left:0; right:0; top:calc(100% + 6px); max-height:240px; overflow:auto; padding:6px; border:1px solid rgba(15,29,54,.12); border-radius:14px; background:#fff; box-shadow:0 18px 42px rgba(15,29,54,.16); display:none; }
+        .user-search-select.open .user-search-list { display:grid; gap:4px; }
+        .user-search-option { width:100%; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:9px 10px; border:1px solid transparent; border-radius:10px; background:#fff; color:#10213f; text-align:left; cursor:pointer; }
+        .user-search-option:hover, .user-search-option.active { background:#f3f8ff; border-color:rgba(79,142,247,.18); }
+        .user-search-option.selected { background:linear-gradient(135deg,rgba(0,212,170,.12),rgba(79,142,247,.08)); border-color:rgba(0,169,143,.22); }
+        .user-search-option strong { display:block; font-size:.72rem; font-weight:850; line-height:1.25; }
+        .user-search-option small { display:block; margin-top:2px; color:#6b7d98; font-size:.62rem; font-weight:700; line-height:1.3; }
+        .user-search-empty { padding:10px; border-radius:10px; background:#f8fbff; color:#6b7d98; font-size:.68rem; font-weight:700; text-align:center; }
+        .field-errors { margin-top:7px; display:grid; gap:5px; color:#dc2626; font-size:.68rem; font-weight:700; line-height:1.35; }
+        .field-errors span { display:flex; align-items:flex-start; gap:6px; padding:7px 9px; border-radius:10px; background:#fee2e2; border-left:3px solid #ef4444; }
+        .field-errors i { margin-top:2px; font-size:.64rem; }
         .password-field-wrap { position:relative; }
         .password-field-wrap input { padding-right:42px; }
         .password-toggle {
@@ -160,6 +178,70 @@
         .checkbox-box { padding:12px; border-radius:14px; border:1px solid rgba(15,29,54,.06); background:#fbfdff; max-height:280px; overflow-y:auto; }
         .checkbox-box ul { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
         .checkbox-box li label { display:flex; align-items:center; gap:10px; margin:0; padding:8px 10px; border-radius:12px; background:#fff; border:1px solid rgba(15,29,54,.06); color:#1f3556; font-size:.74rem; font-weight:600; text-transform:none; letter-spacing:normal; }
+        .field-error { margin:6px 0 10px; padding:8px 10px; border-radius:10px; background:#fff1f2; color:#b91c1c; font-size:.7rem; font-weight:700; }
+        .role-section-grid, .role-directory-grid { display:grid; gap:12px; }
+        .role-section-card, .role-directory-section { border:1px solid rgba(15,29,54,.08); border-radius:18px; background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%); overflow:hidden; box-shadow:0 12px 28px rgba(15,29,54,.05); }
+        .role-section-card.ifrs9, .role-directory-section.ifrs9 { border-top:3px solid #0f6fb5; }
+        .role-section-card.scorecard, .role-directory-section.scorecard { border-top:3px solid #00a98f; }
+        .role-section-card.platform, .role-directory-section.platform { border-top:3px solid #6d72d8; }
+        .role-section-head, .role-directory-head { display:flex; align-items:flex-start; gap:12px; padding:12px 14px; background:#fbfdff; border-bottom:1px solid rgba(15,29,54,.06); }
+        .role-section-icon { width:34px; height:34px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; color:#fff; background:#0f6fb5; box-shadow:0 8px 18px rgba(15,29,54,.1); }
+        .role-section-card.scorecard .role-section-icon { background:#00a98f; }
+        .role-section-card.platform .role-section-icon { background:#6d72d8; }
+        .role-section-head h3, .role-directory-head h3 { margin:0; color:#10213f; font-size:.82rem; font-weight:900; }
+        .role-section-head p, .role-directory-head p { margin:3px 0 0; color:#6b7d98; font-size:.68rem; line-height:1.45; }
+        .role-section-count { margin-left:auto; white-space:nowrap; display:inline-flex; align-items:center; min-height:26px; padding:0 10px; border-radius:999px; background:#eef6ff; color:#174d82; font-size:.64rem; font-weight:900; }
+        .role-check-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:12px; max-height:330px; overflow:auto; }
+        .role-check-item { display:flex; align-items:flex-start; gap:9px; min-height:34px; margin:0; padding:8px 9px; border:1px solid rgba(15,29,54,.06); border-radius:12px; background:#fff; color:#1f3556; font-size:.7rem; font-weight:750; letter-spacing:normal; text-transform:none; }
+        .role-check-item input { width:14px; height:14px; flex:0 0 auto; }
+        .role-check-item:hover { border-color:rgba(15,111,181,.24); background:#f8fbff; }
+        .role-check-item.selected { border-color:rgba(0,169,143,.44); background:linear-gradient(135deg,rgba(0,212,170,.12),rgba(79,142,247,.08)); box-shadow:inset 4px 0 0 rgba(0,169,143,.72), 0 8px 18px rgba(0,169,143,.08); }
+        .role-section-card.ifrs9 .role-check-item.selected { border-color:rgba(15,111,181,.42); background:linear-gradient(135deg,rgba(15,111,181,.12),rgba(79,142,247,.08)); box-shadow:inset 4px 0 0 rgba(15,111,181,.72), 0 8px 18px rgba(15,111,181,.08); }
+        .role-section-card.platform .role-check-item.selected { border-color:rgba(109,114,216,.42); background:linear-gradient(135deg,rgba(109,114,216,.12),rgba(79,142,247,.08)); box-shadow:inset 4px 0 0 rgba(109,114,216,.72), 0 8px 18px rgba(109,114,216,.08); }
+        .role-check-item.selected .role-check-copy strong { color:#063f37; }
+        .role-section-card.ifrs9 .role-check-item.selected .role-check-copy strong { color:#073a63; }
+        .role-section-card.platform .role-check-item.selected .role-check-copy strong { color:#34378f; }
+        .role-check-item.selected .role-check-copy small { color:#426985; }
+        .role-check-copy { display:grid; gap:3px; line-height:1.32; }
+        .role-check-copy strong { color:#10213f; font-size:.7rem; font-weight:850; }
+        .role-check-copy small { color:#6b7d98; font-size:.62rem; font-weight:600; line-height:1.38; text-transform:none; letter-spacing:normal; }
+        .role-directory-list { display:grid; gap:7px; padding:12px; max-height:360px; overflow:auto; }
+        .role-directory-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 10px; border:1px solid rgba(15,29,54,.06); border-radius:13px; background:#fff; }
+        .role-directory-item strong { display:block; color:#10213f; font-size:.72rem; }
+        .role-directory-item span { color:#6b7d98; font-size:.66rem; font-weight:700; }
+        .role-directory-description { display:block; margin:3px 0 4px; max-width:760px; color:#6b7d98 !important; font-size:.62rem !important; font-weight:600 !important; line-height:1.38; }
+        .role-directory-members { margin:0 8px 8px; border-radius:14px; border:1px dashed rgba(15,29,54,.12); background:#fbfdff; }
+        .user-group-note { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border-radius:14px; background:linear-gradient(135deg,rgba(0,212,170,.1),rgba(79,142,247,.08)); color:#24405f; font-size:.7rem; font-weight:700; line-height:1.45; border:1px solid rgba(0,169,143,.14); }
+        .user-group-note i { color:#0f766e; margin-top:2px; }
+        .user-group-grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr); gap:14px; align-items:start; }
+        .user-group-card, .user-group-register { border:1px solid rgba(15,29,54,.08); border-radius:18px; background:linear-gradient(180deg,#fff 0%,#fbfdff 100%); box-shadow:0 12px 28px rgba(15,29,54,.05); padding:14px; }
+        .user-group-register { margin-top:14px; }
+        .user-group-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
+        .user-group-card-head h3 { margin:0; color:#10213f; font-size:.86rem; font-weight:900; }
+        .user-group-card-head p { margin:4px 0 0; color:#6b7d98; font-size:.68rem; line-height:1.45; }
+        .compact-form-grid { gap:10px; }
+        .toggle-form-group { display:flex; flex-direction:column; justify-content:flex-end; }
+        .switch-line { display:flex !important; align-items:center; gap:8px; min-height:31px; margin:0 !important; padding:6px 8px; border:1px solid rgba(15,29,54,.08); border-radius:10px; background:#fff; color:#274065 !important; font-size:.7rem !important; font-weight:800 !important; text-transform:none !important; letter-spacing:normal !important; }
+        .switch-line input { width:14px; height:14px; }
+        .mini-role-sections { max-height:410px; overflow:auto; border-radius:16px; }
+        .compact-role-section-head { padding:10px 12px; }
+        .user-group-role-grid { max-height:220px; grid-template-columns:1fr; }
+        .user-group-choice-list { display:grid; gap:8px; max-height:430px; overflow:auto; padding:4px; }
+        .user-group-choice { display:flex; align-items:flex-start; gap:10px; margin:0; padding:10px; border:1px solid rgba(15,29,54,.08); border-radius:14px; background:#fff; color:#10213f; cursor:pointer; }
+        .user-group-choice:hover { border-color:rgba(15,111,181,.22); background:#f8fbff; }
+        .user-group-choice.selected { border-color:rgba(0,169,143,.38); background:linear-gradient(135deg,rgba(0,212,170,.12),rgba(79,142,247,.08)); box-shadow:inset 4px 0 0 rgba(0,169,143,.72); }
+        .user-group-choice input { width:14px; height:14px; margin-top:2px; }
+        .user-group-choice strong { display:block; font-size:.72rem; font-weight:900; }
+        .user-group-choice small { display:block; margin-top:3px; color:#48627f; font-size:.64rem; font-weight:800; }
+        .user-group-choice em { display:block; margin-top:4px; color:#6b7d98; font-size:.64rem; line-height:1.35; font-style:normal; font-weight:600; }
+        .small-btn { min-height:30px; padding:0 10px; font-size:.66rem; border-radius:10px; }
+        .empty-state-compact { padding:12px; border:1px dashed rgba(15,29,54,.14); border-radius:14px; color:#6b7d98; background:#fbfdff; font-size:.72rem; font-weight:700; text-align:center; }
+        .settings-section-stack { display:grid; gap:14px; }
+        .settings-card { border:1px solid rgba(15,29,54,.08); border-radius:22px; background:#fff; box-shadow:0 18px 40px rgba(15,29,54,.07); padding:18px; }
+        .settings-card-head { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+        .settings-card-head h3 { margin:0; color:#10213f; font-size:.96rem; font-weight:900; }
+        .settings-card-head p { margin:5px 0 0; color:#617290; font-size:.76rem; line-height:1.45; }
+        .settings-pill { display:inline-flex; align-items:center; justify-content:center; min-height:28px; padding:0 12px; border-radius:999px; background:#eef6ff; color:#174d82; font-size:.68rem; font-weight:900; white-space:nowrap; }
         .editor-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; }
         .primary-btn, .secondary-btn { min-height:34px; padding:0 14px; border-radius:12px; font-size:.72rem; border:none; cursor:pointer; }
         .primary-btn { background:#10213f; color:#fff; }
@@ -174,7 +256,7 @@
         .footer-title, .footer-status { color:#31456b; font-weight:700; text-transform:uppercase; }
         .footer-title { letter-spacing:.08em; }
         .footer-status { display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border-radius:999px; background:#fff; border:1px solid rgba(11,26,53,.08); box-shadow:0 8px 18px rgba(15,29,54,.05); font-size:.64rem; letter-spacing:.08em; }
-        @media (max-width:1024px){ .workspace,.metric-grid,.editor-grid,.form-grid{grid-template-columns:1fr;} .sidebar{position:static;} }
+        @media (max-width:1024px){ .workspace,.metric-grid,.editor-grid,.form-grid,.user-group-grid{grid-template-columns:1fr;} .sidebar{position:static;} .role-check-grid{grid-template-columns:1fr;} }
         @media (max-width:767px){ .topbar{flex-direction:column; align-items:stretch; gap:10px;} .brand{width:100%;} .brand-logo-frame{width:162px; height:52px;} .topbar-actions{justify-content:stretch;} .topbar-link{justify-content:center; width:100%;} .nx-user-pill{width:100%; justify-content:center;} .nx-user-dropdown{left:0; right:auto; width:100%;} .footer-inner{flex-direction:column; align-items:flex-start;} }
     </style>
 </head>
@@ -193,7 +275,7 @@
                 </div>
                 <div class="topbar-actions">
                     {% if request.user.is_superuser %}
-                    <a href="{% url 'admin:index' %}" class="topbar-link" target="_blank" rel="noopener noreferrer"><i class="fas fa-user-shield"></i><span>Admin</span></a>
+                    <a href="{% url 'admin:index' %}" class="topbar-link" data-admin-popup-url="{% url 'admin:index' %}?popup=1"><i class="fas fa-user-shield"></i><span>Admin</span></a>
                     {% endif %}
                     <a href="{% url 'modules_home' %}" class="topbar-link"><i class="fas fa-th-large"></i><span>Modules</span></a>
                     {% if user.is_authenticated %}
@@ -238,7 +320,7 @@
                 </nav>
             </aside>
             <section class="panel">
-                <div class="eyebrow"><i class="{% if active_section == 'add_users' %}fas fa-user-plus{% elif active_section == 'user_roles' %}fas fa-users-cog{% elif active_section == 'authenticator' %}fas fa-mobile-screen-button{% elif active_section == 'access_logs' %}fas fa-clock-rotate-left{% else %}fas fa-sliders-h{% endif %}"></i><span>{{ page_title }}</span></div>
+                <div class="eyebrow"><i class="{% if active_section == 'add_users' %}fas fa-user-plus{% elif active_section == 'user_roles' %}fas fa-users-cog{% elif active_section == 'authenticator' %}fas fa-mobile-screen-button{% elif active_section == 'access_logs' %}fas fa-clock-rotate-left{% elif active_section == 'audit_trail' %}fas fa-clipboard-list{% else %}fas fa-sliders-h{% endif %}"></i><span>{{ page_title }}</span></div>
                 <h1 class="section-title">{{ page_title }}</h1>
                 <p class="section-copy">{{ page_intro }}</p>
                 {% if messages %}
@@ -263,6 +345,9 @@
                 {% if active_section == 'system_settings' %}
                 {% include 'users/partials/settings_system_settings.html' %}
                 {% endif %}
+                {% if active_section == 'audit_trail' %}
+                {% include 'users/partials/settings_audit_trail.html' %}
+                {% endif %}
             </section>
         </div>
     </div>
@@ -276,9 +361,48 @@
         </div>
     </footer>
     <script>
+        (function () {
+            const adminLinks = document.querySelectorAll('[data-admin-popup-url]');
+            if (!adminLinks.length) return;
+
+            function openAdminWindow(url) {
+                const width = Math.max(1180, Math.min(window.screen.availWidth - 40, 1440));
+                const height = Math.max(760, Math.min(window.screen.availHeight - 60, 980));
+                const left = Math.max(20, Math.round((window.screen.availWidth - width) / 2));
+                const top = Math.max(20, Math.round((window.screen.availHeight - height) / 2));
+                const features = [
+                    'popup=yes',
+                    'toolbar=no',
+                    'menubar=no',
+                    'location=no',
+                    'status=no',
+                    'resizable=yes',
+                    'scrollbars=yes',
+                    'width=' + width,
+                    'height=' + height,
+                    'left=' + left,
+                    'top=' + top
+                ].join(',');
+                return window.open(url, 'nexaAdminWorkspaceWindow', features);
+            }
+
+            adminLinks.forEach(function (link) {
+                link.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    const popup = openAdminWindow(link.getAttribute('data-admin-popup-url') || link.href);
+                    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+                        window.location.href = link.href;
+                        return;
+                    }
+                    try { popup.focus(); } catch (error) {}
+                });
+            });
+        })();
+
         document.querySelectorAll('[data-tab-group]').forEach(function (group) {
             const buttons = group.querySelectorAll('[data-tab-target]');
             const panels = group.querySelectorAll('[data-tab-panel]');
+            const requestedTab = new URLSearchParams(window.location.search).get('tab') || "{{ active_user_roles_tab|default:''|escapejs }}";
             function activate(targetId) {
                 buttons.forEach(function (button) {
                     const isActive = button.getAttribute('data-tab-target') === targetId;
@@ -294,11 +418,260 @@
                     activate(button.getAttribute('data-tab-target'));
                 });
             });
-            const activeButton = group.querySelector('.tab-button.active') || buttons[0];
+            const requestedButton = requestedTab ? group.querySelector('[data-tab-target="' + requestedTab + '"]') : null;
+            const activeButton = requestedButton || group.querySelector('.tab-button.active') || buttons[0];
             if (activeButton) {
                 activate(activeButton.getAttribute('data-tab-target'));
             }
         });
+
+        document.querySelectorAll('select[data-user-search-select]').forEach(function (select) {
+            if (select.dataset.userSearchReady === 'true') return;
+            select.dataset.userSearchReady = 'true';
+
+            const selectedOption = select.options[select.selectedIndex] || select.options[0];
+            const wrapper = document.createElement('div');
+            wrapper.className = 'user-search-select';
+
+            const control = document.createElement('div');
+            control.className = 'user-search-control';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'user-search-input';
+            input.autocomplete = 'off';
+            input.placeholder = select.getAttribute('data-user-search-placeholder') || 'Type to search users';
+            input.value = selectedOption ? selectedOption.text.trim() : '';
+            input.disabled = select.disabled;
+            input.setAttribute('aria-label', 'Search and select user');
+            if (select.id) {
+                input.id = select.id + '_search';
+                document.querySelectorAll('label').forEach(function (label) {
+                    if (label.getAttribute('for') === select.id) {
+                        label.setAttribute('for', input.id);
+                    }
+                });
+            }
+
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-search user-search-icon';
+
+            const list = document.createElement('div');
+            list.className = 'user-search-list';
+            list.setAttribute('role', 'listbox');
+
+            select.parentNode.insertBefore(wrapper, select);
+            wrapper.appendChild(select);
+            wrapper.appendChild(control);
+            control.appendChild(input);
+            control.appendChild(icon);
+            wrapper.appendChild(list);
+
+            let visibleOptions = [];
+            let activeIndex = -1;
+
+            function optionMeta(option) {
+                const text = (option.textContent || '').trim();
+                const parts = text.split(/\s+/);
+                return {
+                    value: option.value,
+                    label: text,
+                    main: text,
+                    detail: parts.length > 1 ? parts.slice(1).join(' ') : '',
+                    searchable: text.toLowerCase(),
+                    selected: option.selected,
+                };
+            }
+
+            function closeList() {
+                wrapper.classList.remove('open');
+                activeIndex = -1;
+            }
+
+            function chooseOption(meta) {
+                select.value = meta.value;
+                input.value = meta.label;
+                closeList();
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            function renderList() {
+                const query = input.value.trim().toLowerCase();
+                const options = Array.from(select.options).map(optionMeta);
+                visibleOptions = options.filter(function (meta) {
+                    return !query || meta.searchable.indexOf(query) !== -1;
+                }).slice(0, 80);
+                list.innerHTML = '';
+                if (!visibleOptions.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'user-search-empty';
+                    empty.textContent = 'No users match what you typed.';
+                    list.appendChild(empty);
+                    wrapper.classList.add('open');
+                    return;
+                }
+                visibleOptions.forEach(function (meta, index) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'user-search-option';
+                    if (meta.value === select.value) button.classList.add('selected');
+                    if (index === activeIndex) button.classList.add('active');
+                    button.setAttribute('role', 'option');
+                    button.setAttribute('aria-selected', meta.value === select.value ? 'true' : 'false');
+                    const copy = document.createElement('span');
+                    const title = document.createElement('strong');
+                    title.textContent = meta.main;
+                    const detail = document.createElement('small');
+                    detail.textContent = meta.value ? 'Click to select this user' : 'Clear user filter';
+                    copy.appendChild(title);
+                    copy.appendChild(detail);
+                    button.appendChild(copy);
+                    button.addEventListener('mousedown', function (event) {
+                        event.preventDefault();
+                    });
+                    button.addEventListener('click', function () {
+                        chooseOption(meta);
+                    });
+                    list.appendChild(button);
+                });
+                wrapper.classList.add('open');
+            }
+
+            input.addEventListener('focus', function () {
+                activeIndex = -1;
+                renderList();
+                input.select();
+            });
+
+            input.addEventListener('input', function () {
+                activeIndex = -1;
+                renderList();
+            });
+
+            input.addEventListener('keydown', function (event) {
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    activeIndex = Math.min(activeIndex + 1, visibleOptions.length - 1);
+                    renderList();
+                } else if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    activeIndex = Math.max(activeIndex - 1, 0);
+                    renderList();
+                } else if (event.key === 'Enter') {
+                    if (wrapper.classList.contains('open') && visibleOptions.length) {
+                        event.preventDefault();
+                        chooseOption(visibleOptions[Math.max(activeIndex, 0)]);
+                    }
+                } else if (event.key === 'Escape') {
+                    input.value = (select.options[select.selectedIndex] || {}).text || '';
+                    closeList();
+                }
+            });
+
+            input.addEventListener('blur', function () {
+                window.setTimeout(function () {
+                    input.value = (select.options[select.selectedIndex] || {}).text || '';
+                    closeList();
+                }, 120);
+            });
+        });
+
+        document.querySelectorAll('[data-role-user-select]').forEach(function (select) {
+            select.addEventListener('change', function () {
+                if (!select.value) {
+                    return;
+                }
+                const url = new URL(window.location.href);
+                url.searchParams.set('user', select.value);
+                url.searchParams.set('tab', 'user-assignment');
+                window.location.assign(url.toString());
+            });
+        });
+
+        document.querySelectorAll('[data-module-user-select]').forEach(function (select) {
+            select.addEventListener('change', function () {
+                if (!select.value) {
+                    return;
+                }
+                const url = new URL(window.location.href);
+                url.searchParams.set('user', select.value);
+                url.searchParams.set('tab', 'user-modules');
+                window.location.assign(url.toString());
+            });
+        });
+
+        document.querySelectorAll('[data-role-group-user-select]').forEach(function (select) {
+            select.addEventListener('change', function () {
+                if (!select.value) {
+                    return;
+                }
+                const url = new URL(window.location.href);
+                url.searchParams.set('user', select.value);
+                url.searchParams.set('tab', 'user-groups');
+                window.location.assign(url.toString());
+            });
+        });
+
+        document.querySelectorAll('.role-check-item input, .user-group-choice input').forEach(function (input) {
+            input.addEventListener('change', function () {
+                const item = input.closest('.role-check-item, .user-group-choice');
+                if (item) {
+                    item.classList.toggle('selected', input.checked);
+                }
+            });
+        });
+
+        (function () {
+            const form = document.getElementById('userGroupBuilderForm');
+            if (!form) return;
+
+            const idInput = form.querySelector('[data-role-group-id-input]');
+            const title = form.querySelector('[data-role-group-form-title]');
+            const nameInput = form.querySelector('[name="name"]');
+            const descriptionInput = form.querySelector('[name="description"]');
+            const activeInput = form.querySelector('[name="is_active"]');
+            const roleCheckboxes = form.querySelectorAll('[data-role-group-role-checkbox]');
+
+            function setRoleSelection(roleIds) {
+                roleCheckboxes.forEach(function (checkbox) {
+                    const isChecked = roleIds.has(String(checkbox.value));
+                    checkbox.checked = isChecked;
+                    const card = checkbox.closest('[data-role-group-role-card]');
+                    if (card) {
+                        card.classList.toggle('selected', isChecked);
+                    }
+                });
+            }
+
+            function resetForm() {
+                if (idInput) idInput.value = '';
+                if (title) title.textContent = 'Create User Group';
+                if (nameInput) nameInput.value = '';
+                if (descriptionInput) descriptionInput.value = '';
+                if (activeInput) activeInput.checked = true;
+                setRoleSelection(new Set());
+                if (nameInput) nameInput.focus();
+            }
+
+            document.querySelectorAll('[data-role-group-edit]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    if (idInput) idInput.value = button.getAttribute('data-group-id') || '';
+                    if (title) title.textContent = 'Edit User Group';
+                    if (nameInput) nameInput.value = button.getAttribute('data-group-name') || '';
+                    if (descriptionInput) descriptionInput.value = button.getAttribute('data-group-description') || '';
+                    if (activeInput) activeInput.checked = button.getAttribute('data-group-active') === 'true';
+                    const roleIds = new Set((button.getAttribute('data-group-role-ids') || '').split(',').filter(Boolean));
+                    setRoleSelection(roleIds);
+                    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (nameInput) nameInput.focus();
+                });
+            });
+
+            document.querySelectorAll('[data-role-group-new]').forEach(function (button) {
+                button.addEventListener('click', resetForm);
+            });
+        })();
+
         document.querySelectorAll('[data-members-toggle]').forEach(function (button) {
             button.addEventListener('click', function () {
                 if (button.classList.contains('empty')) {
@@ -368,7 +741,10 @@
                     return;
                 }
 
-                const minLength = parseInt(button.getAttribute('data-min-length') || '8', 10);
+                let minLength = parseInt(button.getAttribute('data-min-length') || '12', 10);
+                if (!Number.isFinite(minLength) || minLength < 8) {
+                    minLength = 12;
+                }
                 const requireUpper = button.getAttribute('data-require-upper') === 'true';
                 const requireLower = button.getAttribute('data-require-lower') === 'true';
                 const requireDigit = button.getAttribute('data-require-digit') === 'true';
@@ -409,6 +785,10 @@
                 confirmInput.type = 'text';
                 input.value = generatedPassword;
                 confirmInput.value = generatedPassword;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                confirmInput.dispatchEvent(new Event('input', { bubbles: true }));
+                confirmInput.dispatchEvent(new Event('change', { bubbles: true }));
 
                 const toggleButtons = document.querySelectorAll('[data-password-toggle="' + targetId + '"], [data-password-toggle="' + confirmId + '"]');
                 toggleButtons.forEach(function (toggleButton) {
@@ -422,5 +802,6 @@
             });
         });
     </script>
+    {% include "users/includes/form_submit_guard.html" %}
 </body>
 </html>

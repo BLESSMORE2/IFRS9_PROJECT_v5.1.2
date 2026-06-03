@@ -8,8 +8,8 @@ _SOURCE_DIRS = [
     _PACKAGE_DIR.parent.parent / 'system_scorecard_v5.1.2' / 'scorecard_utils' / 'scorecard',
 ]
 _USE_SOURCE_FALLBACK = (
-    os.getenv("NEXA9_USE_SOURCE_PACKAGE_FALLBACK", "1").strip().lower()
-    not in {"0", "false", "no"}
+    os.getenv("NEXA9_USE_SOURCE_PACKAGE_FALLBACK", "0").strip().lower()
+    in {"1", "true", "yes", "on"}
 )
 
 __path__ = extend_path(__path__, __name__)

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone
 
@@ -187,6 +189,34 @@ def password_has_expired(user, runtime_settings=None):
         return True
 
     return (timezone.now() - changed_at).days >= expiry_days
+
+
+def password_days_until_expiry(user, runtime_settings=None):
+    runtime_settings = runtime_settings or get_system_settings()
+    expiry_days = int(getattr(runtime_settings, "password_expiry_days", 0) or 0)
+    if expiry_days <= 0:
+        return None
+
+    changed_at = getattr(user, "password_changed_at", None)
+    if not changed_at:
+        return 0
+
+    changed_at = timezone.localtime(changed_at) if timezone.is_aware(changed_at) else changed_at
+    expiry_date = (changed_at + timedelta(days=expiry_days)).date()
+    return (expiry_date - timezone.localdate()).days
+
+
+def password_expiry_reminder_due(user, runtime_settings=None):
+    runtime_settings = runtime_settings or get_system_settings()
+    warning_days = int(getattr(runtime_settings, "password_expiry_warning_days", 0) or 0)
+    if warning_days <= 0 or getattr(user, "must_change_password", False):
+        return False, None
+
+    days_left = password_days_until_expiry(user, runtime_settings)
+    if days_left is None or days_left <= 0:
+        return False, days_left
+
+    return days_left <= warning_days, days_left
 
 
 def password_change_required(user, runtime_settings=None):

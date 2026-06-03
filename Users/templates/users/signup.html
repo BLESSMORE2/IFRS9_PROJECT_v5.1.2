@@ -1,13 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign Up</title>
-    <!-- Bootstrap CSS from CDN -->
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <!-- FontAwesome for icons -->
-    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet">
     <style>
         body {
             background: url('/static/images/background.jpg') no-repeat center center fixed;
@@ -67,10 +66,6 @@
             text-decoration: underline;
         }
     </style>
-    <!-- jQuery and jQuery UI for Autocomplete -->
-    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
-    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
     <div class="container">
@@ -236,20 +231,13 @@
         </table>
     </div>
 
-    <!-- jQuery and Bootstrap Bundle JS from CDN -->
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
-    <!-- jQuery UI DatePicker and Validation Script -->
     <script>
-        $(document).ready(function() {
-            $('#date_of_birth').datepicker({
-                dateFormat: 'dd/mm/yy',
-                changeMonth: true,
-                changeYear: true,
-                yearRange: '-100:+0'
-            });
+        document.addEventListener('DOMContentLoaded', function() {
+            var form = document.getElementById('signup-form');
+            if (!form) return;
 
-            $('#signup-form').on('submit', function(e) {
-                var dateOfBirth = $('#date_of_birth').val();
+            form.addEventListener('submit', function(e) {
+                var dateOfBirth = document.getElementById('date_of_birth').value;
                 var regex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[012])\/\d{4}$/;
 
                 if (!regex.test(dateOfBirth)) {
@@ -259,5 +247,6 @@
             });
         });
     </script>
+    {% include "users/includes/form_submit_guard.html" %}
 </body>
 </html>

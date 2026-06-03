@@ -28,8 +28,8 @@ PACKAGE_EXPIRY_FILENAMES = {
 }
 PACKAGE_WARNING_THRESHOLD_DAYS = 31
 ENABLE_SOURCE_PACKAGE_FALLBACK = (
-    os.getenv("NEXA9_USE_SOURCE_PACKAGE_FALLBACK", "1").strip().lower()
-    not in {"0", "false", "no"}
+    os.getenv("NEXA9_USE_SOURCE_PACKAGE_FALLBACK", "0").strip().lower()
+    in {"1", "true", "yes", "on"}
 )
 
 
@@ -51,17 +51,6 @@ def _find_spec(name):
 def _bootstrap_alias(alias, source):
     importlib.invalidate_caches()
 
-    if alias in sys.modules:
-        return True
-
-    local_spec = _find_spec(alias)
-    if local_spec is not None:
-        try:
-            importlib.import_module(alias)
-            return True
-        except Exception:
-            pass
-
     source_spec = _find_spec(source)
     if source_spec is None and ENABLE_SOURCE_PACKAGE_FALLBACK:
         _prepend_candidate_roots(source)
@@ -70,6 +59,14 @@ def _bootstrap_alias(alias, source):
 
     if source_spec is None:
         return False
+
+    if alias in sys.modules:
+        return True
+
+    local_spec = _find_spec(alias)
+    if local_spec is not None:
+        importlib.import_module(alias)
+        return True
 
     module = importlib.import_module(source)
     sys.modules.setdefault(alias, module)

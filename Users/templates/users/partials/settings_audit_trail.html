@@ -1,0 +1,52 @@
+<div class="settings-section-stack">
+    <article class="settings-card">
+        <div class="settings-card-head" style="align-items:flex-start;">
+            <div>
+                <h3>Module Audit Trails</h3>
+                <p>Select the audit register you want to inspect. Only installed modules are shown here.</p>
+            </div>
+            <span class="settings-pill">{{ audit_trail_option_count }} available</span>
+        </div>
+
+        {% if audit_trail_options %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:16px;">
+            {% for option in audit_trail_options %}
+            <article style="border:1px solid #d9e6f5;border-radius:22px;background:linear-gradient(145deg,#ffffff,#f7fbff);box-shadow:0 14px 34px rgba(12,35,64,.08);padding:18px;min-height:230px;display:flex;flex-direction:column;gap:14px;">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                    <div style="width:52px;height:52px;border-radius:16px;background:#eaf4ff;color:#0b5cab;display:grid;place-items:center;font-size:1.25rem;">
+                        <i class="{{ option.icon }}"></i>
+                    </div>
+                    <span class="settings-pill">{{ option.badge }}</span>
+                </div>
+                <div>
+                    <h4 style="margin:0 0 8px;font-size:1.05rem;color:#0f1d35;">{{ option.title }}</h4>
+                    <p style="margin:0;color:#617290;line-height:1.55;font-size:.86rem;">{{ option.description }}</p>
+                </div>
+                <div style="margin-top:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    {% if option.can_open %}
+                    <a href="{{ option.url }}" class="primary-btn" style="text-decoration:none;">
+                        <i class="fas fa-arrow-up-right-from-square"></i>
+                        <span>Open {{ option.label }}</span>
+                    </a>
+                    {% else %}
+                    <button type="button" class="secondary-btn" disabled style="opacity:.7;cursor:not-allowed;">
+                        <i class="fas fa-lock"></i>
+                        <span>Permission required</span>
+                    </button>
+                    <span style="font-size:.74rem;color:#7a8aa5;">{{ option.permission_hint }}</span>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="border:1px dashed #cbd9ea;border-radius:20px;background:#f8fbff;padding:28px;text-align:center;margin-top:14px;color:#617290;">
+            <div style="width:54px;height:54px;border-radius:18px;background:#eef5fc;color:#7b8ca5;display:grid;place-items:center;margin:0 auto 10px;font-size:1.3rem;">
+                <i class="fas fa-box-open"></i>
+            </div>
+            <h4 style="margin:0 0 6px;color:#10203a;">No audit trail modules available</h4>
+            <p style="margin:0;">Install or enable IFRS 9 or Scorecard to expose module audit trail shortcuts here.</p>
+        </div>
+        {% endif %}
+    </article>
+</div>

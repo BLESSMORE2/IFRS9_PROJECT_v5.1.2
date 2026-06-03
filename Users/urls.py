@@ -11,6 +11,7 @@ urlpatterns = [
     path('settings/access-logs/', views.user_settings_access_logs_view, name='user_settings_access_logs'),
     path('settings/access-logs/download/', views.user_settings_access_logs_download_view, name='user_settings_access_logs_download'),
     path('settings/system/', views.user_settings_system_view, name='user_settings_system'),
+    path('settings/audit-trail/', views.user_settings_audit_trail_view, name='user_settings_audit_trail'),
     path('login/', views.login_view, name='login'),
     path('login/popup/', views.login_popup_view, name='login_popup'),
     path('login/microsoft/', views.microsoft_auth_start_view, name='microsoft_auth_start'),

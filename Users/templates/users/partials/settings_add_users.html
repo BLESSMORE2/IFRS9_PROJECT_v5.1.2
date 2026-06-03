@@ -9,14 +9,29 @@
             <div class="metric-value">{{ role_count }}</div>
         </div>
         <div class="metric">
+            <div class="metric-label">User Groups</div>
+            <div class="metric-value">{{ user_group_count|default:0 }}</div>
+        </div>
+        <div class="metric">
             <div class="metric-label">Recent Users</div>
             <div class="metric-value">{{ recent_users|length }}</div>
         </div>
     </div>
 
+    <div class="card" style="padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+        <div>
+            <h2 class="card-title" style="font-size:.92rem; margin-bottom:2px;">Password Recovery</h2>
+            <p class="card-copy" style="margin:0;">Use this when an existing user forgets their password and needs an administrator reset.</p>
+        </div>
+        <a href="#reset-user-password" class="primary-btn">
+            <i class="fas fa-key"></i><span>Reset User Password</span>
+        </a>
+    </div>
+
     <div class="editor-grid">
         <form method="post" class="card" autocomplete="off">
             {% csrf_token %}
+            <input type="hidden" name="action" value="create_user">
             <input type="text" name="workspace_login_identifier" autocomplete="username" tabindex="-1" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
             <input type="password" name="workspace_login_password" autocomplete="current-password" tabindex="-1" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
             <div class="card-head">
@@ -29,30 +44,65 @@
                 <div class="field-card">
                     <label for="{{ new_user_form.email.id_for_label }}">Email</label>
                     {{ new_user_form.email }}
+                    {% if new_user_form.email.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.email.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="field-card">
                     <label for="{{ new_user_form.name.id_for_label }}">First Name</label>
                     {{ new_user_form.name }}
+                    {% if new_user_form.name.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.name.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="field-card">
                     <label for="{{ new_user_form.surname.id_for_label }}">Surname</label>
                     {{ new_user_form.surname }}
+                    {% if new_user_form.surname.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.surname.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="field-card">
                     <label for="{{ new_user_form.phone_number.id_for_label }}">Phone Number</label>
                     {{ new_user_form.phone_number }}
+                    {% if new_user_form.phone_number.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.phone_number.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="field-card">
                     <label for="{{ new_user_form.department.id_for_label }}">Department</label>
                     {{ new_user_form.department }}
+                    {% if new_user_form.department.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.department.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="field-card">
                     <label for="{{ new_user_form.gender.id_for_label }}">Gender</label>
                     {{ new_user_form.gender }}
+                    {% if new_user_form.gender.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.gender.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="field-card" style="grid-column:1 / -1;">
                     <label for="{{ new_user_form.address.id_for_label }}">Address</label>
                     {{ new_user_form.address }}
+                    {% if new_user_form.address.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.address.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="field-card">
                     <div class="password-actions">
@@ -78,6 +128,11 @@
                         </button>
                     </div>
                     <div class="help-text">{{ new_user_form.password1.help_text }}</div>
+                    {% if new_user_form.password1.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.password1.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="field-card">
                     <label for="{{ new_user_form.password2.id_for_label }}">Confirm Password</label>
@@ -87,6 +142,23 @@
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>
+                    {% if new_user_form.password2.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.password2.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="field-card" style="grid-column:1 / -1;">
+                    <label>Initial User Groups</label>
+                    <div class="checkbox-box">
+                        {{ new_user_form.user_groups }}
+                    </div>
+                    <div class="help-text">Optional. Selecting a user group automatically applies all roles saved inside that bundle.</div>
+                    {% if new_user_form.user_groups.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.user_groups.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="field-card" style="grid-column:1 / -1;">
                     <label>Initial Roles</label>
@@ -94,6 +166,11 @@
                         {{ new_user_form.groups }}
                     </div>
                     <div class="help-text">Roles determine which modules the user can open from the launcher after login.</div>
+                    {% if new_user_form.groups.errors %}
+                    <div class="field-errors">
+                        {% for error in new_user_form.groups.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             {% if new_user_form.non_field_errors %}
@@ -103,7 +180,7 @@
             {% endif %}
             <div class="editor-actions">
                 <div class="editor-note">New users are created with a forced password change on next login and must comply with the current password policy.</div>
-                <button type="submit" class="primary-btn"{% if not can_manage_users %} disabled{% endif %}>
+                <button type="submit" class="primary-btn" data-submitting-text="Creating..."{% if not can_manage_users %} disabled{% endif %}>
                     <i class="fas fa-user-plus"></i><span>Create User</span>
                 </button>
             </div>
@@ -141,5 +218,85 @@
                 </table>
             </div>
         </div>
+
+        <form method="post" class="card" autocomplete="off" id="reset-user-password">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="reset_user_password">
+            <input type="text" name="reset_workspace_login_identifier" autocomplete="username" tabindex="-1" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
+            <input type="password" name="reset_workspace_login_password" autocomplete="current-password" tabindex="-1" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
+            <div class="card-head">
+                <div>
+                    <h2 class="card-title">Reset User Password</h2>
+                    <p class="card-copy">Select an existing user, create a new temporary password, and force the user to change it at the next login.</p>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="field-card" style="grid-column:1 / -1;">
+                    <label for="{{ password_reset_form.reset_user.id_for_label }}">User</label>
+                    {{ password_reset_form.reset_user }}
+                    <div class="help-text">Start typing the email, first name, or surname to find the user quickly.</div>
+                    {% if password_reset_form.reset_user.errors %}
+                    <div class="field-errors">
+                        {% for error in password_reset_form.reset_user.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="field-card">
+                    <div class="password-actions">
+                        <label for="{{ password_reset_form.reset_password1.id_for_label }}" style="margin-bottom:0;">New Temporary Password</label>
+                        <button
+                            type="button"
+                            class="password-action-btn"
+                            data-generate-password="{{ password_reset_form.reset_password1.id_for_label }}"
+                            data-confirm-target="{{ password_reset_form.reset_password2.id_for_label }}"
+                            data-min-length="{{ password_policy_spec.min_length }}"
+                            data-require-upper="{{ password_policy_spec.require_upper|yesno:'true,false' }}"
+                            data-require-lower="{{ password_policy_spec.require_lower|yesno:'true,false' }}"
+                            data-require-digit="{{ password_policy_spec.require_digit|yesno:'true,false' }}"
+                            data-require-special="{{ password_policy_spec.require_special|yesno:'true,false' }}"
+                        >
+                            <i class="fas fa-wand-magic-sparkles"></i><span>Generate</span>
+                        </button>
+                    </div>
+                    <div class="password-field-wrap">
+                        {{ password_reset_form.reset_password1 }}
+                        <button type="button" class="password-toggle" data-password-toggle="{{ password_reset_form.reset_password1.id_for_label }}" aria-label="Show password" title="Show password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <div class="help-text">{{ password_reset_form.reset_password1.help_text }}</div>
+                    {% if password_reset_form.reset_password1.errors %}
+                    <div class="field-errors">
+                        {% for error in password_reset_form.reset_password1.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="field-card">
+                    <label for="{{ password_reset_form.reset_password2.id_for_label }}">Confirm New Password</label>
+                    <div class="password-field-wrap">
+                        {{ password_reset_form.reset_password2 }}
+                        <button type="button" class="password-toggle" data-password-toggle="{{ password_reset_form.reset_password2.id_for_label }}" aria-label="Show password" title="Show password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    {% if password_reset_form.reset_password2.errors %}
+                    <div class="field-errors">
+                        {% for error in password_reset_form.reset_password2.errors %}<span><i class="fas fa-circle-exclamation"></i>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% if password_reset_form.non_field_errors %}
+            <div class="alert alert-danger mb-0 mt-3" role="alert" style="font-size:.78rem;">
+                {% for error in password_reset_form.non_field_errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+            <div class="editor-actions">
+                <div class="editor-note">Resetting clears failed-login lockout state and marks the account for password change at next login.</div>
+                <button type="submit" class="primary-btn" data-submitting-text="Resetting..."{% if not can_manage_users %} disabled{% endif %}>
+                    <i class="fas fa-key"></i><span>Reset Password</span>
+                </button>
+            </div>
+        </form>
     </div>
 </div>

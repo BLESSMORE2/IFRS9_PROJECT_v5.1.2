@@ -5,6 +5,7 @@ Django settings for Loan_management_and_LLFP project.
 from datetime import timedelta
 from pathlib import Path
 import os
+from django.core.servers.basehttp import WSGIRequestHandler
 
 from Loan_management_and_LLFP.env_secrets import load_root_env_file
 from Loan_management_and_LLFP.package_runtime import (
@@ -14,6 +15,9 @@ from Loan_management_and_LLFP.package_runtime import (
 from Loan_management_and_LLFP.runtime_database_config import load_runtime_database_config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+WSGIRequestHandler.server_version = "Nexa"
+WSGIRequestHandler.sys_version = ""
 
 
 def _env_bool(name, default=False):
@@ -110,16 +114,20 @@ AUTHENTICATION_BACKENDS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'Loan_management_and_LLFP.middleware.SecurityHeadersMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'Loan_management_and_LLFP.middleware.AdminWorkspacePopupMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'Users.middleware.RuntimeSessionControlMiddleware',
     'axes.middleware.AxesMiddleware',
     'Loan_management_and_LLFP.middleware.Ifrs9AvailabilityMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+WHITENOISE_ALLOW_ALL_ORIGINS = False
 
 ROOT_URLCONF = 'Loan_management_and_LLFP.urls'
 
@@ -320,6 +328,8 @@ SIMPLE_JWT = {
 }
 
 CSRF_FAILURE_VIEW = 'Loan_management_and_LLFP.error_handlers.csrf_failure'
+
+SWAGGER_USE_COMPAT_RENDERERS = False
 
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {

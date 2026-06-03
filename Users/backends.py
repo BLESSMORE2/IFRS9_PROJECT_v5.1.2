@@ -28,7 +28,7 @@ class CaseInsensitiveEmailOrAliasBackend(ModelBackend):
         if not identifier or password is None:
             return None
 
-        user = resolve_login_user(identifier)
+        user = kwargs.get("resolved_user") or resolve_login_user(identifier)
         if user and user.check_password(password) and self.user_can_authenticate(user):
             return user
         return None

@@ -1,16 +1,12 @@
 from dataclasses import dataclass
 
+from django.apps import apps
 from django.conf import settings as django_settings
 from django.core.cache import cache
 from django.db import DatabaseError
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-
-from Loan_management_and_LLFP.package_runtime import (
-    get_ifrs9_package_status,
-    get_scorecard_package_status,
-)
 
 from .models import SystemModule, SystemSetting, UserModuleAccess
 
@@ -37,8 +33,47 @@ DEFAULT_MODULES = [
 ]
 
 MODULE_CACHE_KEY = "users_active_modules_bootstrap_v1"
+VISIBLE_MODULES_CACHE_PREFIX = "users_visible_modules_v2"
+VISIBLE_MODULES_CACHE_SECONDS = 60
 MICROSOFT_AUTH_VERIFIED_AT_KEY = "users_microsoft_auth_verified_at"
 MICROSOFT_AUTH_VERIFIED_EMAIL_KEY = "users_microsoft_auth_verified_email"
+PACKAGE_BACKED_MODULES = {
+    "IFRS9": ("IFRS9_PACKAGE_AVAILABLE", "IFRS9"),
+    "SCORECARD": ("SCORECARD_PACKAGE_AVAILABLE", "scorecard"),
+}
+
+
+def _module_availability_flags():
+    flags = {}
+    for module_code, (setting_name, app_label) in PACKAGE_BACKED_MODULES.items():
+        configured_value = getattr(django_settings, setting_name, None)
+        if configured_value is None:
+            flags[module_code] = apps.is_installed(app_label)
+        else:
+            flags[module_code] = bool(configured_value)
+    return flags
+
+
+def _module_is_available(module_code):
+    availability = _module_availability_flags()
+    return availability.get(str(module_code or "").upper(), True)
+
+
+def _module_availability_signature():
+    availability = _module_availability_flags()
+    return ":".join(f"{code}={int(available)}" for code, available in sorted(availability.items()))
+
+
+def _filter_available_module_queryset(module_qs):
+    unavailable_codes = [
+        code
+        for code, available in _module_availability_flags().items()
+        if not available
+    ]
+    if unavailable_codes:
+        return module_qs.exclude(code__in=unavailable_codes)
+    return module_qs
+
 
 
 @dataclass
@@ -51,6 +86,7 @@ class FallbackSystemSettings:
     enable_self_profile_edit: bool = True
     enable_self_password_change: bool = True
     password_expiry_days: int = 90
+    password_expiry_warning_days: int = 7
     password_history_count: int = 5
     password_policy: str = SystemSetting.PASSWORD_POLICY_STANDARD
     enable_microsoft_authentication: bool = False
@@ -133,21 +169,6 @@ def apply_runtime_security_settings():
     return runtime_settings
 
 
-def _module_code(module_or_code):
-    if isinstance(module_or_code, str):
-        return module_or_code.upper()
-    return str(getattr(module_or_code, "code", "") or "").upper()
-
-
-def _module_is_available(module_or_code):
-    code = _module_code(module_or_code)
-    if code == "IFRS9":
-        return get_ifrs9_package_status()["usable"]
-    if code == "SCORECARD":
-        return get_scorecard_package_status()["usable"]
-    return True
-
-
 def _module_to_launcher_card(module):
     try:
         target_url = reverse(module.route_name)
@@ -186,23 +207,29 @@ def _default_module_cards():
 
 def get_visible_modules_for_user(user):
     try:
+        if user and getattr(user, "is_authenticated", False):
+            cache_key = f"{VISIBLE_MODULES_CACHE_PREFIX}:{_module_availability_signature()}:{getattr(user, 'pk', 'anon')}:{int(bool(getattr(user, 'is_superuser', False)))}"
+            cached_modules = cache.get(cache_key)
+            if cached_modules is not None:
+                return cached_modules
+        else:
+            cache_key = None
+
         ensure_default_modules()
-        module_qs = SystemModule.objects.filter(is_active=True).order_by("display_order", "name")
+        module_qs = _filter_available_module_queryset(SystemModule.objects.filter(is_active=True)).order_by("display_order", "name")
 
         if user.is_superuser:
-            return [
-                _module_to_launcher_card(module)
-                for module in module_qs
-                if _module_is_available(module)
-            ]
+            modules = [_module_to_launcher_card(module) for module in module_qs]
+            if cache_key:
+                cache.set(cache_key, modules, VISIBLE_MODULES_CACHE_SECONDS)
+            return modules
 
         access_rules_exist = UserModuleAccess.objects.filter(module__is_active=True).exists()
         if not access_rules_exist:
-            return [
-                _module_to_launcher_card(module)
-                for module in module_qs
-                if _module_is_available(module)
-            ]
+            modules = [_module_to_launcher_card(module) for module in module_qs]
+            if cache_key:
+                cache.set(cache_key, modules, VISIBLE_MODULES_CACHE_SECONDS)
+            return modules
 
         visible_module_ids = (
             UserModuleAccess.objects.filter(
@@ -215,11 +242,10 @@ def get_visible_modules_for_user(user):
         )
 
         visible_modules = module_qs.filter(pk__in=visible_module_ids)
-        return [
-            _module_to_launcher_card(module)
-            for module in visible_modules
-            if _module_is_available(module)
-        ]
+        modules = [_module_to_launcher_card(module) for module in visible_modules]
+        if cache_key:
+            cache.set(cache_key, modules, VISIBLE_MODULES_CACHE_SECONDS)
+        return modules
     except DatabaseError:
         return _default_module_cards()
 

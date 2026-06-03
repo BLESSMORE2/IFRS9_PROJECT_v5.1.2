@@ -34,8 +34,8 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email, surname, **extra_fields)
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    name = models.CharField(max_length=50)
-    surname = models.CharField(max_length=50)
+    name = models.CharField(max_length=30)
+    surname = models.CharField(max_length=30)
     phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)
     address = models.CharField(max_length=255)
     department = models.CharField(max_length=55)
@@ -106,11 +106,23 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
         return queryset.none()
 
-    def has_branch_access(self, branch_code):
+    def has_branch_access(self, branch_code=None, branch_name=None, branch_id=None):
+        queryset = self.get_accessible_branches()
+        if branch_id:
+            return queryset.filter(pk=branch_id).exists()
+
         cleaned_branch_code = (branch_code or "").strip()
-        if not cleaned_branch_code:
-            return False
-        return self.get_accessible_branches().filter(branch_code=cleaned_branch_code).exists()
+        cleaned_branch_name = (branch_name or "").strip()
+        if cleaned_branch_code and cleaned_branch_name:
+            return queryset.filter(
+                branch_code__iexact=cleaned_branch_code,
+                branch_name__iexact=cleaned_branch_name,
+            ).exists()
+        if cleaned_branch_code:
+            return queryset.filter(branch_code__iexact=cleaned_branch_code).exists()
+        if cleaned_branch_name:
+            return queryset.filter(branch_name__iexact=cleaned_branch_name).exists()
+        return False
 
     class Meta:
         permissions = [
@@ -212,6 +224,39 @@ class UserModuleAccess(models.Model):
 
     def __str__(self):
         return f"{self.user.email} -> {self.module.name}"
+
+
+class UserRoleGroup(models.Model):
+    name = models.CharField(max_length=120, unique=True)
+    description = models.TextField(blank=True, default="")
+    roles = models.ManyToManyField(
+        Group,
+        related_name="user_role_groups",
+        blank=True,
+    )
+    users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="access_role_groups",
+        blank=True,
+    )
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_user_role_groups",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "User Group"
+        verbose_name_plural = "User Groups"
+
+    def __str__(self):
+        return self.name
 
 
 class SystemSetting(models.Model):

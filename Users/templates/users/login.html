@@ -1,12 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if popup_mode %}Workspace Login{% else %}Sign in{% endif %} &middot; NEXA Modules</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet">
     <style>
         :root {
             --nx-navy: #0b1a35;
@@ -285,7 +285,7 @@
             <div class="divider"><span>or use your local account</span></div>
             {% endif %}
 
-            <form method="post" action="{{ login_form_action|default:''|default_if_none:'' }}{% if not login_form_action %}{% url 'login' %}{% endif %}">
+            <form method="post" action="{{ login_form_action|default:''|default_if_none:'' }}{% if not login_form_action %}{% url 'login' %}{% endif %}" data-login-form>
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ next_url }}">
                 <div class="form-group">
@@ -305,7 +305,7 @@
                         </button>
                     </div>
                 </div>
-                <button type="submit" class="btn-login" {% if microsoft_login_required and not microsoft_authenticator_app_mode %}disabled{% endif %}>
+                <button type="submit" class="btn-login" data-submitting-text="Signing in..." {% if microsoft_login_required and not microsoft_authenticator_app_mode %}disabled{% endif %}>
                     {% if microsoft_authenticator_app_mode and microsoft_login_required %}Continue{% else %}Sign in{% endif %}
                 </button>
                 {% if microsoft_login_available and not microsoft_authenticator_app_mode %}
@@ -318,8 +318,8 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="{% static 'vendor/jquery/jquery.min.js' %}"></script>
+    <script src="{% static 'vendor/bootstrap/js/bootstrap-4.6.0.bundle.min.js' %}"></script>
     <script>
         (function () {
             {% if popup_mode %}
@@ -344,6 +344,18 @@
                 button.setAttribute('title', showing ? 'Show password' : 'Hide password');
             });
         })();
+
+        (function () {
+            const form = document.querySelector('[data-login-form]');
+            if (!form) return;
+            form.addEventListener('submit', function () {
+                const button = form.querySelector('.btn-login');
+                if (!button || button.disabled) return;
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Signing in...';
+            }, { capture: true });
+        })();
     </script>
+    {% include "users/includes/form_submit_guard.html" %}
 </body>
 </html>

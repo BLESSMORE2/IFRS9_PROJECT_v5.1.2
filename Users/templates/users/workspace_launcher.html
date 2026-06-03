@@ -1,12 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Launch Workspace · NEXA Compliance</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet">
     <style>
         :root {
             --nx-navy: #07162f;
@@ -181,9 +181,19 @@
                 </div>
             </div>
 
-            <h2 class="panel-title">{% if workspace_already_authenticated %}Re-open your workspace{% else %}Launch secure login{% endif %}</h2>
+            <h2 class="panel-title">
+                {% if workspace_launcher_heading %}
+                    {{ workspace_launcher_heading }}
+                {% elif workspace_already_authenticated %}
+                    Re-open your workspace
+                {% else %}
+                    Launch secure login
+                {% endif %}
+            </h2>
             <p class="panel-copy">
-                {% if workspace_already_authenticated %}
+                {% if workspace_launcher_copy %}
+                {{ workspace_launcher_copy }}
+                {% elif workspace_already_authenticated %}
                 Your session is already active. Open the workspace window to continue inside the dedicated application shell.
                 {% else %}
                 The login page and the rest of the platform will open in a dedicated workspace window so users can work inside a single controlled shell instead of the main browser tab.
@@ -197,7 +207,7 @@
 
             <div id="launch-status" class="launch-status">
                 <strong>Preparing workspace launch</strong>
-                <span>The launcher will automatically try to open the login workspace window as soon as this page loads.</span>
+                <span>{{ workspace_launcher_status|default:"The launcher will automatically try to open the login workspace window as soon as this page loads." }}</span>
             </div>
 
             <div id="popup-feedback" class="launch-feedback">
@@ -208,7 +218,13 @@
             <div class="launch-actions">
                 <button id="launch-workspace-button" class="launch-button" type="button" data-popup-url="{{ workspace_popup_url }}" data-target-url="{{ workspace_target_url }}">
                     <i class="fas fa-up-right-from-square"></i>
-                    {% if workspace_already_authenticated %}Open Workspace Window{% else %}Open Login Window{% endif %}
+                    {% if workspace_launcher_button %}
+                        {{ workspace_launcher_button }}
+                    {% elif workspace_already_authenticated %}
+                        Open Workspace Window
+                    {% else %}
+                        Open Login Window
+                    {% endif %}
                 </button>
             </div>
         </aside>

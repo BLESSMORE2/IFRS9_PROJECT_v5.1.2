@@ -1,12 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Microsoft Authenticator &middot; NEXA</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet">
     {% if workspace_popup_mode %}
     <script>
         (function () {
@@ -356,7 +356,7 @@
                         </div>
 
                         <div class="action-row">
-                            <a href="{% if purpose == 'login' %}{% url 'login' %}{% else %}{% url 'modules_home' %}{% endif %}" class="btn btn-outline-secondary">
+                            <a href="{{ cancel_url }}" class="btn btn-outline-secondary">
                                 Cancel
                             </a>
                             <button type="submit" class="btn btn-primary">
@@ -389,5 +389,6 @@
             </div>
         </div>
     </div>
+    {% include "users/includes/form_submit_guard.html" %}
 </body>
 </html>

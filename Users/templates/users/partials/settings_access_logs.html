@@ -61,11 +61,11 @@
             <input type="hidden" name="log_view" value="sessions">
             <div class="form-group">
                 <label for="access-log-user">User</label>
-                <select id="access-log-user" name="user" class="form-control form-control-sm">
+                <select id="access-log-user" name="user" class="form-control form-control-sm" data-user-search-select="true" data-user-search-placeholder="Type email, name, or surname">
                     <option value="">All users</option>
                     {% for user_option in access_log_user_choices %}
                     <option value="{{ user_option.pk }}"{% if selected_access_log_user == user_option.pk|stringformat:"s" %} selected{% endif %}>
-                        {{ user_option.email }}
+                        {{ user_option.email }}{% if user_option.name or user_option.surname %} - {{ user_option.name }} {{ user_option.surname }}{% endif %}
                     </option>
                     {% endfor %}
                 </select>
@@ -183,6 +183,17 @@
         <form method="get" class="inline-filter-grid">
             <input type="hidden" name="log_view" value="users">
             <div class="form-group">
+                <label for="access-log-roster-user">User</label>
+                <select id="access-log-roster-user" name="user" class="form-control form-control-sm" data-user-search-select="true" data-user-search-placeholder="Type email, name, or surname">
+                    <option value="">All users</option>
+                    {% for user_option in access_log_user_choices %}
+                    <option value="{{ user_option.pk }}"{% if selected_access_log_user == user_option.pk|stringformat:"s" %} selected{% endif %}>
+                        {{ user_option.email }}{% if user_option.name or user_option.surname %} - {{ user_option.name }} {{ user_option.surname }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="access-log-user-search">Search Users</label>
                 <input id="access-log-user-search" type="text" name="search" class="form-control form-control-sm" value="{{ access_log_search_query }}" placeholder="Email, name, or department">
             </div>
@@ -274,7 +285,7 @@
                         <td>{{ user_row.date_joined|date:"Y-m-d H:i:s" }}</td>
                         {% if can_reset_user_lockout %}
                         <td>
-                            <form method="post" action="{% url 'user_settings_access_logs' %}?log_view=users{% if access_log_search_query %}&search={{ access_log_search_query|urlencode }}{% endif %}{% if selected_user_activity_state %}&user_activity={{ selected_user_activity_state|urlencode }}{% endif %}" onsubmit="return confirm('Reset lockout state for {{ user_row.email }}?');">
+                            <form method="post" action="{% url 'user_settings_access_logs' %}?log_view=users{% if selected_access_log_user %}&user={{ selected_access_log_user|urlencode }}{% endif %}{% if access_log_search_query %}&search={{ access_log_search_query|urlencode }}{% endif %}{% if selected_user_activity_state %}&user_activity={{ selected_user_activity_state|urlencode }}{% endif %}" onsubmit="return confirm('Reset lockout state for {{ user_row.email }}?');">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="reset_user_lockout">
                                 <input type="hidden" name="target_user_id" value="{{ user_row.pk }}">
@@ -330,10 +341,20 @@
         <form method="get" class="inline-filter-grid">
             <input type="hidden" name="log_view" value="history">
             <div class="form-group">
+                <label for="access-log-history-user">User</label>
+                <select id="access-log-history-user" name="user" class="form-control form-control-sm" data-user-search-select="true" data-user-search-placeholder="Type email, name, or surname">
+                    <option value="">All users</option>
+                    {% for user_option in access_log_user_choices %}
+                    <option value="{{ user_option.pk }}"{% if selected_access_log_user == user_option.pk|stringformat:"s" %} selected{% endif %}>
+                        {{ user_option.email }}{% if user_option.name or user_option.surname %} - {{ user_option.name }} {{ user_option.surname }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="access-log-history-search">Search</label>
                 <input id="access-log-history-search" type="text" name="search" class="form-control form-control-sm" value="{{ access_log_search_query }}" placeholder="Email, username, or name">
             </div>
-            <div></div>
             <div class="editor-actions" style="margin-top:24px;">
                 <button type="submit" class="primary-btn"><i class="fas fa-filter"></i><span>Apply Filters</span></button>
                 <a href="{% url 'user_settings_access_logs' %}?log_view=history" class="secondary-btn"><i class="fas fa-rotate-left"></i><span>Reset</span></a>
@@ -421,7 +442,7 @@
                 <p class="card-copy">Search access-attempt traces by username or email fragment.</p>
             </div>
             {% if can_clear_access_attempts %}
-            <form method="post" action="{% url 'user_settings_access_logs' %}?log_view=attempts{% if access_log_search_query %}&search={{ access_log_search_query|urlencode }}{% endif %}" onsubmit="return confirm('Clear the current access-attempt records from this view?');">
+            <form method="post" action="{% url 'user_settings_access_logs' %}?log_view=attempts{% if selected_access_log_user %}&user={{ selected_access_log_user|urlencode }}{% endif %}{% if access_log_search_query %}&search={{ access_log_search_query|urlencode }}{% endif %}" onsubmit="return confirm('Clear the current access-attempt records from this view?');">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="clear_access_attempts">
                 <button type="submit" class="secondary-btn" style="border-color:rgba(220,38,38,.18);color:#b91c1c;background:#fff5f5;">
@@ -433,10 +454,20 @@
         <form method="get" class="inline-filter-grid">
             <input type="hidden" name="log_view" value="attempts">
             <div class="form-group">
+                <label for="access-log-attempt-user">User</label>
+                <select id="access-log-attempt-user" name="user" class="form-control form-control-sm" data-user-search-select="true" data-user-search-placeholder="Type email, name, or surname">
+                    <option value="">All users</option>
+                    {% for user_option in access_log_user_choices %}
+                    <option value="{{ user_option.pk }}"{% if selected_access_log_user == user_option.pk|stringformat:"s" %} selected{% endif %}>
+                        {{ user_option.email }}{% if user_option.name or user_option.surname %} - {{ user_option.name }} {{ user_option.surname }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="access-log-username-attempt">Username</label>
                 <input id="access-log-username-attempt" type="text" name="search" class="form-control form-control-sm" value="{{ access_log_search_query }}" placeholder="Search username or email">
             </div>
-            <div></div>
             <div class="editor-actions" style="margin-top:24px;">
                 <button type="submit" class="primary-btn"><i class="fas fa-filter"></i><span>Apply Filters</span></button>
                 <a href="{% url 'user_settings_access_logs' %}?log_view=attempts" class="secondary-btn"><i class="fas fa-rotate-left"></i><span>Reset</span></a>
@@ -516,10 +547,20 @@
         <form method="get" class="inline-filter-grid">
             <input type="hidden" name="log_view" value="failures">
             <div class="form-group">
+                <label for="access-log-failure-user">User</label>
+                <select id="access-log-failure-user" name="user" class="form-control form-control-sm" data-user-search-select="true" data-user-search-placeholder="Type email, name, or surname">
+                    <option value="">All users</option>
+                    {% for user_option in access_log_user_choices %}
+                    <option value="{{ user_option.pk }}"{% if selected_access_log_user == user_option.pk|stringformat:"s" %} selected{% endif %}>
+                        {{ user_option.email }}{% if user_option.name or user_option.surname %} - {{ user_option.name }} {{ user_option.surname }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="access-log-username-failure">Username</label>
                 <input id="access-log-username-failure" type="text" name="search" class="form-control form-control-sm" value="{{ access_log_search_query }}" placeholder="Search username or email">
             </div>
-            <div></div>
             <div class="editor-actions" style="margin-top:24px;">
                 <button type="submit" class="primary-btn"><i class="fas fa-filter"></i><span>Apply Filters</span></button>
                 <a href="{% url 'user_settings_access_logs' %}?log_view=failures" class="secondary-btn"><i class="fas fa-rotate-left"></i><span>Reset</span></a>

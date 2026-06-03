@@ -1,4 +1,4 @@
-{% load static custom_filters %}
+{% load static user_custom_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -613,7 +613,7 @@
 
                 <div class="topbar-actions">
                     {% if request.user.is_superuser %}
-                    <a href="{% url 'admin:index' %}" class="topbar-chip" target="_blank" rel="noopener noreferrer">
+                    <a href="{% url 'admin:index' %}" class="topbar-chip" data-admin-popup-url="{% url 'admin:index' %}?popup=1">
                         <i class="fas fa-user-shield"></i>
                         <span>Admin</span>
                     </a>
@@ -726,6 +726,44 @@
         </div>
     </footer>
     <script>
+        (function () {
+            const adminLinks = document.querySelectorAll('[data-admin-popup-url]');
+            if (!adminLinks.length) return;
+
+            function openAdminWindow(url) {
+                const width = Math.max(1180, Math.min(window.screen.availWidth - 40, 1440));
+                const height = Math.max(760, Math.min(window.screen.availHeight - 60, 980));
+                const left = Math.max(20, Math.round((window.screen.availWidth - width) / 2));
+                const top = Math.max(20, Math.round((window.screen.availHeight - height) / 2));
+                const features = [
+                    'popup=yes',
+                    'toolbar=no',
+                    'menubar=no',
+                    'location=no',
+                    'status=no',
+                    'resizable=yes',
+                    'scrollbars=yes',
+                    'width=' + width,
+                    'height=' + height,
+                    'left=' + left,
+                    'top=' + top
+                ].join(',');
+                return window.open(url, 'nexaAdminWorkspaceWindow', features);
+            }
+
+            adminLinks.forEach(function (link) {
+                link.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    const popup = openAdminWindow(link.getAttribute('data-admin-popup-url') || link.href);
+                    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+                        window.location.href = link.href;
+                        return;
+                    }
+                    try { popup.focus(); } catch (error) {}
+                });
+            });
+        })();
+
         (function () {
             const wrap = document.getElementById('nxUserWrap');
             const pill = document.getElementById('nxUserPill');

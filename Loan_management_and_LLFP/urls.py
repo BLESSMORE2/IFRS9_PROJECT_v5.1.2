@@ -59,3 +59,5 @@ if scorecard_status['usable']:
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+handler403 = "Loan_management_and_LLFP.error_handlers.forbidden"

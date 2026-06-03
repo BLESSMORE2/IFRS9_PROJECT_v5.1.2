@@ -1,0 +1,97 @@
+<style>
+    form.is-submitting button[type="submit"],
+    form.is-submitting input[type="submit"] {
+        cursor: wait !important;
+        opacity: .72;
+        pointer-events: none;
+    }
+</style>
+<script>
+    (function () {
+        if (window.__nexaFormSubmitGuardInstalled) {
+            return;
+        }
+        window.__nexaFormSubmitGuardInstalled = true;
+
+        function textOf(element) {
+            return (element && (element.innerText || element.value || element.textContent) || '').trim();
+        }
+
+        function actionLabel(originalText) {
+            const text = (originalText || '').toLowerCase();
+            if (text.includes('sign in') || text.includes('login') || text.includes('log in')) return 'Signing in...';
+            if (text.includes('save')) return 'Saving...';
+            if (text.includes('submit')) return 'Submitting...';
+            if (text.includes('update')) return 'Updating...';
+            if (text.includes('delete') || text.includes('remove')) return 'Deleting...';
+            if (text.includes('create') || text.includes('add')) return 'Creating...';
+            if (text.includes('upload') || text.includes('import')) return 'Uploading...';
+            if (text.includes('download') || text.includes('export')) return 'Preparing...';
+            if (text.includes('apply')) return 'Applying...';
+            if (text.includes('search')) return 'Searching...';
+            if (text.includes('run') || text.includes('execute')) return 'Running...';
+            if (text.includes('test')) return 'Testing...';
+            return 'Processing...';
+        }
+
+        function rememberSubmitter(form, submitter) {
+            if (!submitter || !submitter.name || submitter.disabled) {
+                return;
+            }
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = submitter.name;
+            hidden.value = submitter.value;
+            hidden.setAttribute('data-submit-guard-hidden', 'true');
+            form.appendChild(hidden);
+        }
+
+        function lockSubmitButtons(form, submitter) {
+            const buttons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+            buttons.forEach(function (button) {
+                if (button.dataset.submitGuardLocked === 'true') {
+                    return;
+                }
+                const originalText = textOf(button);
+                button.dataset.submitGuardLocked = 'true';
+                button.dataset.submitGuardOriginal = originalText;
+                button.disabled = true;
+
+                const nextText = button.getAttribute('data-submitting-text') || actionLabel(originalText);
+                if (button.tagName === 'INPUT') {
+                    button.value = nextText;
+                } else if (button === submitter || buttons.length === 1) {
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i><span>' + nextText + '</span>';
+                }
+            });
+        }
+
+        document.addEventListener('submit', function (event) {
+            const form = event.target;
+            if (!form || form.tagName !== 'FORM') {
+                return;
+            }
+            if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post') {
+                return;
+            }
+            if (form.hasAttribute('data-allow-multiple-submit')) {
+                return;
+            }
+            if (event.defaultPrevented) {
+                return;
+            }
+            if (form.dataset.submitGuardSubmitting === 'true') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                return false;
+            }
+
+            const submitter = event.submitter || document.activeElement;
+            rememberSubmitter(form, submitter);
+            form.dataset.submitGuardSubmitting = 'true';
+            form.classList.add('is-submitting');
+            lockSubmitButtons(form, submitter);
+            return true;
+        });
+    })();
+</script>

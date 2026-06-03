@@ -1,12 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Account Locked &middot; NEXA Modules</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet">
     <style>
         :root {
             --nx-navy: #0b1a35;
@@ -127,6 +127,36 @@
             letter-spacing: 0.04em;
             text-transform: uppercase;
         }
+        .countdown-panel {
+            margin: 0 0 20px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+            border: 1px solid rgba(234, 88, 12, 0.18);
+            color: #9a3412;
+        }
+        .countdown-label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .countdown-value {
+            display: block;
+            color: #7c2d12;
+            font-size: 1.55rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            line-height: 1.2;
+        }
+        .countdown-copy {
+            display: block;
+            margin-top: 5px;
+            color: #9a3412;
+            font-size: 0.78rem;
+        }
         .primary-btn {
             width: 100%;
             min-height: 48px;
@@ -183,6 +213,24 @@
                 {% endif %}
             </p>
 
+            {% if not permanent_lock and lockout_until %}
+            <div
+                class="countdown-panel"
+                data-lockout-countdown
+                data-remaining-seconds="{{ lockout_remaining_seconds|default:0 }}"
+            >
+                <span class="countdown-label">Time remaining</span>
+                <span class="countdown-value" data-countdown-value>
+                    {% if lockout_remaining_seconds %}
+                    {{ lockout_remaining_seconds }}s
+                    {% else %}
+                    Ready
+                    {% endif %}
+                </span>
+                <span class="countdown-copy" data-countdown-copy>Keep this page open; the timer updates automatically.</span>
+            </div>
+            {% endif %}
+
             <div class="lockout-meta">
                 <strong>Next Step</strong>
                 {% if permanent_lock %}
@@ -204,5 +252,48 @@
             </div>
         </div>
     </div>
+    <script>
+        (function () {
+            const panel = document.querySelector('[data-lockout-countdown]');
+            if (!panel) return;
+
+            const value = panel.querySelector('[data-countdown-value]');
+            const copy = panel.querySelector('[data-countdown-copy]');
+            let remaining = parseInt(panel.getAttribute('data-remaining-seconds') || '0', 10);
+            if (!Number.isFinite(remaining) || remaining < 0) remaining = 0;
+
+            function format(seconds) {
+                if (seconds <= 0) return 'Ready';
+                const days = Math.floor(seconds / 86400);
+                const hours = Math.floor((seconds % 86400) / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = seconds % 60;
+                const parts = [];
+                if (days) parts.push(days + 'd');
+                if (hours || days) parts.push(hours + 'h');
+                if (minutes || hours || days) parts.push(minutes + 'm');
+                parts.push(secs + 's');
+                return parts.join(' ');
+            }
+
+            function render() {
+                if (value) value.textContent = format(remaining);
+                if (copy && remaining <= 0) {
+                    copy.textContent = 'The lockout window has expired. Return to sign in and try again.';
+                    panel.style.background = 'linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%)';
+                    panel.style.borderColor = 'rgba(5, 150, 105, 0.22)';
+                    panel.style.color = '#047857';
+                    if (value) value.style.color = '#065f46';
+                }
+            }
+
+            render();
+            const timer = window.setInterval(function () {
+                remaining = Math.max(remaining - 1, 0);
+                render();
+                if (remaining <= 0) window.clearInterval(timer);
+            }, 1000);
+        })();
+    </script>
 </body>
 </html>

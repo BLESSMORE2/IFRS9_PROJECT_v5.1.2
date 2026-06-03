@@ -1,50 +1,70 @@
-﻿import base64
+import base64
 import csv
+from datetime import timedelta
+import importlib
 import io
 import os
+import sys
+import sysconfig
 import urllib.parse
-from datetime import timedelta
 from time import perf_counter
 
 import pyotp
 import qrcode
 from django import forms as django_forms
+from django.apps import apps
 from django.contrib import messages, auth
 from django.contrib.auth import login,logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.db import DatabaseError
-from django.db.models import Count, Q
 from django.db.utils import ConnectionHandler
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.db.models import Count, Q
 from .forms import (
     AuthenticatorResetForm,
     CustomPasswordChangeForm,
     SystemSettingsForm,
     UserModuleAccessForm,
     UserWorkspaceCreationForm,
+    UserWorkspacePasswordResetForm,
     UserRoleAssignmentForm,
+    UserRoleGroupAssignmentForm,
+    UserRoleGroupForm,
 )
-from .models import CustomUser, SystemModule, SystemSetting, UserModuleAccess, UserAccessLog
+from .models import CustomUser, SystemModule, SystemSetting, UserModuleAccess, UserAccessLog, UserRoleGroup
 from .backends import resolve_login_user
 from .access_logs import begin_user_session_log, close_user_session_log
-from .security import password_change_required, password_policy_requirements
+from .security import (
+    password_change_required,
+    password_expiry_reminder_due,
+    password_policy_requirements,
+)
 from django.urls import reverse
 from django.conf import settings
-from IFRS9.Functions_view.audit import save_audit_trail
+try:
+    from IFRS9.signals import PACKAGE_EXPIRED
+except ModuleNotFoundError:
+    PACKAGE_EXPIRED = not any(
+        app_name == "IFRS9" or app_name.startswith("IFRS9.")
+        for app_name in settings.INSTALLED_APPS
+    )
+
+try:
+    from IFRS9.Functions_view.audit import save_audit_trail
+except ModuleNotFoundError:
+    def save_audit_trail(*args, **kwargs):
+        return None
+
 from Loan_management_and_LLFP.runtime_database_config import (
     get_runtime_database_config_path,
     load_runtime_database_config,
     save_runtime_dr_database_config,
     save_runtime_database_config,
-)
-from Loan_management_and_LLFP.package_runtime import (
-    get_ifrs9_package_status,
-    get_scorecard_package_status,
 )
 from .runtime import (
     MICROSOFT_AUTH_VERIFIED_AT_KEY,
@@ -67,6 +87,232 @@ except Exception:  # pragma: no cover - graceful fallback if axes is unavailable
     AccessFailureLog = None
 
 
+SCORECARD_ROLE_PREFIXES = (
+    "Basel Score",
+    "Basel Template",
+    "IFRS9 Score",
+    "IFRS9 Template",
+    "Scorecard",
+    "Branch ",
+    "Customer ",
+    "Document ",
+    "Email ",
+    "External Import",
+    "Historical Score",
+    "Notification",
+    "Support Documents",
+)
+IFRS9_ROLE_PREFIXES = (
+    "API",
+    "Audit Trail",
+    "Data -",
+    "EAD & Cashflows",
+    "IFRS9 Configuration",
+    "IFRS9 Results",
+    "IFRS9 Supporting Data",
+    "LGD Configuration",
+    "Operations",
+    "Probability Configuration",
+    "Reports",
+    "Staging",
+)
+ROLE_SECTION_META = {
+    "ifrs9": {
+        "title": "IFRS 9 Roles",
+        "subtitle": "Configuration, API, staging, ECL reporting, LGD, PD, EAD, and operations permissions.",
+        "icon": "fas fa-chart-line",
+        "accent": "ifrs9",
+    },
+    "scorecard": {
+        "title": "Scorecard Roles",
+        "subtitle": "Score templates, makers, checkers, customers, documents, branches, and notifications.",
+        "icon": "fas fa-clipboard-check",
+        "accent": "scorecard",
+    },
+    "platform": {
+        "title": "Platform & Settings Roles",
+        "subtitle": "Shared administration, workspace, permission, audit, and security-control roles.",
+        "icon": "fas fa-shield-alt",
+        "accent": "platform",
+    },
+}
+
+SCORECARD_ROLE_DESCRIPTIONS = {
+    "Scorecard Administrator": "Full scorecard access across workspace, API, templates, scores, customers, documents, email, and permission settings.",
+    "Workspace Access": "Open the scorecard workspace and use branch switching.",
+    "API Viewer": "Review API health, import history, and sync monitoring pages.",
+    "API Endpoint Manager": "Create, edit, and retire API endpoint definitions.",
+    "API Operator": "Run API tests, manual imports, retries, and main customer sync operations.",
+    "API Scheduler Manager": "Maintain API schedules and automation timing.",
+    "API Settings Manager": "Maintain API configuration and main customer auto-sync settings.",
+    "API Administrator": "Full API control across settings, endpoints, schedules, and operations.",
+    "External Import Operator": "Upload, map, validate, and import external Basel, IFRS9, and historical score files.",
+    "Basel Template Viewer": "Review Basel scorecard templates, builder structure, and grade bands without editing them.",
+    "Basel Template Manager": "Create and maintain Basel templates, including builder flow, sections, drivers, attributes, options, and grade bands.",
+    "Basel Template Checker": "Review, approve, return, and reopen Basel template workflow items.",
+    "Basel Template Administrator": "Full Basel template control across the builder, setup pages, and approval workflow.",
+    "IFRS9 Template Viewer": "Review IFRS9 template structures and builder layout without changing them.",
+    "IFRS9 Template Manager": "Create and maintain IFRS9 templates, including builder flow, sections, drivers, attributes, and options.",
+    "IFRS9 Template Checker": "Review, approve, return, and reopen IFRS9 template workflow items.",
+    "IFRS9 Template Administrator": "Full IFRS9 template control across the builder, setup pages, and approval workflow.",
+    "Basel Score Viewer": "Review Basel score submissions, comparisons, history, and exports.",
+    "Basel Score Maker": "Create, edit, submit, and manage Basel score evaluations.",
+    "Basel Score Reopen Administrator": "Reopen approved Basel evaluations for correction or rework.",
+    "Basel Score Checker": "Review, approve, and return Basel score evaluations.",
+    "Basel Score Administrator": "Full Basel score control across creation, review, and reopen actions.",
+    "IFRS9 Score Viewer": "Review IFRS9 score submissions, comparisons, history, and exports.",
+    "IFRS9 Score Maker": "Create, edit, submit, and manage IFRS9 score forms.",
+    "IFRS9 Score Reopen Administrator": "Reopen approved IFRS9 score forms for correction or rework.",
+    "IFRS9 Score Checker": "Review, approve, and return IFRS9 score evaluations.",
+    "IFRS9 Score Administrator": "Full IFRS9 score control across creation, review, and reopen actions.",
+    "IFRS9 Supporting Data Manager": "Maintain branch-scoped collateral and payment schedule staging records for active IFRS9 loans.",
+    "IFRS9 Results Viewer": "Open branch-scoped IFRS9 results extracts and ECL summary reporting workspaces.",
+    "Historical Score Viewer": "Review branch-scoped historical score snapshots and download filtered historical score extracts.",
+    "Customer Viewer": "Review customer directories, exports, and score gap lists.",
+    "Customer Manager": "Create and maintain scorecard customer records.",
+    "Branch Viewer": "Open the branch master workspace in read-only mode.",
+    "Branch Manager": "Maintain branch master data.",
+    "Document Viewer": "Open questionnaire and scorecard document libraries.",
+    "Document Manager": "Upload and maintain scorecard document records.",
+    "Notification Viewer": "Read scorecard alerts and open notification details.",
+    "Email Viewer": "Open email configuration, templates, and delivery history in read-only mode.",
+    "Email Manager": "Maintain email configuration, templates, and retry actions.",
+    "Audit Trail Viewer": "Open the standalone scorecard audit trail page and review scorecard-wide activity history.",
+    "Permission Viewer": "Review the permission dashboard, user access summary, matrix, and workflow rules.",
+    "Permission Manager": "Assign scorecard permission roles, branch access, and workflow auto-approval rules.",
+}
+SCORECARD_ROLE_NAMES = frozenset(SCORECARD_ROLE_DESCRIPTIONS)
+
+
+def _role_area_name(group_name):
+    area = group_name
+    for suffix in (
+        " Reopen Administrator",
+        " Administrator",
+        " Manager",
+        " Operator",
+        " Viewer",
+        " Checker",
+        " Maker",
+        " Exporter",
+        " Canceller",
+        " Executor",
+        " Monitor",
+        " Creator",
+        " Deleter",
+        " Editor",
+        " Loader",
+        " Admin",
+    ):
+        if area.endswith(suffix):
+            area = area[: -len(suffix)]
+            break
+    return area.replace(" - ", " ").strip() or group_name
+
+
+def _fallback_role_description(group_name, section_key):
+    area = _role_area_name(group_name)
+    if group_name.endswith(("Admin", "Administrator")):
+        action = f"Full administrative control for {area}."
+    elif group_name.endswith("Viewer"):
+        action = f"Read-only access to view {area} workspaces, records, and reports."
+    elif group_name.endswith("Manager"):
+        action = f"Create, update, and maintain {area} configuration and operational records."
+    elif group_name.endswith("Operator"):
+        action = f"Run controlled operational actions for {area}."
+    elif group_name.endswith("Exporter"):
+        action = f"Download and export {area} report outputs."
+    elif group_name.endswith("Checker"):
+        action = f"Review, approve, return, or reject {area} workflow items."
+    elif group_name.endswith("Maker"):
+        action = f"Create, edit, and submit {area} records for review."
+    elif group_name.endswith("Executor"):
+        action = f"Execute approved {area} processes."
+    elif group_name.endswith("Monitor"):
+        action = f"Monitor {area} process progress and execution status."
+    elif group_name.endswith("Canceller"):
+        action = f"Cancel eligible {area} processes when operationally required."
+    elif group_name.endswith("Creator"):
+        action = f"Create new {area} setup records."
+    elif group_name.endswith("Editor"):
+        action = f"Edit existing {area} setup records."
+    elif group_name.endswith("Deleter"):
+        action = f"Delete eligible {area} records where permissions allow."
+    elif group_name.endswith("Loader"):
+        action = f"Load and maintain data for {area}."
+    else:
+        action = f"Access and use {area} features."
+
+    if section_key == "ifrs9":
+        return f"{action} Applies inside the IFRS 9 module."
+    if section_key == "scorecard":
+        return f"{action} Applies inside the Scorecard module."
+    return f"{action} Applies to shared platform settings and security controls."
+
+
+def _role_section_key(group_name):
+    if group_name in SCORECARD_ROLE_NAMES:
+        return "scorecard"
+    if group_name.startswith(SCORECARD_ROLE_PREFIXES):
+        return "scorecard"
+    if group_name.startswith(IFRS9_ROLE_PREFIXES):
+        return "ifrs9"
+    return "platform"
+
+
+def _build_role_sections(groups, selected_group_ids=None, role_rows=None):
+    selected_group_ids = {str(group_id) for group_id in (selected_group_ids or [])}
+    row_lookup = {row["group"].id: row for row in (role_rows or [])}
+    section_map = {
+        "ifrs9": [],
+        "scorecard": [],
+        "platform": [],
+    }
+    for group in groups:
+        section_key = _role_section_key(group.name)
+        section_map[section_key].append(
+            {
+                "group": group,
+                "checked": str(group.id) in selected_group_ids,
+                "directory_row": row_lookup.get(group.id),
+                "description": SCORECARD_ROLE_DESCRIPTIONS.get(
+                    group.name,
+                    _fallback_role_description(group.name, section_key),
+                ),
+            }
+        )
+
+    sections = []
+    for section_key in ("ifrs9", "scorecard", "platform"):
+        roles = section_map[section_key]
+        if not roles:
+            continue
+        section = dict(ROLE_SECTION_META[section_key])
+        section.update(
+            {
+                "key": section_key,
+                "roles": roles,
+                "count": len(roles),
+                "selected_count": sum(1 for role in roles if role["checked"]),
+            }
+        )
+        sections.append(section)
+    return sections
+
+
+def _apply_user_role_groups(target_user, role_groups):
+    role_ids = set()
+    for role_group in role_groups:
+        role_ids.update(role_group.roles.values_list("id", flat=True))
+
+    if not role_ids:
+        return 0
+
+    roles = list(Group.objects.filter(id__in=role_ids))
+    target_user.groups.add(*roles)
+    return len(roles)
+
+
 def get_app_version():
     """Return current app version from IFRS9 AppVersion table, or None if not available."""
     try:
@@ -83,6 +329,9 @@ def get_app_version():
 def _render_lockout_response(request, target_user=None, permanent_lock=False):
     popup_mode = _workspace_popup_enabled(request)
     lockout_until = getattr(target_user, "lockout_until", None) if target_user is not None else None
+    lockout_remaining_seconds = 0
+    if lockout_until:
+        lockout_remaining_seconds = max(int((lockout_until - timezone.now()).total_seconds()), 0)
     return render(
         request,
         "axes/lockout.html",
@@ -91,6 +340,7 @@ def _render_lockout_response(request, target_user=None, permanent_lock=False):
             "popup_mode": popup_mode,
             "permanent_lock": permanent_lock,
             "lockout_until": lockout_until,
+            "lockout_remaining_seconds": lockout_remaining_seconds,
         },
         status=429,
     )
@@ -99,8 +349,25 @@ def _render_lockout_response(request, target_user=None, permanent_lock=False):
 MICROSOFT_AUTH_PURPOSE_KEY = "users_microsoft_auth_purpose"
 MICROSOFT_AUTH_NEXT_KEY = "users_microsoft_auth_next"
 MICROSOFT_AUTH_PENDING_USER_ID_KEY = "users_pending_microsoft_auth_user_id"
+PASSWORD_EXPIRY_REMINDER_SESSION_KEY = "users_password_expiry_reminder"
 WORKSPACE_POPUP_SESSION_KEY = "users_workspace_popup_mode"
 WORKSPACE_POPUP_WINDOW_NAME = "nexaWorkspaceWindow"
+
+
+def _clear_password_expiry_reminder(request):
+    request.session.pop(PASSWORD_EXPIRY_REMINDER_SESSION_KEY, None)
+
+
+def _queue_password_expiry_reminder(request, user, runtime_settings):
+    _clear_password_expiry_reminder(request)
+    reminder_due, days_left = password_expiry_reminder_due(user, runtime_settings)
+    if not reminder_due or days_left is None:
+        return
+
+    request.session[PASSWORD_EXPIRY_REMINDER_SESSION_KEY] = {
+        "days_left": int(days_left),
+        "can_change_password": bool(getattr(runtime_settings, "enable_self_password_change", True)),
+    }
 
 
 def _set_workspace_popup_mode(request, enabled=True):
@@ -121,16 +388,81 @@ def _workspace_launcher_target(user, next_target=""):
         return get_post_login_redirect(user)
     return reverse("login_popup")
 
+def login_view(request):
+    """Login view with expiry check."""
+    # Invalidate caches immediately before checking package status
+    importlib.invalidate_caches()
+    runtime_settings = apply_runtime_security_settings()
+    microsoft_login_available = microsoft_auth_is_available(runtime_settings)
+    authenticator_app_mode = microsoft_auth_uses_authenticator_app_mode(runtime_settings)
+    # If the package is missing/expired, disallow logging in
+    # if PACKAGE_EXPIRED:
+    #     messages.error(request, "🔴 Your license expired ,you no longer have access to this application please contact the product owner.")
+    #     return render(request, "users/login.html") 
 
- 
 
-def is_package_expired_or_missing():
-    """Return True when the packaged IFRS9 app is unavailable for use."""
-    return not get_ifrs9_package_status()["usable"]
+    
+    if request.method == "POST":
+        identifier = (request.POST.get("login_identifier") or request.POST.get("email") or "").strip()
+        password = request.POST.get("password", None)
+        next_target = _get_safe_next_value(request.POST.get("next"))
+        target_user = resolve_login_user(identifier) if identifier else None
+        if target_user and _is_user_permanently_locked(target_user):
+            return _render_lockout_response(request, target_user, permanent_lock=True)
+        if target_user and _is_user_in_custom_lockout(target_user):
+            return _render_lockout_response(request, target_user)
+        user = auth.authenticate(request, username=identifier, email=identifier, password=password)
+        if user is not None:
+            if microsoft_login_available and runtime_settings.microsoft_auth_on_login and authenticator_app_mode:
+                _reset_user_failed_login_state(user)
+                _clear_password_expiry_reminder(request)
+                request.session[MICROSOFT_AUTH_PENDING_USER_ID_KEY] = user.pk
+                request.session[MICROSOFT_AUTH_PURPOSE_KEY] = "login"
+                request.session[MICROSOFT_AUTH_NEXT_KEY] = next_target or ""
+                return redirect("microsoft_auth_start")
 
+            _reset_user_failed_login_state(user)
+            auth.login(request, user)
+            begin_user_session_log(request, user)
+            _clear_microsoft_verification(request)
+            _clear_pending_microsoft_auth(request)
 
-PACKAGE_EXPIRED = is_package_expired_or_missing()
+            if password_change_required(user, runtime_settings):
+                if user.must_change_password:
+                    messages.warning(request, "You must change your password before continuing.")
+                else:
+                    messages.warning(request, "Your password has expired. Please set a new password to continue.")
+                return redirect("change_password")
 
+            _queue_password_expiry_reminder(request, user, runtime_settings)
+            return redirect(next_target or get_post_login_redirect(user))
+        else:
+            if target_user is not None:
+                lockout_state = _register_failed_login_attempt(target_user, runtime_settings)
+                if lockout_state == "permanent":
+                    return _render_lockout_response(request, target_user, permanent_lock=True)
+                if lockout_state == "temporary":
+                    return _render_lockout_response(request, target_user)
+            if identifier and target_user is None:
+                messages.error(request, "No account found for that email or username.")
+            else:
+                messages.error(request, "Incorrect password.")
+            if next_target:
+                return redirect(f"{reverse('login')}?{urllib.parse.urlencode({'next': next_target})}")
+            return redirect("login")
+
+    return render(
+        request,
+        "users/login.html",
+        {
+            "app_version": get_app_version(),
+            "next_url": _get_safe_next_value(request.GET.get("next")),
+            "microsoft_login_available": microsoft_login_available,
+            "microsoft_login_required": microsoft_login_available and runtime_settings.microsoft_auth_on_login,
+            "microsoft_authenticator_app_mode": authenticator_app_mode,
+            "microsoft_login_url": f"{reverse('microsoft_auth_start')}?{urllib.parse.urlencode({'purpose': 'login', 'next': _get_safe_next_value(request.GET.get('next')) or ''})}",
+        },
+    )
 
 
 def login_view(request):
@@ -171,15 +503,23 @@ def login_popup_view(request):
             return _render_lockout_response(request, target_user, permanent_lock=True)
         if target_user and _is_user_in_custom_lockout(target_user):
             return _render_lockout_response(request, target_user)
-        user = auth.authenticate(request, username=identifier, email=identifier, password=password)
+        user = auth.authenticate(
+            request,
+            username=identifier,
+            email=identifier,
+            password=password,
+            resolved_user=target_user,
+        )
         if user is not None:
-            _reset_user_failed_login_state(user)
             if microsoft_login_available and runtime_settings.microsoft_auth_on_login and authenticator_app_mode:
+                _reset_user_failed_login_state(user)
+                _clear_password_expiry_reminder(request)
                 request.session[MICROSOFT_AUTH_PENDING_USER_ID_KEY] = user.pk
                 request.session[MICROSOFT_AUTH_PURPOSE_KEY] = "login"
                 request.session[MICROSOFT_AUTH_NEXT_KEY] = next_target or ""
                 return redirect(f"{reverse('microsoft_auth_start')}?{urllib.parse.urlencode({'popup': '1'})}")
 
+            _reset_user_failed_login_state(user)
             auth.login(request, user)
             begin_user_session_log(request, user)
             _clear_microsoft_verification(request)
@@ -193,6 +533,7 @@ def login_popup_view(request):
                     messages.warning(request, "Your password has expired. Please set a new password to continue.")
                 return redirect("change_password")
 
+            _queue_password_expiry_reminder(request, user, runtime_settings)
             return redirect(next_target or get_post_login_redirect(user))
         else:
             if target_user is not None:
@@ -209,19 +550,21 @@ def login_popup_view(request):
                 return redirect(f"{reverse('login_popup')}?{urllib.parse.urlencode({'next': next_target})}")
             return redirect("login_popup")
 
+    next_url = _get_safe_next_value(request.GET.get("next"))
+    _set_workspace_popup_mode(request, True)
+    microsoft_query = {"purpose": "login", "next": next_url or "", "popup": "1"}
     return render(
         request,
         "users/login.html",
         {
             "app_version": get_app_version(),
-            "next_url": _get_safe_next_value(request.GET.get("next")),
+            "next_url": next_url,
             "popup_mode": True,
             "login_form_action": reverse("login_popup"),
-            "workspace_popup_window_name": WORKSPACE_POPUP_WINDOW_NAME,
             "microsoft_login_available": microsoft_login_available,
             "microsoft_login_required": microsoft_login_available and runtime_settings.microsoft_auth_on_login,
             "microsoft_authenticator_app_mode": authenticator_app_mode,
-            "microsoft_login_url": f"{reverse('microsoft_auth_start')}?{urllib.parse.urlencode({'purpose': 'login', 'next': _get_safe_next_value(request.GET.get('next')) or '', 'popup': '1'})}",
+            "microsoft_login_url": f"{reverse('microsoft_auth_start')}?{urllib.parse.urlencode(microsoft_query)}",
         },
     )
 
@@ -260,14 +603,6 @@ def microsoft_auth_start_view(request):
 
 @login_required
 def modules_home_view(request):
-    ifrs9_status = get_ifrs9_package_status()
-    if not ifrs9_status["usable"]:
-        messages.error(request, ifrs9_status["message"])
-
-    scorecard_status = get_scorecard_package_status()
-    if not scorecard_status["usable"]:
-        messages.error(request, scorecard_status["message"])
-
     modules = get_visible_modules_for_user(request.user)
 
     return render(
@@ -305,26 +640,50 @@ def user_settings_add_user_view(request):
         return redirect("modules_home")
 
     form = UserWorkspaceCreationForm()
+    password_reset_form = UserWorkspacePasswordResetForm()
     form.fields["groups"].queryset = Group.objects.order_by("name")
+    form.fields["user_groups"].queryset = UserRoleGroup.objects.filter(is_active=True).order_by("name")
 
     if request.method == "POST":
         if not _can_manage_users(request.user):
-            messages.error(request, "You do not have permission to create users.")
+            messages.error(request, "You do not have permission to manage users.")
             return redirect("user_settings_add_user")
 
-        form = UserWorkspaceCreationForm(request.POST)
-        form.fields["groups"].queryset = Group.objects.order_by("name")
-        if form.is_valid():
-            new_user = form.save()
-            save_audit_trail(
-                request.user,
-                "CustomUser",
-                "create",
-                new_user.pk,
-                f"Created user {new_user.email} from the shared Users workspace.",
-            )
-            messages.success(request, f"Created user {new_user.email} successfully.")
-            return redirect("user_settings_add_user")
+        action = request.POST.get("action") or "create_user"
+        if action == "reset_user_password":
+            password_reset_form = UserWorkspacePasswordResetForm(request.POST)
+            if password_reset_form.is_valid():
+                target_user = password_reset_form.save()
+                _reset_user_failed_login_state(target_user)
+                save_audit_trail(
+                    request.user,
+                    "CustomUser",
+                    "password_reset",
+                    target_user.pk,
+                    f"Reset password for user {target_user.email} from the shared Users workspace.",
+                )
+                messages.success(
+                    request,
+                    f"Password reset successfully for {target_user.email}. The user must change it at next login.",
+                )
+                return redirect("user_settings_add_user")
+            messages.error(request, "The password was not reset. Please correct the highlighted fields and try again.")
+        else:
+            form = UserWorkspaceCreationForm(request.POST)
+            form.fields["groups"].queryset = Group.objects.order_by("name")
+            form.fields["user_groups"].queryset = UserRoleGroup.objects.filter(is_active=True).order_by("name")
+            if form.is_valid():
+                new_user = form.save()
+                save_audit_trail(
+                    request.user,
+                    "CustomUser",
+                    "create",
+                    new_user.pk,
+                    f"Created user {new_user.email} from the shared Users workspace.",
+                )
+                messages.success(request, f"Created user {new_user.email} successfully.")
+                return redirect("user_settings_add_user")
+            messages.error(request, "The user was not created. Please correct the highlighted fields and try again.")
 
     recent_users = CustomUser.objects.order_by("-date_joined", "-id")[:8]
     context = _build_settings_context(
@@ -336,8 +695,10 @@ def user_settings_add_user_view(request):
     context.update(
         {
             "new_user_form": form,
+            "password_reset_form": password_reset_form,
             "recent_users": recent_users,
             "role_count": Group.objects.count(),
+            "user_group_count": UserRoleGroup.objects.count(),
             "user_count": CustomUser.objects.count(),
             "can_manage_users": _can_manage_users(request.user),
             "password_policy_spec": password_policy_requirements(get_system_settings()),
@@ -354,12 +715,15 @@ def user_settings_roles_view(request):
 
     try:
         ensure_default_modules()
+        _safe_ensure_access_log_security_roles()
         users_qs = CustomUser.objects.order_by("name", "surname", "email")
         groups_qs = Group.objects.order_by("name")
         modules_qs = SystemModule.objects.filter(is_active=True).order_by("display_order", "name")
+        role_group_qs = UserRoleGroup.objects.prefetch_related("roles", "users").order_by("name")
         users_qs.exists()
         groups_qs.exists()
         modules_qs.exists()
+        role_group_qs.exists()
         UserModuleAccess.objects.exists()
     except DatabaseError:
         messages.error(
@@ -370,14 +734,15 @@ def user_settings_roles_view(request):
 
     selected_user = None
     requested_user_id = request.GET.get("user")
+    active_user_roles_tab = request.GET.get("tab") or "user-access"
 
     if requested_user_id:
         selected_user = users_qs.filter(pk=requested_user_id).first()
-    if selected_user is None:
-        selected_user = users_qs.first()
 
     role_form = UserRoleAssignmentForm()
     module_form = UserModuleAccessForm()
+    role_group_form = UserRoleGroupForm()
+    role_group_assignment_form = UserRoleGroupAssignmentForm()
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -394,7 +759,7 @@ def user_settings_roles_view(request):
                 messages.success(request, f"Updated role membership for {target_user.email}.")
                 selected_user = target_user
                 redirect_url = reverse("user_settings_roles")
-                query = [f"user={target_user.pk}"]
+                query = [f"user={target_user.pk}", "tab=user-assignment"]
                 return redirect(f"{redirect_url}?{'&'.join(query)}")
         elif action == "assign_user_modules":
             if not _can_manage_user_roles(request.user):
@@ -421,15 +786,112 @@ def user_settings_roles_view(request):
                 messages.success(request, f"Updated launcher access for {target_user.email}.")
                 selected_user = target_user
                 redirect_url = reverse("user_settings_roles")
-                return redirect(f"{redirect_url}?user={target_user.pk}")
+                return redirect(f"{redirect_url}?user={target_user.pk}&tab=user-modules")
+        elif action == "save_user_role_group":
+            active_user_roles_tab = "user-groups"
+            if not _can_manage_user_roles(request.user):
+                messages.error(request, "You do not have permission to create or change user groups.")
+                return redirect("user_settings_roles")
+
+            role_group_id = request.POST.get("role_group_id")
+            role_group_instance = None
+            if role_group_id:
+                role_group_instance = role_group_qs.filter(pk=role_group_id).first()
+                if role_group_instance is None:
+                    messages.error(request, "The selected user group could not be found.")
+                    return redirect(f"{reverse('user_settings_roles')}?tab=user-groups")
+
+            role_group_form = UserRoleGroupForm(request.POST, instance=role_group_instance)
+            role_group_form.fields["roles"].queryset = groups_qs
+            if role_group_form.is_valid():
+                user_group = role_group_form.save(commit=False)
+                if user_group.pk is None:
+                    user_group.created_by = request.user
+                    audit_action = "create"
+                else:
+                    audit_action = "update"
+                user_group.save()
+                role_group_form.save_m2m()
+
+                applied_users = 0
+                for bundled_user in user_group.users.all():
+                    _apply_user_role_groups(bundled_user, [user_group])
+                    applied_users += 1
+
+                save_audit_trail(
+                    request.user,
+                    "UserRoleGroup",
+                    audit_action,
+                    user_group.pk,
+                    f"Saved user group '{user_group.name}' with {user_group.roles.count()} role(s).",
+                )
+                suffix = f" Applied to {applied_users} linked user(s)." if applied_users else ""
+                messages.success(request, f"Saved user group '{user_group.name}'.{suffix}")
+                return redirect(f"{reverse('user_settings_roles')}?tab=user-groups")
+        elif action == "assign_user_role_groups":
+            active_user_roles_tab = "user-groups"
+            if not _can_manage_user_roles(request.user):
+                messages.error(request, "You do not have permission to assign user groups.")
+                return redirect("user_settings_roles")
+
+            role_group_assignment_form = UserRoleGroupAssignmentForm(request.POST)
+            role_group_assignment_form.fields["user"].queryset = users_qs
+            role_group_assignment_form.fields["user_groups"].queryset = role_group_qs.filter(is_active=True)
+            if role_group_assignment_form.is_valid():
+                target_user = role_group_assignment_form.cleaned_data["user"]
+                selected_role_groups = role_group_assignment_form.cleaned_data["user_groups"]
+                target_user.access_role_groups.set(selected_role_groups)
+                applied_role_count = _apply_user_role_groups(target_user, selected_role_groups)
+                clear_runtime_caches()
+                save_audit_trail(
+                    request.user,
+                    "UserRoleGroup",
+                    "update",
+                    target_user.pk,
+                    f"Assigned {selected_role_groups.count()} user group(s) to {target_user.email}.",
+                )
+                messages.success(
+                    request,
+                    f"Updated user groups for {target_user.email}. {applied_role_count} bundled role(s) are now applied.",
+                )
+                selected_user = target_user
+                return redirect(f"{reverse('user_settings_roles')}?user={target_user.pk}&tab=user-groups")
         else:
             role_form = UserRoleAssignmentForm()
             module_form = UserModuleAccessForm()
+            role_group_form = UserRoleGroupForm()
+            role_group_assignment_form = UserRoleGroupAssignmentForm()
 
     role_form.fields["user"].queryset = users_qs
     role_form.fields["groups"].queryset = groups_qs
     module_form.fields["user"].queryset = users_qs
     module_form.fields["modules"].queryset = modules_qs
+    role_group_form.fields["roles"].queryset = groups_qs
+    role_group_assignment_form.fields["user"].queryset = users_qs
+    role_group_assignment_form.fields["user_groups"].queryset = role_group_qs.filter(is_active=True)
+    role_form.fields["user"].widget.attrs.update(
+        {
+            "data-role-user-select": "true",
+            "data-user-search-select": "true",
+            "data-user-search-placeholder": "Type email, name, or surname",
+        }
+    )
+    module_form.fields["user"].widget.attrs.update(
+        {
+            "data-module-user-select": "true",
+            "data-user-search-select": "true",
+            "data-user-search-placeholder": "Type email, name, or surname",
+        }
+    )
+    role_group_assignment_form.fields["user"].widget.attrs.update(
+        {
+            "data-role-group-user-select": "true",
+            "data-user-search-select": "true",
+            "data-user-search-placeholder": "Type email, name, or surname",
+        }
+    )
+    groups_list = list(groups_qs)
+    role_group_list = list(role_group_qs)
 
     if selected_user:
         role_form.initial["user"] = selected_user
@@ -440,9 +902,20 @@ def user_settings_roles_view(request):
                 "id", flat=True
             )
         )
+        role_group_assignment_form.initial["user"] = selected_user
+        role_group_assignment_form.initial["user_groups"] = list(
+            selected_user.access_role_groups.filter(is_active=True).values_list("id", flat=True)
+        )
+
+    if request.method == "POST" and request.POST.get("action") == "assign_user_roles":
+        selected_group_ids = request.POST.getlist("groups")
+    elif selected_user:
+        selected_group_ids = selected_user.groups.values_list("id", flat=True)
+    else:
+        selected_group_ids = []
 
     role_rows = []
-    for group in groups_qs:
+    for group in groups_list:
         member_emails = list(
             group.customuser_groups.order_by("email").values_list("email", flat=True)
         )
@@ -451,6 +924,31 @@ def user_settings_roles_view(request):
                 "group": group,
                 "member_count": len(member_emails),
                 "member_emails": member_emails,
+            }
+        )
+    role_sections = _build_role_sections(groups_list, selected_group_ids, role_rows)
+
+    if request.method == "POST" and request.POST.get("action") == "assign_user_role_groups":
+        selected_role_group_ids = {str(group_id) for group_id in request.POST.getlist("user_groups")}
+    elif selected_user:
+        selected_role_group_ids = {
+            str(group_id)
+            for group_id in selected_user.access_role_groups.values_list("id", flat=True)
+        }
+    else:
+        selected_role_group_ids = set()
+
+    role_group_rows = []
+    for role_group in role_group_list:
+        role_ids = ",".join(str(role.id) for role in role_group.roles.all())
+        role_group_rows.append(
+            {
+                "group": role_group,
+                "role_count": role_group.roles.count(),
+                "user_count": role_group.users.count(),
+                "role_names": list(role_group.roles.order_by("name").values_list("name", flat=True)),
+                "selected": str(role_group.id) in selected_role_group_ids,
+                "role_ids": role_ids,
             }
         )
 
@@ -476,7 +974,13 @@ def user_settings_roles_view(request):
             "role_form": role_form,
             "module_form": module_form,
             "module_count": modules_qs.count(),
+            "user_group_count": len(role_group_rows),
+            "role_group_form": role_group_form,
+            "role_group_assignment_form": role_group_assignment_form,
+            "role_group_rows": role_group_rows,
+            "active_user_roles_tab": active_user_roles_tab,
             "role_rows": role_rows,
+            "role_sections": role_sections,
             "user_rows": user_rows,
             "selected_user": selected_user,
             "can_manage_user_roles": _can_manage_user_roles(request.user),
@@ -558,7 +1062,7 @@ def user_settings_system_view(request):
 
             if action == "save_dr_database_config" and dr_payload["enabled"] and not (dr_payload["host"] and dr_payload["name"]):
                 messages.error(request, "Please enter the DR server IP/host and DR database name before enabling DR.")
-                return redirect(f"{reverse('user_settings_system')}?tab=database")
+                return redirect("user_settings_system")
 
             if action == "save_dr_database_config":
                 if dr_payload["enabled"]:
@@ -568,7 +1072,9 @@ def user_settings_system_view(request):
                         messages.error(request, "DR database settings were not saved because the connection test failed.")
                         action = "dr_test_complete"
 
-                if action != "dr_test_complete":
+                if action == "dr_test_complete":
+                    pass
+                else:
                     save_runtime_dr_database_config(
                         settings.BASE_DIR,
                         dr_payload,
@@ -645,6 +1151,28 @@ def user_settings_system_view(request):
 
 
 @login_required
+def user_settings_audit_trail_view(request):
+    if not _can_view_settings_audit_trail(request.user):
+        messages.error(request, "You do not have permission to view audit trail settings.")
+        return redirect("modules_home")
+
+    audit_trail_options = _build_settings_audit_trail_options(request.user)
+    context = _build_settings_context(
+        request,
+        active_section="audit_trail",
+        page_title="Audit Trail",
+        page_intro="Choose the module audit register you want to inspect from one controlled settings workspace.",
+    )
+    context.update(
+        {
+            "audit_trail_options": audit_trail_options,
+            "audit_trail_option_count": len(audit_trail_options),
+        }
+    )
+    return render(request, "users/settings_workspace.html", context)
+
+
+@login_required
 def user_settings_access_logs_view(request):
     if not _can_view_access_logs(request.user):
         messages.error(request, "You do not have permission to view access logs.")
@@ -657,6 +1185,7 @@ def user_settings_access_logs_view(request):
 
     access_log_view = _normalize_access_log_view(request.GET.get("log_view"))
     selected_user_id = (request.GET.get("user") or "").strip()
+    selected_access_log_user = _get_selected_access_log_user(selected_user_id)
     selected_end_reason = (request.GET.get("end_reason") or "").strip()
     search_query = (request.GET.get("search") or request.GET.get("username") or "").strip()
     selected_user_activity_state = (request.GET.get("user_activity") or "").strip().lower()
@@ -666,12 +1195,13 @@ def user_settings_access_logs_view(request):
         if action == "clear_access_attempts":
             if not _can_clear_access_attempts(request.user):
                 messages.error(request, "You do not have permission to clear access attempts.")
-                return redirect(_build_access_logs_view_url("attempts", search_query=search_query))
+                return redirect(_build_access_logs_view_url("attempts", selected_user_id=selected_user_id, search_query=search_query))
             if AccessAttempt is None:
                 messages.warning(request, "Access attempt logs are not available in the current environment.")
-                return redirect(_build_access_logs_view_url("attempts", search_query=search_query))
+                return redirect(_build_access_logs_view_url("attempts", selected_user_id=selected_user_id, search_query=search_query))
             try:
                 attempts_qs = AccessAttempt.objects.order_by("-attempt_time", "-id")
+                attempts_qs = _filter_access_username_queryset_by_user(attempts_qs, selected_access_log_user)
                 if search_query:
                     attempts_qs = attempts_qs.filter(username__icontains=search_query)
                 deleted_count, _ = attempts_qs.delete()
@@ -690,7 +1220,7 @@ def user_settings_access_logs_view(request):
                     messages.success(request, f"Cleared {deleted_count} access-attempt records.")
             except DatabaseError:
                 messages.warning(request, "Access attempt logs could not be cleared from the current database.")
-            return redirect(_build_access_logs_view_url("attempts"))
+            return redirect(_build_access_logs_view_url("attempts", selected_user_id=selected_user_id, search_query=search_query))
         if action == "reset_user_lockout":
             if not _can_reset_user_lockout(request.user):
                 messages.error(request, "You do not have permission to reset user lockout state.")
@@ -774,8 +1304,8 @@ def user_settings_access_logs_view(request):
 
     try:
         access_logs_qs = UserAccessLog.objects.select_related("user").order_by("-login_time", "-id")
-        if selected_user_id:
-            access_logs_qs = access_logs_qs.filter(user_id=selected_user_id)
+        if selected_access_log_user:
+            access_logs_qs = access_logs_qs.filter(user=selected_access_log_user)
         if selected_end_reason:
             access_logs_qs = access_logs_qs.filter(end_reason=selected_end_reason)
 
@@ -802,6 +1332,7 @@ def user_settings_access_logs_view(request):
     else:
         try:
             attempt_qs = AccessAttempt.objects.order_by("-attempt_time", "-id")
+            attempt_qs = _filter_access_username_queryset_by_user(attempt_qs, selected_access_log_user)
             if search_query:
                 attempt_qs = attempt_qs.filter(username__icontains=search_query)
             attempt_rows = list(attempt_qs[:120])
@@ -823,6 +1354,7 @@ def user_settings_access_logs_view(request):
     else:
         try:
             failure_qs = AccessFailureLog.objects.order_by("-attempt_time", "-id")
+            failure_qs = _filter_access_username_queryset_by_user(failure_qs, selected_access_log_user)
             if search_query:
                 failure_qs = failure_qs.filter(username__icontains=search_query)
             failure_rows = list(failure_qs[:120])
@@ -840,6 +1372,8 @@ def user_settings_access_logs_view(request):
                 )
 
     user_roster_base_qs = CustomUser.objects.all().order_by("email")
+    if selected_access_log_user:
+        user_roster_base_qs = user_roster_base_qs.filter(pk=selected_access_log_user.pk)
     if search_query:
         user_roster_base_qs = user_roster_base_qs.filter(
             Q(email__icontains=search_query)
@@ -897,6 +1431,8 @@ def user_settings_access_logs_view(request):
 
     try:
         history_session_qs = UserAccessLog.objects.select_related("user").order_by("-login_time", "-id")
+        if selected_access_log_user:
+            history_session_qs = history_session_qs.filter(user=selected_access_log_user)
         if search_query:
             history_session_qs = history_session_qs.filter(
                 Q(user__email__icontains=search_query)
@@ -911,6 +1447,7 @@ def user_settings_access_logs_view(request):
     if AccessAttempt is not None:
         try:
             history_attempt_qs = AccessAttempt.objects.order_by("-attempt_time", "-id")
+            history_attempt_qs = _filter_access_username_queryset_by_user(history_attempt_qs, selected_access_log_user)
             if search_query:
                 history_attempt_qs = history_attempt_qs.filter(username__icontains=search_query)
             history_attempt_rows = list(history_attempt_qs[:120])
@@ -921,6 +1458,7 @@ def user_settings_access_logs_view(request):
     if AccessFailureLog is not None:
         try:
             history_failure_qs = AccessFailureLog.objects.order_by("-attempt_time", "-id")
+            history_failure_qs = _filter_access_username_queryset_by_user(history_failure_qs, selected_access_log_user)
             if search_query:
                 history_failure_qs = history_failure_qs.filter(username__icontains=search_query)
             history_failure_rows = list(history_failure_qs[:120])
@@ -1056,6 +1594,7 @@ def user_settings_access_logs_download_view(request):
 
     access_log_view = _normalize_access_log_view(request.GET.get("log_view"))
     selected_user_id = (request.GET.get("user") or "").strip()
+    selected_access_log_user = _get_selected_access_log_user(selected_user_id)
     selected_end_reason = (request.GET.get("end_reason") or "").strip()
     search_query = (request.GET.get("search") or request.GET.get("username") or "").strip()
     selected_user_activity_state = (request.GET.get("user_activity") or "").strip().lower()
@@ -1067,8 +1606,8 @@ def user_settings_access_logs_download_view(request):
     try:
         if access_log_view == "sessions":
             queryset = UserAccessLog.objects.select_related("user").order_by("-login_time", "-id")
-            if selected_user_id:
-                queryset = queryset.filter(user_id=selected_user_id)
+            if selected_access_log_user:
+                queryset = queryset.filter(user=selected_access_log_user)
             if selected_end_reason:
                 queryset = queryset.filter(end_reason=selected_end_reason)
 
@@ -1086,8 +1625,10 @@ def user_settings_access_logs_download_view(request):
                 ])
         elif access_log_view == "attempts" and AccessAttempt is not None:
             queryset = AccessAttempt.objects.order_by("-attempt_time", "-id")
+            queryset = _filter_access_username_queryset_by_user(queryset, selected_access_log_user)
             if search_query:
                 queryset = queryset.filter(username__icontains=search_query)
+
             writer.writerow(["Username", "Attempt Time", "Failures Since Start", "IP Address", "Path", "User Agent"])
             for row in queryset[:5000]:
                 writer.writerow([
@@ -1100,8 +1641,10 @@ def user_settings_access_logs_download_view(request):
                 ])
         elif access_log_view == "failures" and AccessFailureLog is not None:
             queryset = AccessFailureLog.objects.order_by("-attempt_time", "-id")
+            queryset = _filter_access_username_queryset_by_user(queryset, selected_access_log_user)
             if search_query:
                 queryset = queryset.filter(username__icontains=search_query)
+
             writer.writerow(["Username", "Failure Time", "Locked Out", "IP Address", "Path", "User Agent"])
             for row in queryset[:5000]:
                 writer.writerow([
@@ -1116,6 +1659,8 @@ def user_settings_access_logs_download_view(request):
             history_export_rows = []
 
             session_queryset = UserAccessLog.objects.select_related("user").order_by("-login_time", "-id")
+            if selected_access_log_user:
+                session_queryset = session_queryset.filter(user=selected_access_log_user)
             if search_query:
                 session_queryset = session_queryset.filter(
                     Q(user__email__icontains=search_query)
@@ -1145,6 +1690,7 @@ def user_settings_access_logs_download_view(request):
 
             if AccessAttempt is not None:
                 attempt_queryset = AccessAttempt.objects.order_by("-attempt_time", "-id")
+                attempt_queryset = _filter_access_username_queryset_by_user(attempt_queryset, selected_access_log_user)
                 if search_query:
                     attempt_queryset = attempt_queryset.filter(username__icontains=search_query)
                 for row in attempt_queryset[:2000]:
@@ -1157,8 +1703,10 @@ def user_settings_access_logs_download_view(request):
                         f"Failures since start: {row.failures_since_start}",
                         row.path_info or "",
                     ])
+
             if AccessFailureLog is not None:
                 failure_queryset = AccessFailureLog.objects.order_by("-attempt_time", "-id")
+                failure_queryset = _filter_access_username_queryset_by_user(failure_queryset, selected_access_log_user)
                 if search_query:
                     failure_queryset = failure_queryset.filter(username__icontains=search_query)
                 for row in failure_queryset[:2000]:
@@ -1171,12 +1719,15 @@ def user_settings_access_logs_download_view(request):
                         row.user_agent or "Failure recorded by access-control layer",
                         row.path_info or "",
                     ])
+
             history_export_rows.sort(key=lambda row: row[0], reverse=True)
             writer.writerow(["Event Time", "Event Type", "Actor", "Secondary", "Outcome", "Details", "Source"])
             for row in history_export_rows[:5000]:
                 writer.writerow(row)
         elif access_log_view == "users":
             queryset = CustomUser.objects.all().order_by("email")
+            if selected_access_log_user:
+                queryset = queryset.filter(pk=selected_access_log_user.pk)
             if search_query:
                 queryset = queryset.filter(
                     Q(email__icontains=search_query)
@@ -1244,6 +1795,7 @@ def user_settings_authenticator_view(request):
     runtime_settings = get_system_settings()
     admin_form = None
     selected_user = request.user
+    requested_user_id = ""
 
     if _can_manage_authenticator_resets(request.user):
         admin_form = AuthenticatorResetForm()
@@ -1298,7 +1850,14 @@ def user_settings_authenticator_view(request):
 
     if admin_form is not None:
         admin_form.fields["user"].queryset = CustomUser.objects.order_by("email")
-        admin_form.initial["user"] = selected_user
+        admin_form.fields["user"].widget.attrs.update(
+            {
+                "data-user-search-select": "true",
+                "data-user-search-placeholder": "Type email, name, or surname",
+            }
+        )
+        if requested_user_id:
+            admin_form.initial["user"] = selected_user
 
     enrolled_user_count = CustomUser.objects.filter(microsoft_authenticator_enabled=True).count()
     context = _build_settings_context(
@@ -1382,6 +1941,7 @@ def change_password(request):
         form = CustomPasswordChangeForm(request.POST, user=request.user)
         if form.is_valid():
             form.save()
+            _clear_password_expiry_reminder(request)
             messages.success(request, 'Your password has been changed successfully.')
             return redirect('modules_home')
         else:
@@ -1408,6 +1968,7 @@ def custom_logout_view(request):
     popup_mode = _workspace_popup_enabled(request)
     if request.user.is_authenticated:
         close_user_session_log(request, UserAccessLog.END_REASON_MANUAL_LOGOUT)
+    _clear_password_expiry_reminder(request)
     _clear_pending_microsoft_auth(request)
     _clear_microsoft_verification(request)
     _clear_microsoft_oauth_handshake(request)
@@ -1439,6 +2000,16 @@ def _reset_user_failed_login_state(user):
     user.failed_login_attempts = 0
     user.lockout_until = None
     user.lock_immediately_on_next_failure = False
+    user.permanently_locked = False
+    user.save(update_fields=["failed_login_attempts", "lockout_until", "lock_immediately_on_next_failure", "permanently_locked"])
+
+
+def _release_user_lockout_by_admin(user):
+    if not user:
+        return
+    user.failed_login_attempts = 0
+    user.lockout_until = None
+    user.lock_immediately_on_next_failure = True
     user.permanently_locked = False
     user.save(update_fields=["failed_login_attempts", "lockout_until", "lock_immediately_on_next_failure", "permanently_locked"])
 
@@ -1511,6 +2082,43 @@ def _can_view_access_logs(user):
     return _can_view_system_settings(user)
 
 
+def _can_view_settings_audit_trail(user):
+    return _can_view_system_settings(user)
+
+
+def _build_settings_audit_trail_options(user):
+    module_options = []
+    if apps.is_installed("IFRS9"):
+        module_options.append(
+            {
+                "key": "ifrs9",
+                "title": "IFRS 9 Audit Trail",
+                "label": "IFRS 9",
+                "icon": "fas fa-chart-line",
+                "badge": "IFRS 9 module",
+                "url": "/ifrs9/settings/audit-trail/",
+                "description": "Review configuration, reporting, API, staging, ECL, LGD, PD, EAD, and operations activity captured inside the IFRS 9 workspace.",
+                "can_open": user.is_superuser or user.has_perm("IFRS9.can_view_audit_trail"),
+                "permission_hint": "Requires IFRS 9 audit trail viewer permission.",
+            }
+        )
+    if apps.is_installed("scorecard"):
+        module_options.append(
+            {
+                "key": "scorecard",
+                "title": "Scorecard Audit Trail",
+                "label": "Scorecard",
+                "icon": "fas fa-clipboard-check",
+                "badge": "Scorecard module",
+                "url": "/scorecard/settings/permissions/audit/",
+                "description": "Review score templates, maker-checker actions, customer scoring, documents, branches, emails, API, and scorecard settings activity.",
+                "can_open": user.is_superuser or user.has_perm("scorecard.view_scorecard_audit_trail"),
+                "permission_hint": "Requires scorecard audit trail viewer permission.",
+            }
+        )
+    return module_options
+
+
 def _can_clear_access_attempts(user):
     return user.is_superuser or user.has_perm("Users.can_clear_access_attempts")
 
@@ -1519,31 +2127,27 @@ def _can_reset_user_lockout(user):
     return _can_manage_system_settings(user)
 
 
-def _release_user_lockout_by_admin(user):
-    if not user:
-        return
-    user.failed_login_attempts = 0
-    user.lockout_until = None
-    user.lock_immediately_on_next_failure = True
-    user.permanently_locked = False
-    user.save(update_fields=["failed_login_attempts", "lockout_until", "lock_immediately_on_next_failure", "permanently_locked"])
-
-
-def _can_view_authenticator_settings(user):
-    return user.is_authenticated
-
-
-def _can_manage_authenticator_resets(user):
-    return _can_manage_system_settings(user)
-
-
-def _can_open_users_settings(user):
-    return user.is_authenticated
-
-
 def _normalize_access_log_view(value):
     value = (value or "").strip().lower()
     return value if value in {"sessions", "attempts", "failures", "users", "history"} else "sessions"
+
+
+def _get_selected_access_log_user(selected_user_id):
+    if not selected_user_id:
+        return None
+    try:
+        return CustomUser.objects.filter(pk=selected_user_id).first()
+    except (TypeError, ValueError):
+        return None
+
+
+def _filter_access_username_queryset_by_user(queryset, selected_user):
+    if not selected_user:
+        return queryset
+    email = (getattr(selected_user, "email", "") or "").strip()
+    if not email:
+        return queryset.none()
+    return queryset.filter(username__iexact=email)
 
 
 def _build_access_logs_view_url(
@@ -1610,6 +2214,18 @@ def _ensure_access_log_security_roles():
     cleanup_group.permissions.add(permission)
 
 
+def _can_view_authenticator_settings(user):
+    return user.is_authenticated
+
+
+def _can_manage_authenticator_resets(user):
+    return _can_manage_system_settings(user)
+
+
+def _can_open_users_settings(user):
+    return user.is_authenticated
+
+
 def _build_settings_context(request, active_section, page_title, page_intro):
     nav_items = []
     if _can_view_add_users(request.user):
@@ -1655,6 +2271,15 @@ def _build_settings_context(request, active_section, page_title, page_intro):
                 "icon": "fas fa-sliders-h",
                 "url": reverse("user_settings_system"),
                 "key": "system_settings",
+            }
+        )
+    if _can_view_settings_audit_trail(request.user):
+        nav_items.append(
+            {
+                "label": "Audit Trail",
+                "icon": "fas fa-clipboard-list",
+                "url": reverse("user_settings_audit_trail"),
+                "key": "audit_trail",
             }
         )
 
@@ -1971,8 +2596,10 @@ def _handle_authenticator_app_challenge(request, runtime_settings, purpose):
 
     if purpose == "login":
         user.backend = "Users.backends.CaseInsensitiveEmailOrAliasBackend"
+        _reset_user_failed_login_state(user)
         login(request, user)
         begin_user_session_log(request, user)
+        _set_workspace_popup_mode(request, True)
         _clear_pending_microsoft_auth(request)
         messages.success(request, "Microsoft Authenticator verification completed successfully.")
         if password_change_required(user, runtime_settings):
@@ -1981,6 +2608,7 @@ def _handle_authenticator_app_challenge(request, runtime_settings, purpose):
             else:
                 messages.warning(request, "Your password has expired. Please set a new password to continue.")
             return redirect(next_target or reverse("change_password"))
+        _queue_password_expiry_reminder(request, user, runtime_settings)
         return redirect(next_target or get_post_login_redirect(user))
 
     messages.success(request, "Microsoft Authenticator verification completed successfully.")
@@ -2017,6 +2645,7 @@ def _build_authenticator_challenge_context(request, runtime_settings, purpose, n
         return {
             "purpose": purpose,
             "next_url": next_target,
+            "cancel_url": _get_microsoft_auth_cancel_url(request, purpose),
             "app_version": get_app_version(),
             "challenge_mode": "verify",
         }
@@ -2039,6 +2668,7 @@ def _build_authenticator_challenge_context(request, runtime_settings, purpose, n
     return {
         "purpose": purpose,
         "next_url": next_target,
+        "cancel_url": _get_microsoft_auth_cancel_url(request, purpose),
         "runtime_settings": runtime_settings,
         "app_version": get_app_version(),
         "challenge_mode": "enroll" if enroll_mode else "verify",
@@ -2048,10 +2678,17 @@ def _build_authenticator_challenge_context(request, runtime_settings, purpose, n
     }
 
 
+def _get_microsoft_auth_cancel_url(request, purpose):
+    if purpose == "password_change":
+        return reverse("logout")
+    if purpose == "login":
+        return reverse("login_popup") if _workspace_popup_enabled(request) else reverse("login")
+    return reverse("modules_home")
+
+
 def _build_qr_code_data_uri(payload):
     qr_image = qrcode.make(payload)
     image_buffer = io.BytesIO()
     qr_image.save(image_buffer, format="PNG")
     encoded = base64.b64encode(image_buffer.getvalue()).decode("utf-8")
     return f"data:image/png;base64,{encoded}"
-

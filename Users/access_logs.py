@@ -1,6 +1,7 @@
 import ipaddress
 
 from django.contrib.sessions.models import Session
+from django.core.cache import cache
 from django.db import DatabaseError
 from django.utils import timezone
 
@@ -10,6 +11,8 @@ from .models import UserAccessLog
 ACCESS_LOG_SESSION_ID_KEY = "users_access_log_id"
 SESSION_STARTED_AT_KEY = "users_session_started_at"
 LAST_ACTIVITY_AT_KEY = "users_last_activity_at"
+STALE_SESSION_RECONCILE_CACHE_PREFIX = "users:access_log_reconciled"
+STALE_SESSION_RECONCILE_TTL_SECONDS = 300
 
 
 def _normalize_ip_candidate(raw_value):
@@ -128,7 +131,10 @@ def begin_user_session_log(request, user):
     now = timezone.now()
     request.session[SESSION_STARTED_AT_KEY] = now.isoformat()
     request.session[LAST_ACTIVITY_AT_KEY] = now.isoformat()
-    reconcile_stale_user_session_logs(user, ended_at=now)
+    reconcile_cache_key = f"{STALE_SESSION_RECONCILE_CACHE_PREFIX}:{getattr(user, 'pk', 'anonymous')}"
+    if not cache.get(reconcile_cache_key):
+        reconcile_stale_user_session_logs(user, ended_at=now)
+        cache.set(reconcile_cache_key, True, STALE_SESSION_RECONCILE_TTL_SECONDS)
     try:
         access_log = UserAccessLog.objects.create(
             user=user,

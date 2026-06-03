@@ -8,7 +8,7 @@ from .forms import (
     CustomUserAdminChangeForm,
     CustomUserAdminCreationForm,
 )
-from .models import AuditTrail, CustomUser, PasswordHistory, RoleModuleAccess, SystemModule, SystemSetting, UserModuleAccess
+from .models import AuditTrail, CustomUser, PasswordHistory, RoleModuleAccess, SystemModule, SystemSetting, UserAccessLog, UserModuleAccess
 
 class CustomUserAdmin(UserAdmin):
     form = CustomUserAdminChangeForm
@@ -140,48 +140,3 @@ class SystemModuleAdmin(admin.ModelAdmin):
     search_fields = ("code", "name", "route_name")
     ordering = ("display_order", "name")
 
-
-@admin.register(RoleModuleAccess)
-class RoleModuleAccessAdmin(admin.ModelAdmin):
-    list_display = ("group", "module", "can_view", "updated_at")
-    list_filter = ("can_view", "module")
-    search_fields = ("group__name", "module__name")
-    ordering = ("group__name", "module__display_order")
-
-
-@admin.register(UserModuleAccess)
-class UserModuleAccessAdmin(admin.ModelAdmin):
-    list_display = ("user", "module", "can_view", "updated_at")
-    list_filter = ("can_view", "module")
-    search_fields = ("user__email", "module__name")
-    ordering = ("user__email", "module__display_order")
-
-
-@admin.register(SystemSetting)
-class SystemSettingAdmin(admin.ModelAdmin):
-    list_display = (
-        "idle_timeout_minutes",
-        "absolute_session_timeout_minutes",
-        "default_landing_rule",
-        "failed_login_limit",
-        "lockout_duration_minutes",
-        "enable_self_profile_edit",
-        "enable_self_password_change",
-        "password_expiry_days",
-        "password_history_count",
-        "password_policy",
-        "enable_microsoft_authentication",
-        "updated_at",
-    )
-    readonly_fields = ("updated_at",)
-
-
-@admin.register(PasswordHistory)
-class PasswordHistoryAdmin(admin.ModelAdmin):
-    list_display = ("user", "created_at")
-    search_fields = ("user__email", "user__name", "user__surname")
-    ordering = ("-created_at",)
-    readonly_fields = ("user", "password_hash", "created_at")
-
-    def has_add_permission(self, request):
-        return False
