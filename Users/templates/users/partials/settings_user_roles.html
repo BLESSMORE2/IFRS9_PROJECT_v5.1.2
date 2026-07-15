@@ -2,7 +2,7 @@
     <div class="metric-grid">
         <div class="metric">
             <div class="metric-label">Users</div>
-            <div class="metric-value">{{ user_rows|length }}</div>
+            <div class="metric-value">{{ user_count }}</div>
         </div>
         <div class="metric">
             <div class="metric-label">Roles</div>
@@ -49,16 +49,54 @@
                 <div class="card-head">
                     <div>
                         <h2 class="card-title">Launcher Visibility by User</h2>
-                        <p class="card-copy">Each row shows which roles a user belongs to and which modules they can open after login.</p>
+                        <p class="card-copy">Each row shows the user's roles, visible modules, and assigned Scorecard branch perimeter.</p>
                     </div>
                 </div>
-                <div class="table-shell compact-scroll">
+                <form method="get" class="user-access-toolbar">
+                    <input type="hidden" name="tab" value="user-access">
+                    <div class="user-access-search">
+                        <label for="userAccessSearch">Search users</label>
+                        <div class="user-access-search-input">
+                            <i class="fas fa-search"></i>
+                            <input
+                                id="userAccessSearch"
+                                type="search"
+                                name="user_search"
+                                value="{{ user_access_search }}"
+                                placeholder="Name, surname, or email"
+                                autocomplete="off"
+                            >
+                        </div>
+                    </div>
+                    <div class="user-access-page-size">
+                        <label for="userAccessPageSize">Rows</label>
+                        <select id="userAccessPageSize" name="user_page_size">
+                            <option value="10" {% if user_access_page_size == 10 %}selected{% endif %}>10</option>
+                            <option value="20" {% if user_access_page_size == 20 %}selected{% endif %}>20</option>
+                            <option value="50" {% if user_access_page_size == 50 %}selected{% endif %}>50</option>
+                            <option value="100" {% if user_access_page_size == 100 %}selected{% endif %}>100</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary user-access-filter-button">
+                        <i class="fas fa-filter"></i> Apply
+                    </button>
+                    {% if user_access_search %}
+                    <a href="?tab=user-access&user_page_size={{ user_access_page_size }}" class="btn btn-secondary user-access-clear-button">
+                        <i class="fas fa-rotate-left"></i> Clear
+                    </a>
+                    {% endif %}
+                    <span class="user-access-result-count">
+                        {{ user_access_page.paginator.count }} user{{ user_access_page.paginator.count|pluralize }}
+                    </span>
+                </form>
+                <div class="table-shell user-access-table-shell">
                     <table class="settings-table">
                         <thead>
                             <tr>
                                 <th>User</th>
                                 <th>Assigned Roles</th>
                                 <th>Visible Modules</th>
+                                {% if scorecard_branch_access_available %}<th>Scorecard Branches</th>{% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -86,11 +124,51 @@
                                         {% endfor %}
                                     </div>
                                 </td>
+                                {% if scorecard_branch_access_available %}
+                                <td>
+                                    <div class="badge-list">
+                                        {% for branch in row.scorecard_branches %}
+                                        <span class="soft-badge">{{ branch.name }}{% if branch.code %} ({{ branch.code }}){% endif %}</span>
+                                        {% empty %}
+                                        <span class="soft-badge empty">No branches assigned</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="{% if scorecard_branch_access_available %}4{% else %}3{% endif %}" class="user-access-empty">
+                                    <i class="fas fa-user-slash"></i>
+                                    <strong>No users match this search.</strong>
+                                    <span>Try a different name, surname, or email address.</span>
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+                {% if user_access_page.paginator.num_pages > 1 %}
+                <nav class="user-access-pagination" aria-label="User Access pages">
+                    <div class="user-access-page-summary">
+                        Showing {{ user_access_page.start_index }}-{{ user_access_page.end_index }}
+                        of {{ user_access_page.paginator.count }}
+                    </div>
+                    <div class="user-access-page-links">
+                        {% if user_access_page.has_previous %}
+                        <a href="?tab=user-access&user_search={{ user_access_search|urlencode }}&user_page_size={{ user_access_page_size }}&user_page={{ user_access_page.previous_page_number }}" aria-label="Previous page">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </a>
+                        {% endif %}
+                        <span>Page {{ user_access_page.number }} of {{ user_access_page.paginator.num_pages }}</span>
+                        {% if user_access_page.has_next %}
+                        <a href="?tab=user-access&user_search={{ user_access_search|urlencode }}&user_page_size={{ user_access_page_size }}&user_page={{ user_access_page.next_page_number }}" aria-label="Next page">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </nav>
+                {% endif %}
             </div>
 
             <div class="tab-panel" data-tab-panel="user-assignment" hidden>
@@ -145,6 +223,53 @@
                             {% endfor %}
                         </div>
                     </div>
+                    {% if scorecard_branch_access_available %}
+                    <input type="hidden" name="scorecard_branch_access_present" value="1">
+                    <div class="form-group scorecard-branch-access" data-scorecard-branch-picker>
+                        <div class="scorecard-branch-head">
+                            <div>
+                                <span class="scorecard-branch-eyebrow">Branch Access</span>
+                                <h3>Choose branches this user can access</h3>
+                                <p>These branches control the branch-based information visible inside Scorecard. If none are selected, the user will not see branch-scoped Scorecard data.</p>
+                            </div>
+                            <div class="scorecard-branch-summary">
+                                <span class="scorecard-branch-count" data-scorecard-branch-count>
+                                    {{ selected_scorecard_branch_ids|length }}/{{ available_scorecard_branches|length }} selected
+                                </span>
+                                {% if can_manage_user_roles and available_scorecard_branches %}
+                                <div class="scorecard-branch-actions">
+                                    <button type="button" class="scorecard-branch-action" data-scorecard-branch-action="all">Select All</button>
+                                    <button type="button" class="scorecard-branch-action is-secondary" data-scorecard-branch-action="none">Clear</button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if available_scorecard_branches %}
+                        <div class="scorecard-branch-grid">
+                            {% for branch in available_scorecard_branches %}
+                            <label class="scorecard-branch-card{% if branch.id in selected_scorecard_branch_ids %} selected{% endif %}">
+                                <input
+                                    type="checkbox"
+                                    name="scorecard_branch_ids"
+                                    value="{{ branch.id }}"
+                                    {% if branch.id in selected_scorecard_branch_ids %}checked{% endif %}
+                                    {% if not can_manage_user_roles %}disabled{% endif %}
+                                >
+                                <span>
+                                    <strong>{{ branch.branch_name }}</strong>
+                                    <small>
+                                        <span class="scorecard-branch-code">{{ branch.branch_code }}</span>
+                                        {{ branch.bank_name }}
+                                    </small>
+                                </span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="scorecard-branch-empty">No Scorecard branches are available in the branch master.</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                     <div class="editor-actions">
                         <div class="editor-note">
                             {% if selected_user %}Editing access for {{ selected_user.email }}{% else %}Choose a user to begin.{% endif %}

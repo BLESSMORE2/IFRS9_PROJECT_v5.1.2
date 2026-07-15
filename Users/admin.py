@@ -8,7 +8,17 @@ from .forms import (
     CustomUserAdminChangeForm,
     CustomUserAdminCreationForm,
 )
-from .models import AuditTrail, CustomUser, PasswordHistory, RoleModuleAccess, SystemModule, SystemSetting, UserAccessLog, UserModuleAccess
+from .models import (
+    ApplicationVersion,
+    AuditTrail,
+    CustomUser,
+    PasswordHistory,
+    RoleModuleAccess,
+    SystemModule,
+    SystemSetting,
+    UserAccessLog,
+    UserModuleAccess,
+)
 
 class CustomUserAdmin(UserAdmin):
     form = CustomUserAdminChangeForm
@@ -140,3 +150,62 @@ class SystemModuleAdmin(admin.ModelAdmin):
     search_fields = ("code", "name", "route_name")
     ordering = ("display_order", "name")
 
+
+@admin.register(ApplicationVersion)
+class ApplicationVersionAdmin(admin.ModelAdmin):
+    list_display = (
+        "application_name",
+        "version_number",
+        "release_type",
+        "status",
+        "is_current",
+        "deployed_at",
+        "created_by",
+    )
+    list_filter = ("application_name", "release_type", "status", "is_current", "deployed_at")
+    search_fields = (
+        "application_name",
+        "version_number",
+        "patch_reference",
+        "build_number",
+        "release_notes",
+        "patches_applied",
+    )
+    readonly_fields = ("created_at", "updated_at")
+    ordering = ("-deployed_at", "-id")
+    fieldsets = (
+        (
+            "Version",
+            {
+                "fields": (
+                    "application_name",
+                    "version_number",
+                    "release_type",
+                    "patch_reference",
+                    "build_number",
+                )
+            },
+        ),
+        (
+            "Deployment State",
+            {
+                "fields": (
+                    "status",
+                    "is_current",
+                    "deployed_at",
+                    "created_by",
+                )
+            },
+        ),
+        (
+            "Release Details",
+            {
+                "fields": (
+                    "release_notes",
+                    "patches_applied",
+                    "rollback_notes",
+                )
+            },
+        ),
+        ("Audit", {"fields": ("created_at", "updated_at")}),
+    )

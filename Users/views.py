@@ -18,7 +18,8 @@ from django.contrib.auth import login,logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
-from django.db import DatabaseError
+from django.core.paginator import Paginator
+from django.db import DatabaseError, transaction
 from django.db.utils import ConnectionHandler
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
@@ -79,6 +80,7 @@ from .runtime import (
     microsoft_auth_is_available,
     read_session_timestamp,
 )
+from .versioning import get_current_application_version
 
 try:
     from axes.models import AccessAttempt, AccessFailureLog
@@ -314,16 +316,8 @@ def _apply_user_role_groups(target_user, role_groups):
 
 
 def get_app_version():
-    """Return current app version from IFRS9 AppVersion table, or None if not available."""
-    try:
-        from IFRS9.models import AppVersion
-        v = AppVersion.objects.filter(is_current=True).first()
-        if v:
-            return v.version
-        v = AppVersion.objects.order_by('-id').first()
-        return v.version if v else None
-    except Exception:
-        return None
+    """Return the current platform launcher version."""
+    return get_current_application_version()
 
 
 def _render_lockout_response(request, target_user=None, permanent_lock=False):
@@ -735,9 +729,31 @@ def user_settings_roles_view(request):
     selected_user = None
     requested_user_id = request.GET.get("user")
     active_user_roles_tab = request.GET.get("tab") or "user-access"
+    user_access_search = (request.GET.get("user_search") or "").strip()
+    requested_page_size = request.GET.get("user_page_size") or "20"
+    user_access_page_size = int(requested_page_size) if requested_page_size in {"10", "20", "50", "100"} else 20
+    scorecard_branch_access_available = False
+    scorecard_branch_model = None
+    scorecard_user_branch_access_model = None
+    available_scorecard_branches = []
+    available_scorecard_branch_ids = set()
 
     if requested_user_id:
         selected_user = users_qs.filter(pk=requested_user_id).first()
+
+    if apps.is_installed("scorecard"):
+        try:
+            scorecard_branch_model = apps.get_model("scorecard", "BankBranch")
+            scorecard_user_branch_access_model = apps.get_model("scorecard", "ScorecardUserBranchAccess")
+            available_scorecard_branches = list(
+                scorecard_branch_model.objects.all().order_by("bank_name", "branch_name")
+            )
+            available_scorecard_branch_ids = {
+                branch.pk for branch in available_scorecard_branches
+            }
+            scorecard_branch_access_available = True
+        except (LookupError, DatabaseError):
+            scorecard_branch_access_available = False
 
     role_form = UserRoleAssignmentForm()
     module_form = UserModuleAccessForm()
@@ -755,8 +771,46 @@ def user_settings_roles_view(request):
             role_form = UserRoleAssignmentForm(request.POST)
             if role_form.is_valid():
                 target_user = role_form.cleaned_data["user"]
-                target_user.groups.set(role_form.cleaned_data["groups"])
-                messages.success(request, f"Updated role membership for {target_user.email}.")
+                selected_branch_ids = {
+                    int(branch_id)
+                    for branch_id in request.POST.getlist("scorecard_branch_ids")
+                    if branch_id.isdigit() and int(branch_id) in available_scorecard_branch_ids
+                }
+
+                with transaction.atomic():
+                    target_user.groups.set(role_form.cleaned_data["groups"])
+                    if (
+                        scorecard_branch_access_available
+                        and request.POST.get("scorecard_branch_access_present") == "1"
+                    ):
+                        scorecard_user_branch_access_model.objects.filter(user=target_user).exclude(
+                            branch_id__in=selected_branch_ids
+                        ).delete()
+                        existing_branch_ids = set(
+                            scorecard_user_branch_access_model.objects.filter(
+                                user=target_user,
+                                branch_id__in=selected_branch_ids,
+                            ).values_list("branch_id", flat=True)
+                        )
+                        scorecard_user_branch_access_model.objects.bulk_create(
+                            [
+                                scorecard_user_branch_access_model(
+                                    user=target_user,
+                                    branch=branch,
+                                )
+                                for branch in available_scorecard_branches
+                                if branch.pk in selected_branch_ids
+                                and branch.pk not in existing_branch_ids
+                            ]
+                        )
+
+                success_message = f"Updated role membership for {target_user.email}."
+                if scorecard_branch_access_available:
+                    success_message = (
+                        f"Updated role membership and Scorecard branch access for "
+                        f"{target_user.email}."
+                    )
+                messages.success(request, success_message)
                 selected_user = target_user
                 redirect_url = reverse("user_settings_roles")
                 query = [f"user={target_user.pk}", "tab=user-assignment"]
@@ -927,6 +981,20 @@ def user_settings_roles_view(request):
             }
         )
     role_sections = _build_role_sections(groups_list, selected_group_ids, role_rows)
+    selected_scorecard_branch_ids = set()
+    if scorecard_branch_access_available:
+        if request.method == "POST" and request.POST.get("action") == "assign_user_roles":
+            selected_scorecard_branch_ids = {
+                int(branch_id)
+                for branch_id in request.POST.getlist("scorecard_branch_ids")
+                if branch_id.isdigit() and int(branch_id) in available_scorecard_branch_ids
+            }
+        elif selected_user:
+            selected_scorecard_branch_ids = set(
+                scorecard_user_branch_access_model.objects.filter(
+                    user=selected_user
+                ).values_list("branch_id", flat=True)
+            )
 
     if request.method == "POST" and request.POST.get("action") == "assign_user_role_groups":
         selected_role_group_ids = {str(group_id) for group_id in request.POST.getlist("user_groups")}
@@ -952,14 +1020,41 @@ def user_settings_roles_view(request):
             }
         )
 
+    user_access_qs = users_qs.prefetch_related("groups")
+    if user_access_search:
+        user_access_qs = user_access_qs.filter(
+            Q(email__icontains=user_access_search)
+            | Q(name__icontains=user_access_search)
+            | Q(surname__icontains=user_access_search)
+        )
+    user_access_paginator = Paginator(user_access_qs, user_access_page_size)
+    user_access_page = user_access_paginator.get_page(request.GET.get("user_page"))
+    visible_user_ids = [user.pk for user in user_access_page.object_list]
+
+    scorecard_branches_by_user = {}
+    if scorecard_branch_access_available:
+        branch_assignments = (
+            scorecard_user_branch_access_model.objects.select_related("branch")
+            .filter(user_id__in=visible_user_ids)
+            .order_by("branch__branch_name")
+        )
+        for assignment in branch_assignments:
+            scorecard_branches_by_user.setdefault(assignment.user_id, []).append(
+                {
+                    "name": assignment.branch.branch_name,
+                    "code": assignment.branch.branch_code,
+                }
+            )
+
     user_rows = []
-    for user in users_qs:
+    for user in user_access_page.object_list:
         modules = get_visible_modules_for_user(user)
         user_rows.append(
             {
                 "user": user,
-                "group_names": list(user.groups.order_by("name").values_list("name", flat=True)),
+                "group_names": sorted(group.name for group in user.groups.all()),
                 "module_names": [module["name"] for module in modules],
+                "scorecard_branches": scorecard_branches_by_user.get(user.pk, []),
             }
         )
 
@@ -982,8 +1077,15 @@ def user_settings_roles_view(request):
             "role_rows": role_rows,
             "role_sections": role_sections,
             "user_rows": user_rows,
+            "user_count": users_qs.count(),
+            "user_access_search": user_access_search,
+            "user_access_page_size": user_access_page_size,
+            "user_access_page": user_access_page,
             "selected_user": selected_user,
             "can_manage_user_roles": _can_manage_user_roles(request.user),
+            "scorecard_branch_access_available": scorecard_branch_access_available,
+            "available_scorecard_branches": available_scorecard_branches,
+            "selected_scorecard_branch_ids": selected_scorecard_branch_ids,
         }
     )
     return render(request, "users/settings_workspace.html", context)

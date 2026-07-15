@@ -24,7 +24,7 @@
     {% endif %}
     <style>
         body { margin:0; min-height:100vh; display:flex; flex-direction:column; font-family:'Inter','Segoe UI',sans-serif; color:#10213f; background:linear-gradient(180deg,#f7fafc 0%,#edf3f9 100%); }
-        .shell, .header-inner, .footer-inner { width:100%; max-width:1240px; margin:0 auto; padding:0 18px; }
+        .header-inner, .footer-inner { width:100%; max-width:1500px; margin:0 auto; padding:0 18px; }
         .header, .footer { background:#fff; }
         .header { border-bottom:1px solid rgba(11,26,53,.08); box-shadow:0 8px 20px rgba(15,29,54,.04); }
         .footer { margin-top:auto; border-top:1px solid rgba(11,26,53,.08); box-shadow:0 -8px 24px rgba(15,29,54,.03); }
@@ -61,11 +61,11 @@
         .nx-dd-divider { height:1px; background:rgba(255,255,255,.08); margin:4px 0; }
         .nx-dd-item.nx-logout { color:#ff8a97; }
         .nx-dd-item.nx-logout:hover { background:rgba(255,107,122,.12); color:#ff9aa5; }
-        .shell { flex:1; padding:18px 18px 28px; }
-        .workspace { display:grid; grid-template-columns:240px minmax(0,1fr); gap:18px; align-items:start; }
+        .shell { width:100%; max-width:none; flex:1; padding:18px 18px 28px; }
+        .workspace { width:100%; max-width:none; margin:0; display:grid; grid-template-columns:260px minmax(0,1fr); gap:18px; align-items:start; }
         .sidebar, .panel { border-radius:22px; background:rgba(255,255,255,.96); box-shadow:0 18px 48px rgba(15,29,54,.08); border:1px solid rgba(15,29,54,.06); }
         .sidebar { padding:18px 14px; position:sticky; top:18px; }
-        .panel { padding:22px; }
+        .panel { min-width:0; padding:22px; }
         .eyebrow { display:inline-flex; align-items:center; gap:8px; margin-bottom:12px; padding:6px 11px; border-radius:999px; background:rgba(0,212,170,.1); color:#0f766e; font-size:.66rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
         .sidebar-title, .section-title, .card-title { margin:0; font-weight:800; color:#10213f; }
         .sidebar-title { font-size:.9rem; margin-bottom:10px; }
@@ -92,6 +92,30 @@
         .settings-table th, .settings-table td { padding:11px 12px; border-bottom:1px solid rgba(15,29,54,.06); text-align:left; vertical-align:top; }
         .settings-table thead th { background:#f8fbff; color:#48627f; font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; }
         .table-shell.compact-scroll .settings-table thead th { position:sticky; top:0; z-index:2; }
+        .user-access-toolbar { display:grid; grid-template-columns:minmax(240px,1fr) 90px auto auto auto; align-items:end; gap:10px; margin-bottom:12px; padding:12px; border:1px solid rgba(15,29,54,.06); border-radius:14px; background:#f8fbff; }
+        .user-access-toolbar label { display:block; margin-bottom:5px; color:#48627f; font-size:.62rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+        .user-access-search-input { position:relative; }
+        .user-access-search-input i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#7890ad; font-size:.72rem; pointer-events:none; }
+        .user-access-search-input input, .user-access-page-size select { width:100%; min-height:38px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#10213f; font-size:.74rem; outline:none; }
+        .user-access-search-input input { padding:0 12px 0 34px; }
+        .user-access-page-size select { padding:0 9px; }
+        .user-access-search-input input:focus, .user-access-page-size select:focus { border-color:#4f8ef7; box-shadow:0 0 0 3px rgba(79,142,247,.12); }
+        .user-access-filter-button, .user-access-clear-button { min-height:38px; white-space:nowrap; }
+        .user-access-result-count { justify-self:end; align-self:center; padding:6px 10px; border-radius:999px; background:#fff; color:#48627f; font-size:.68rem; font-weight:800; white-space:nowrap; }
+        .user-access-table-shell { overflow:auto; border:1px solid rgba(15,29,54,.06); border-radius:16px; }
+        .user-access-table-shell .settings-table thead th { position:sticky; top:0; z-index:2; }
+        .user-access-empty { padding:28px !important; text-align:center !important; color:#6b7d98; }
+        .user-access-empty i, .user-access-empty strong, .user-access-empty span { display:block; }
+        .user-access-empty i { margin-bottom:8px; color:#9fb0c5; font-size:1.25rem; }
+        .user-access-empty strong { color:#36557f; font-size:.78rem; }
+        .user-access-empty span { margin-top:4px; font-size:.68rem; }
+        .user-access-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; }
+        .user-access-page-summary { color:#6b7d98; font-size:.68rem; font-weight:700; }
+        .user-access-page-links { display:flex; align-items:center; gap:8px; }
+        .user-access-page-links a, .user-access-page-links span { display:inline-flex; align-items:center; gap:6px; min-height:32px; padding:0 11px; border-radius:999px; font-size:.68rem; font-weight:800; }
+        .user-access-page-links a { border:1px solid rgba(79,142,247,.18); background:#fff; color:#315f99; text-decoration:none; }
+        .user-access-page-links a:hover { background:#f3f8ff; }
+        .user-access-page-links span { background:rgba(79,142,247,.1); color:#36557f; }
         .badge-list { display:flex; flex-wrap:wrap; gap:6px; }
         .soft-badge { display:inline-flex; align-items:center; padding:4px 8px; border-radius:999px; background:rgba(79,142,247,.1); color:#315f99; font-size:.66rem; font-weight:700; }
         .soft-badge.empty { background:rgba(148,163,184,.12); color:#64748b; }
@@ -202,6 +226,27 @@
         .role-section-card.ifrs9 .role-check-item.selected .role-check-copy strong { color:#073a63; }
         .role-section-card.platform .role-check-item.selected .role-check-copy strong { color:#34378f; }
         .role-check-item.selected .role-check-copy small { color:#426985; }
+        .scorecard-branch-access { margin-top:14px; border:1px solid rgba(0,169,143,.2); border-radius:18px; background:linear-gradient(180deg,#fbfffe 0%,#f5fbfa 100%); overflow:hidden; }
+        .scorecard-branch-head { display:flex; align-items:flex-start; gap:16px; padding:14px 16px; border-bottom:1px solid rgba(0,169,143,.12); }
+        .scorecard-branch-head h3 { margin:2px 0 3px; color:#10213f; font-size:.84rem; font-weight:900; }
+        .scorecard-branch-head p { margin:0; max-width:760px; color:#6b7d98; font-size:.68rem; line-height:1.5; }
+        .scorecard-branch-eyebrow { color:#008b76; font-size:.61rem; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+        .scorecard-branch-summary { margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+        .scorecard-branch-count { white-space:nowrap; padding:6px 10px; border-radius:999px; background:#e8f8f4; color:#08705f; font-size:.64rem; font-weight:900; }
+        .scorecard-branch-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; }
+        .scorecard-branch-action { min-height:28px; padding:0 10px; border:none; border-radius:999px; background:#0f6fb5; color:#fff; font-size:.62rem; font-weight:900; cursor:pointer; box-shadow:0 6px 14px rgba(15,111,181,.14); }
+        .scorecard-branch-action.is-secondary { background:#e8f0f8; color:#315f99; box-shadow:none; }
+        .scorecard-branch-action:hover { transform:translateY(-1px); }
+        .scorecard-branch-action:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+        .scorecard-branch-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; max-height:390px; padding:12px; overflow:auto; }
+        .scorecard-branch-card { display:flex; align-items:flex-start; gap:9px; min-height:62px; margin:0; padding:11px; border:1px solid rgba(15,29,54,.08); border-radius:13px; background:#fff; color:#1f3556; cursor:pointer; }
+        .scorecard-branch-card:hover { border-color:rgba(0,169,143,.28); background:#f8fffd; }
+        .scorecard-branch-card.selected { border-color:rgba(0,169,143,.48); background:linear-gradient(135deg,rgba(0,212,170,.13),rgba(79,142,247,.07)); box-shadow:inset 4px 0 0 rgba(0,169,143,.75); }
+        .scorecard-branch-card input { width:14px; height:14px; flex:0 0 auto; }
+        .scorecard-branch-card strong { display:block; color:#10213f; font-size:.7rem; font-weight:900; line-height:1.3; }
+        .scorecard-branch-card small { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:5px; color:#6b7d98; font-size:.63rem; line-height:1.35; }
+        .scorecard-branch-code { display:inline-flex; padding:2px 7px; border-radius:999px; background:#edf5ff; color:#174d82; font-weight:900; }
+        .scorecard-branch-empty { margin:12px; padding:16px; border:1px dashed rgba(15,29,54,.14); border-radius:12px; color:#6b7d98; font-size:.7rem; text-align:center; }
         .role-check-copy { display:grid; gap:3px; line-height:1.32; }
         .role-check-copy strong { color:#10213f; font-size:.7rem; font-weight:850; }
         .role-check-copy small { color:#6b7d98; font-size:.62rem; font-weight:600; line-height:1.38; text-transform:none; letter-spacing:normal; }
@@ -256,8 +301,8 @@
         .footer-title, .footer-status { color:#31456b; font-weight:700; text-transform:uppercase; }
         .footer-title { letter-spacing:.08em; }
         .footer-status { display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border-radius:999px; background:#fff; border:1px solid rgba(11,26,53,.08); box-shadow:0 8px 18px rgba(15,29,54,.05); font-size:.64rem; letter-spacing:.08em; }
-        @media (max-width:1024px){ .workspace,.metric-grid,.editor-grid,.form-grid,.user-group-grid{grid-template-columns:1fr;} .sidebar{position:static;} .role-check-grid{grid-template-columns:1fr;} }
-        @media (max-width:767px){ .topbar{flex-direction:column; align-items:stretch; gap:10px;} .brand{width:100%;} .brand-logo-frame{width:162px; height:52px;} .topbar-actions{justify-content:stretch;} .topbar-link{justify-content:center; width:100%;} .nx-user-pill{width:100%; justify-content:center;} .nx-user-dropdown{left:0; right:auto; width:100%;} .footer-inner{flex-direction:column; align-items:flex-start;} }
+        @media (max-width:1024px){ .workspace,.metric-grid,.editor-grid,.form-grid,.user-group-grid{grid-template-columns:1fr;} .sidebar{position:static;} .role-check-grid{grid-template-columns:1fr;} .scorecard-branch-grid{grid-template-columns:repeat(2,minmax(0,1fr));} .user-access-toolbar{grid-template-columns:minmax(220px,1fr) 90px auto auto;} .user-access-result-count{grid-column:1/-1; justify-self:start;} }
+        @media (max-width:767px){ .topbar{flex-direction:column; align-items:stretch; gap:10px;} .brand{width:100%;} .brand-logo-frame{width:162px; height:52px;} .topbar-actions{justify-content:stretch;} .topbar-link{justify-content:center; width:100%;} .nx-user-pill{width:100%; justify-content:center;} .nx-user-dropdown{left:0; right:auto; width:100%;} .footer-inner{flex-direction:column; align-items:flex-start;} .user-access-toolbar{grid-template-columns:1fr 82px;} .user-access-filter-button,.user-access-clear-button{width:100%; justify-content:center;} .user-access-pagination{align-items:flex-start; flex-direction:column;} .user-access-page-links{width:100%; justify-content:space-between;} }
     </style>
 </head>
 <body>
@@ -355,7 +400,7 @@
         <div class="footer-inner">
             <div>
                 <div class="footer-title">Brain Nexus Platform</div>
-                <div>Module launcher &middot; Version {{ app_version|default:"5.1.1" }}</div>
+                <div>Module launcher &middot; Version {{ app_version|default:"5.1.2" }}</div>
             </div>
             <div class="footer-status"><i class="fas fa-shield-alt"></i><span>Secure Access</span></div>
         </div>
@@ -612,14 +657,45 @@
             });
         });
 
-        document.querySelectorAll('.role-check-item input, .user-group-choice input').forEach(function (input) {
+        function updateScorecardBranchPicker(picker) {
+            if (!picker) return;
+            const inputs = picker.querySelectorAll('.scorecard-branch-card input[type="checkbox"]');
+            const checked = Array.from(inputs).filter(function (input) { return input.checked; }).length;
+            const counter = picker.querySelector('[data-scorecard-branch-count]');
+            if (counter) {
+                counter.textContent = checked + '/' + inputs.length + ' selected';
+            }
+            inputs.forEach(function (input) {
+                const card = input.closest('.scorecard-branch-card');
+                if (card) {
+                    card.classList.toggle('selected', input.checked);
+                }
+            });
+        }
+
+        document.querySelectorAll('.role-check-item input, .user-group-choice input, .scorecard-branch-card input').forEach(function (input) {
             input.addEventListener('change', function () {
-                const item = input.closest('.role-check-item, .user-group-choice');
+                const item = input.closest('.role-check-item, .user-group-choice, .scorecard-branch-card');
                 if (item) {
                     item.classList.toggle('selected', input.checked);
                 }
+                updateScorecardBranchPicker(input.closest('[data-scorecard-branch-picker]'));
             });
         });
+
+        document.querySelectorAll('[data-scorecard-branch-action]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const picker = button.closest('[data-scorecard-branch-picker]');
+                if (!picker) return;
+                const shouldCheck = button.getAttribute('data-scorecard-branch-action') === 'all';
+                picker.querySelectorAll('.scorecard-branch-card input[type="checkbox"]:not(:disabled)').forEach(function (input) {
+                    input.checked = shouldCheck;
+                });
+                updateScorecardBranchPicker(picker);
+            });
+        });
+
+        document.querySelectorAll('[data-scorecard-branch-picker]').forEach(updateScorecardBranchPicker);
 
         (function () {
             const form = document.getElementById('userGroupBuilderForm');

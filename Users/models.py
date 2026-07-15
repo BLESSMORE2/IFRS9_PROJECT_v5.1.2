@@ -259,6 +259,81 @@ class UserRoleGroup(models.Model):
         return self.name
 
 
+class ApplicationVersion(models.Model):
+    RELEASE_TYPE_MAJOR = "major"
+    RELEASE_TYPE_MINOR = "minor"
+    RELEASE_TYPE_PATCH = "patch"
+    RELEASE_TYPE_HOTFIX = "hotfix"
+    RELEASE_TYPE_CHOICES = [
+        (RELEASE_TYPE_MAJOR, "Major release"),
+        (RELEASE_TYPE_MINOR, "Minor release"),
+        (RELEASE_TYPE_PATCH, "Patch"),
+        (RELEASE_TYPE_HOTFIX, "Hotfix"),
+    ]
+
+    STATUS_PLANNED = "planned"
+    STATUS_DEPLOYED = "deployed"
+    STATUS_ROLLED_BACK = "rolled_back"
+    STATUS_CHOICES = [
+        (STATUS_PLANNED, "Planned"),
+        (STATUS_DEPLOYED, "Deployed"),
+        (STATUS_ROLLED_BACK, "Rolled back"),
+    ]
+
+    application_name = models.CharField(max_length=120, default="Nexa Compliance")
+    version_number = models.CharField(max_length=40)
+    release_type = models.CharField(
+        max_length=20,
+        choices=RELEASE_TYPE_CHOICES,
+        default=RELEASE_TYPE_PATCH,
+    )
+    patch_reference = models.CharField(max_length=120, blank=True, default="")
+    build_number = models.CharField(max_length=80, blank=True, default="")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_DEPLOYED,
+    )
+    is_current = models.BooleanField(default=False, db_index=True)
+    deployed_at = models.DateTimeField(default=timezone.now, db_index=True)
+    release_notes = models.TextField(blank=True, default="")
+    patches_applied = models.TextField(blank=True, default="")
+    rollback_notes = models.TextField(blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_application_versions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-deployed_at", "-id"]
+        verbose_name = "Application Version"
+        verbose_name_plural = "Application Versions"
+        indexes = [
+            models.Index(fields=["application_name", "version_number"]),
+            models.Index(fields=["status", "is_current"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["application_name", "version_number"],
+                name="unique_application_version_number",
+            ),
+        ]
+
+    def __str__(self):
+        current_marker = " current" if self.is_current else ""
+        return f"{self.application_name} {self.version_number}{current_marker}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.is_current:
+            type(self).objects.exclude(pk=self.pk).filter(is_current=True).update(is_current=False)
+
+
 class SystemSetting(models.Model):
     LANDING_RULE_LAUNCHER = "launcher"
     LANDING_RULE_DIRECT = "direct_first_module"
