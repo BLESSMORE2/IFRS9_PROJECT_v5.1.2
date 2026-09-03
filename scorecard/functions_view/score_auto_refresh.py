@@ -9,7 +9,10 @@ from typing import Any, Callable
 
 from django.utils import timezone
 
-from scorecard.functions_view.score_auto_refresh_notifications import notify_auto_update_completed
+from scorecard.functions_view.score_auto_refresh_notifications import (
+    notify_auto_update_completed,
+    serialize_auto_update_item,
+)
 from scorecard.workflow_approval import get_scorecard_workflow_approval_settings
 
 
@@ -184,6 +187,7 @@ def _save_auto_refresh_completion_state(
     settings_obj: Any,
     schedule_context: dict[str, Any],
     result: dict[str, Any],
+    pending_updates: list[dict[str, Any]] | None = None,
 ) -> None:
     update_fields = ["auto_refresh_autofilled_scores_last_run_at"]
     settings_obj.auto_refresh_autofilled_scores_last_run_at = schedule_context["scheduled_for"]
@@ -204,6 +208,10 @@ def _save_auto_refresh_completion_state(
                 ),
             )
             update_fields.append(field_name)
+
+    if pending_updates is not None and hasattr(settings_obj, "auto_refresh_autofilled_scores_pending_updates"):
+        settings_obj.auto_refresh_autofilled_scores_pending_updates = pending_updates
+        update_fields.append("auto_refresh_autofilled_scores_pending_updates")
 
     settings_obj.save(update_fields=update_fields)
 
@@ -235,6 +243,50 @@ def _normalize_engine_result(raw_result: Any) -> dict[str, Any]:
     return {"updated_items": _list_or_empty(raw_result)}
 
 
+def _pending_auto_refresh_updates(settings_obj: Any) -> list[dict[str, Any]]:
+    value = getattr(settings_obj, "auto_refresh_autofilled_scores_pending_updates", None)
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _save_pending_auto_refresh_updates(settings_obj: Any, pending_updates: list[dict[str, Any]]) -> None:
+    if not hasattr(settings_obj, "auto_refresh_autofilled_scores_pending_updates"):
+        return
+    settings_obj.auto_refresh_autofilled_scores_pending_updates = pending_updates
+    settings_obj.save(update_fields=["auto_refresh_autofilled_scores_pending_updates"])
+
+
+def _auto_refresh_update_key(item: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    return (
+        str(item.get("score_type", "") or ""),
+        str(item.get("customer_code", "") or ""),
+        str(item.get("branch_name", "") or ""),
+        str(item.get("template_code", "") or item.get("template", "") or ""),
+        str(item.get("version", "") or ""),
+    )
+
+
+def _merge_auto_refresh_updates(
+    existing_items: list[dict[str, Any]],
+    new_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    positions: dict[tuple[str, str, str, str, str], int] = {}
+    for item in [*existing_items, *new_items]:
+        key = _auto_refresh_update_key(item)
+        if key in positions:
+            merged[positions[key]] = item
+            continue
+        positions[key] = len(merged)
+        merged.append(item)
+    return merged
+
+
+def _auto_refresh_cycle_complete(result: dict[str, Any]) -> bool:
+    return bool(result.get("basel_cycle_complete")) and bool(result.get("ifrs9_cycle_complete"))
+
+
 def run_due_autofilled_score_refresh(now=None) -> dict[str, Any]:
     now = now or timezone.now()
     settings_obj = get_scorecard_workflow_approval_settings()
@@ -252,18 +304,49 @@ def run_due_autofilled_score_refresh(now=None) -> dict[str, Any]:
 
     normalized = _normalize_engine_result(_call_engine(engine, now, schedule_context))
     updated_items = normalized.pop("updated_items", [])
-    notification_result = notify_auto_update_completed(
-        updated_items,
-        completed_at=now,
-        summary=normalized,
+    serialized_updates = [serialize_auto_update_item(item) for item in updated_items]
+    pending_updates = _merge_auto_refresh_updates(
+        _pending_auto_refresh_updates(settings_obj),
+        serialized_updates,
     )
+    _save_pending_auto_refresh_updates(settings_obj, pending_updates)
 
-    _save_auto_refresh_completion_state(settings_obj, schedule_context, normalized)
+    cycle_complete = _auto_refresh_cycle_complete(normalized)
+    if cycle_complete:
+        notification_summary = {
+            **normalized,
+            "cycle_complete": True,
+            "cycle_updated_count": len(pending_updates),
+        }
+        notification_result = notify_auto_update_completed(
+            pending_updates,
+            completed_at=now,
+            summary=notification_summary,
+        )
+        pending_updates_to_save: list[dict[str, Any]] = []
+    else:
+        notification_result = {
+            "notified": False,
+            "reason": "cycle_in_progress",
+            "updated": len(serialized_updates),
+            "pending_updates": len(pending_updates),
+        }
+        pending_updates_to_save = pending_updates
+
+    _save_auto_refresh_completion_state(
+        settings_obj,
+        schedule_context,
+        normalized,
+        pending_updates=pending_updates_to_save,
+    )
 
     return {
         "performed": True,
         "reason": "completed",
         "updated": len(updated_items),
+        "cycle_complete": cycle_complete,
+        "cycle_updates_pending": len(pending_updates_to_save),
+        "cycle_updated_count": len(pending_updates),
         "notification": notification_result,
         **schedule_context,
         **normalized,

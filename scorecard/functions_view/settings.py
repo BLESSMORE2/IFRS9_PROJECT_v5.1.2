@@ -963,6 +963,9 @@ def _serialize_workflow_approval_settings(settings_obj):
         "batch_size": auto_refresh_batch_size,
         "basel_cursor_id": getattr(settings_obj, "auto_refresh_autofilled_scores_basel_cursor_id", 0) or 0,
         "ifrs9_cursor_id": getattr(settings_obj, "auto_refresh_autofilled_scores_ifrs9_cursor_id", 0) or 0,
+        "pending_update_count": len(
+            getattr(settings_obj, "auto_refresh_autofilled_scores_pending_updates", []) or []
+        ),
         "last_run_at": getattr(settings_obj, "auto_refresh_autofilled_scores_last_run_at", None),
         "frequency_choices": [
             {

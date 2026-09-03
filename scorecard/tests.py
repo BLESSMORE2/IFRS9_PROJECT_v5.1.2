@@ -887,6 +887,45 @@ class IFRS9SupportingDataWorkspaceTests(TestCase):
         self.assertEqual(schedule.v_ccy_code, "USD")
 
 
+class NotificationFilterTests(SimpleTestCase):
+    def test_auto_score_updates_appears_as_module_filter_choice(self):
+        from scorecard.functions_view.notifications import _notification_category_choices
+
+        self.assertIn(
+            ("auto_score_updates", "Auto Score Updates"),
+            _notification_category_choices(),
+        )
+
+    def test_auto_score_updates_filter_maps_to_event_code(self):
+        from scorecard.functions_view.notifications import _apply_notification_category_filter
+
+        class FakeQuerySet:
+            def __init__(self):
+                self.filters = []
+
+            def filter(self, **kwargs):
+                self.filters.append(kwargs)
+                return self
+
+        queryset = FakeQuerySet()
+        result = _apply_notification_category_filter(queryset, "auto_score_updates")
+
+        self.assertIs(result, queryset)
+        self.assertEqual(queryset.filters, [{"event_code": "score_auto_update_completed"}])
+
+    def test_auto_score_update_notification_module_label_is_specific(self):
+        from scorecard.functions_view.notifications import _notification_module_label
+        from scorecard.models import ScorecardNotification
+
+        notification = SimpleNamespace(
+            event_code="score_auto_update_completed",
+            category=ScorecardNotification.CATEGORY_SCORING,
+            metadata={},
+        )
+
+        self.assertEqual(_notification_module_label(notification), "Auto Score Updates")
+
+
 class ScoreAutoRefreshCursorSafetyTests(SimpleTestCase):
     def test_auto_refresh_does_not_stream_score_querysets_while_writing(self):
         import inspect
@@ -1046,6 +1085,230 @@ class ScoreAutoRefreshCursorSafetyTests(SimpleTestCase):
         self.assertEqual(result["batch_size"], 500)
         self.assertEqual(result["basel_after_id"], 123)
         self.assertEqual(result["ifrs9_after_id"], 456)
+
+    def test_auto_refresh_defers_notification_until_full_cycle_completes(self):
+        from datetime import datetime, time
+
+        from django.utils import timezone
+
+        from scorecard.functions_view import score_auto_refresh
+
+        class FakeSettings:
+            auto_refresh_autofilled_scores_enabled = True
+            auto_refresh_autofilled_scores_frequency = "daily"
+            auto_refresh_autofilled_scores_time = time(2, 0)
+            auto_refresh_autofilled_scores_weekday = 0
+            auto_refresh_autofilled_scores_month_day = 1
+            auto_refresh_autofilled_scores_batch_size = 1000
+            auto_refresh_autofilled_scores_basel_cursor_id = 0
+            auto_refresh_autofilled_scores_ifrs9_cursor_id = 0
+            auto_refresh_autofilled_scores_pending_updates = []
+            auto_refresh_autofilled_scores_last_run_at = None
+
+            def save(self, update_fields=None):
+                self.saved_update_fields = list(update_fields or [])
+
+        settings_obj = FakeSettings()
+        calls = {"notify": 0}
+
+        def fake_engine(**_kwargs):
+            return {
+                "checked_count": 1,
+                "updated_items": [
+                    {
+                        "score_type": "Basel II",
+                        "customer_code": "C001",
+                        "customer_name": "Customer One",
+                        "branch_name": "8TH AVENUE",
+                        "template_code": "ARCSC1-17",
+                        "changed_fields": ["Repayment History: Old -> New"],
+                        "version": 2,
+                    }
+                ],
+                "basel_cursor_id": 10,
+                "ifrs9_cursor_id": 0,
+                "basel_cycle_complete": False,
+                "ifrs9_cycle_complete": True,
+            }
+
+        original_get_settings = score_auto_refresh.get_scorecard_workflow_approval_settings
+        original_load_engine = score_auto_refresh._load_auto_refresh_engine
+        original_notify = score_auto_refresh.notify_auto_update_completed
+        try:
+            score_auto_refresh.get_scorecard_workflow_approval_settings = lambda: settings_obj
+            score_auto_refresh._load_auto_refresh_engine = lambda: fake_engine
+            score_auto_refresh.notify_auto_update_completed = lambda *_args, **_kwargs: calls.__setitem__("notify", calls["notify"] + 1)
+
+            now = timezone.make_aware(datetime(2026, 9, 3, 3, 0), timezone.get_current_timezone())
+            result = score_auto_refresh.run_due_autofilled_score_refresh(now=now)
+        finally:
+            score_auto_refresh.get_scorecard_workflow_approval_settings = original_get_settings
+            score_auto_refresh._load_auto_refresh_engine = original_load_engine
+            score_auto_refresh.notify_auto_update_completed = original_notify
+
+        self.assertFalse(result["cycle_complete"])
+        self.assertEqual(result["notification"]["reason"], "cycle_in_progress")
+        self.assertEqual(result["cycle_updates_pending"], 1)
+        self.assertEqual(calls["notify"], 0)
+        self.assertEqual(len(settings_obj.auto_refresh_autofilled_scores_pending_updates), 1)
+
+    def test_auto_refresh_sends_one_notification_when_full_cycle_completes(self):
+        from datetime import datetime, time
+
+        from django.utils import timezone
+
+        from scorecard.functions_view import score_auto_refresh
+
+        class FakeSettings:
+            auto_refresh_autofilled_scores_enabled = True
+            auto_refresh_autofilled_scores_frequency = "daily"
+            auto_refresh_autofilled_scores_time = time(2, 0)
+            auto_refresh_autofilled_scores_weekday = 0
+            auto_refresh_autofilled_scores_month_day = 1
+            auto_refresh_autofilled_scores_batch_size = 1000
+            auto_refresh_autofilled_scores_basel_cursor_id = 10
+            auto_refresh_autofilled_scores_ifrs9_cursor_id = 0
+            auto_refresh_autofilled_scores_pending_updates = [
+                {
+                    "score_type": "Basel II",
+                    "customer_code": "C001",
+                    "customer_name": "Customer One",
+                    "branch_name": "8TH AVENUE",
+                    "template_code": "ARCSC1-17",
+                    "changed_fields": "Repayment History: Old -> New",
+                    "version": "2",
+                }
+            ]
+            auto_refresh_autofilled_scores_last_run_at = None
+
+            def save(self, update_fields=None):
+                self.saved_update_fields = list(update_fields or [])
+
+        settings_obj = FakeSettings()
+        notify_calls = []
+
+        def fake_engine(**_kwargs):
+            return {
+                "checked_count": 1,
+                "updated_items": [
+                    {
+                        "score_type": "IFRS9",
+                        "customer_code": "C002",
+                        "customer_name": "Customer Two",
+                        "branch_name": "8TH AVENUE",
+                        "template_code": "IFRS9PD-RETAIL-001",
+                        "changed_fields": ["Loan Amount: Old -> New"],
+                        "version": 3,
+                    }
+                ],
+                "basel_cursor_id": 0,
+                "ifrs9_cursor_id": 0,
+                "basel_cycle_complete": True,
+                "ifrs9_cycle_complete": True,
+            }
+
+        def fake_notify(items, **kwargs):
+            notify_calls.append((list(items), kwargs))
+            return {"notified": True, "updated": len(items), "document_name": "combined.csv"}
+
+        original_get_settings = score_auto_refresh.get_scorecard_workflow_approval_settings
+        original_load_engine = score_auto_refresh._load_auto_refresh_engine
+        original_notify = score_auto_refresh.notify_auto_update_completed
+        try:
+            score_auto_refresh.get_scorecard_workflow_approval_settings = lambda: settings_obj
+            score_auto_refresh._load_auto_refresh_engine = lambda: fake_engine
+            score_auto_refresh.notify_auto_update_completed = fake_notify
+
+            now = timezone.make_aware(datetime(2026, 9, 3, 3, 0), timezone.get_current_timezone())
+            result = score_auto_refresh.run_due_autofilled_score_refresh(now=now)
+        finally:
+            score_auto_refresh.get_scorecard_workflow_approval_settings = original_get_settings
+            score_auto_refresh._load_auto_refresh_engine = original_load_engine
+            score_auto_refresh.notify_auto_update_completed = original_notify
+
+        self.assertTrue(result["cycle_complete"])
+        self.assertEqual(result["cycle_updated_count"], 2)
+        self.assertEqual(result["cycle_updates_pending"], 0)
+        self.assertEqual(len(notify_calls), 1)
+        self.assertEqual(len(notify_calls[0][0]), 2)
+        self.assertEqual(settings_obj.auto_refresh_autofilled_scores_pending_updates, [])
+
+    def test_auto_update_notification_uses_score_admin_permissions_only(self):
+        from scorecard.functions_view import score_auto_refresh_notifications as notifications
+
+        self.assertEqual(
+            notifications._permission_codes_for_item({"score_type": "Basel II"}),
+            ("scorecard.reopen_basel_scores",),
+        )
+        self.assertEqual(
+            notifications._permission_codes_for_item({"score_type": "IFRS9"}),
+            ("scorecard.reopen_ifrs9_scores",),
+        )
+
+    def test_auto_update_notification_does_not_target_score_makers_or_checkers(self):
+        from scorecard.functions_view import score_auto_refresh_notifications as notifications
+
+        maker = SimpleNamespace(pk=1, email="maker@example.com", is_active=True)
+        checker = SimpleNamespace(pk=2, email="checker@example.com", is_active=True)
+        admin = SimpleNamespace(pk=3, email="admin@example.com", is_active=True)
+        superuser = SimpleNamespace(pk=4, email="super@example.com", is_active=True, is_superuser=True)
+
+        class FakeUserManager:
+            def filter(self, **kwargs):
+                if kwargs.get("is_superuser") is True:
+                    return [superuser]
+                return []
+
+        class FakeUserModel:
+            objects = FakeUserManager()
+
+        original_get_user_model = notifications.get_user_model
+        original_collect_permission_users = notifications._collect_permission_users
+        try:
+            notifications.get_user_model = lambda: FakeUserModel
+            notifications._collect_permission_users = lambda _items: [admin]
+            recipients = notifications._collect_notification_users(
+                [
+                    {
+                        "score_type": "Basel II",
+                        "customer_code": "C001",
+                        "branch_name": "8TH AVENUE",
+                        "maker": maker,
+                        "checker": checker,
+                    }
+                ],
+                actor=maker,
+            )
+        finally:
+            notifications.get_user_model = original_get_user_model
+            notifications._collect_permission_users = original_collect_permission_users
+
+        self.assertEqual(recipients, [superuser, admin])
+        self.assertNotIn(maker, recipients)
+        self.assertNotIn(checker, recipients)
+
+    def test_score_admin_permissions_can_open_notifications(self):
+        from scorecard.context_processors import _user_can_access_scorecard_route
+
+        basel_admin = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda permission: permission == "scorecard.reopen_basel_scores",
+        )
+        ifrs9_admin = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda permission: permission == "scorecard.reopen_ifrs9_scores",
+        )
+        checker_only = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda permission: permission == "scorecard.review_basel_scores",
+        )
+
+        self.assertTrue(_user_can_access_scorecard_route(basel_admin, "notifications"))
+        self.assertTrue(_user_can_access_scorecard_route(ifrs9_admin, "notifications"))
+        self.assertFalse(_user_can_access_scorecard_route(checker_only, "notifications"))
 
 
 class ScoreAutoRefreshScheduleSlotTests(SimpleTestCase):

@@ -77,17 +77,9 @@ def _resolve_user_candidate(candidate: Any) -> Any:
 def _permission_codes_for_item(item: Any) -> tuple[str, ...]:
     score_type = _score_type(item).lower()
     if "basel" in score_type:
-        return (
-            "scorecard.view_basel_scores",
-            "scorecard.manage_basel_scores",
-            "scorecard.review_basel_scores",
-        )
+        return ("scorecard.reopen_basel_scores",)
     if "ifrs9" in score_type or "ifrs 9" in score_type:
-        return (
-            "scorecard.view_ifrs9_scores",
-            "scorecard.manage_ifrs9_scores",
-            "scorecard.review_ifrs9_scores",
-        )
+        return ("scorecard.reopen_ifrs9_scores",)
     return ()
 
 
@@ -183,6 +175,19 @@ def _template_label(item: Any) -> str:
     return " - ".join(part for part in (code, name) if part)
 
 
+def _template_parts(item: Any) -> tuple[str, str]:
+    template = _value(item, "template", default=None)
+    if template is not None and not isinstance(template, str):
+        return (
+            _display(_value(template, "code", "template_code")),
+            _display(_value(template, "name", "template_name")),
+        )
+    return (
+        _display(_value(item, "template_code", "template")),
+        _display(_value(item, "template_name")),
+    )
+
+
 def _score_type(item: Any) -> str:
     value = _value(item, "score_type", "type", "scorecard_type")
     return _display(value) or item.__class__.__name__
@@ -215,25 +220,44 @@ def _auto_update_report_row(item: Any, completed_at) -> list[str]:
     ]
 
 
+def _serialize_user_reference(candidate: Any) -> str:
+    user = _resolve_user_candidate(candidate)
+    if user is not None:
+        return _display_user(user)
+    return _display_user(candidate)
+
+
+def serialize_auto_update_item(item: Any) -> dict[str, Any]:
+    template_code, template_name = _template_parts(item)
+    return {
+        "score_type": _score_type(item),
+        "customer_code": _customer_code(item),
+        "customer_name": _customer_name(item),
+        "branch_name": _branch_name(item),
+        "template_code": template_code,
+        "template_name": template_name,
+        "previous_weighted_score": _percent(
+            _value(item, "previous_weighted_score", "old_weighted_score", "previous_total_weighted_percent")
+        ),
+        "new_weighted_score": _percent(
+            _value(item, "new_weighted_score", "weighted_score", "total_weighted_percent", "new_total_weighted_percent")
+        ),
+        "previous_grade": _display(_value(item, "previous_grade", "old_grade")),
+        "new_grade": _display(_value(item, "new_grade", "grade", "final_grade")),
+        "changed_fields": _changed_fields(item),
+        "version": _display(_value(item, "version", "version_number")),
+        "updated_by": _serialize_user_reference(
+            _value(item, "updated_by", "maker", "submitted_by", default=None)
+        ),
+        "maker": _serialize_user_reference(_value(item, "maker", default=None)),
+        "submitted_by": _serialize_user_reference(_value(item, "submitted_by", default=None)),
+        "checker": _serialize_user_reference(_value(item, "checker", default=None)),
+        "approved_by": _serialize_user_reference(_value(item, "approved_by", default=None)),
+    }
+
+
 def _collect_notification_users(updated_items: Iterable[Any], actor: Any = None) -> list[Any]:
     users: list[Any] = []
-    actor_user = _resolve_user_candidate(actor)
-    if actor_user is not None:
-        users.append(actor_user)
-    for item in updated_items:
-        for name in (
-            "maker",
-            "submitted_by",
-            "created_by",
-            "updated_by",
-            "checker",
-            "approved_by",
-            "reviewed_by",
-        ):
-            user = _resolve_user_candidate(_value(item, name, default=None))
-            if user is not None:
-                users.append(user)
-
     try:
         user_model = get_user_model()
         users.extend(user_model.objects.filter(is_active=True, is_superuser=True))

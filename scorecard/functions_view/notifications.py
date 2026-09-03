@@ -56,6 +56,8 @@ BUSINESS_NOTIFICATION_CATEGORIES = (
     ScorecardNotification.CATEGORY_API,
     ScorecardNotification.CATEGORY_SYNC,
 )
+AUTO_SCORE_UPDATE_FILTER_VALUE = "auto_score_updates"
+AUTO_SCORE_UPDATE_EVENT_CODE = "score_auto_update_completed"
 
 NOTIFICATION_CHECKER_BACKFILL_TTL_SECONDS = 60
 NOTIFICATION_SCHEDULE_BACKFILL_TTL_SECONDS = 300
@@ -333,6 +335,8 @@ def _run_notification_backfills(user: Any) -> None:
 
 
 def _notification_module_label(notification: ScorecardNotification) -> str:
+    if notification.event_code == AUTO_SCORE_UPDATE_EVENT_CODE:
+        return "Auto Score Updates"
     if notification.category == ScorecardNotification.CATEGORY_SCORING:
         score_type = (notification.metadata or {}).get("score_type")
         if score_type == "basel":
@@ -407,6 +411,23 @@ def _build_notification_list_query_string(
     if page_size != NOTIFICATION_LIST_PAGE_SIZE_OPTIONS[0]:
         params["page_size"] = page_size
     return urlencode(params)
+
+
+def _notification_category_choices() -> list[tuple[str, str]]:
+    choices = [
+        choice
+        for choice in ScorecardNotification.CATEGORY_CHOICES
+        if choice[0] in BUSINESS_NOTIFICATION_CATEGORIES
+    ]
+    return [*choices, (AUTO_SCORE_UPDATE_FILTER_VALUE, "Auto Score Updates")]
+
+
+def _apply_notification_category_filter(queryset, category: str):
+    if category == AUTO_SCORE_UPDATE_FILTER_VALUE:
+        return queryset.filter(event_code=AUTO_SCORE_UPDATE_EVENT_CODE)
+    if category:
+        return queryset.filter(category=category)
+    return queryset
 
 
 def _notification_summary_cache_key(user: Any, request: HttpRequest | None, suffix: str) -> str:
@@ -1194,9 +1215,7 @@ def notification_list_view(request: HttpRequest) -> HttpResponse:
                 "total_notifications": 0,
                 "category_totals": [],
                 "filters": {"category": "", "level": "", "status": ""},
-                "category_choices": [
-                    choice for choice in ScorecardNotification.CATEGORY_CHOICES if choice[0] in BUSINESS_NOTIFICATION_CATEGORIES
-                ],
+                "category_choices": _notification_category_choices(),
                 "level_choices": ScorecardNotification.LEVEL_CHOICES,
             },
         )
@@ -1225,8 +1244,7 @@ def notification_list_view(request: HttpRequest) -> HttpResponse:
     page_size = _normalize_notification_page_size(request.GET.get("page_size"))
 
     filtered_notifications = notifications_qs.order_by("-created_at", "-id")
-    if category:
-        filtered_notifications = filtered_notifications.filter(category=category)
+    filtered_notifications = _apply_notification_category_filter(filtered_notifications, category)
     if level:
         filtered_notifications = filtered_notifications.filter(level=level)
     if status == "unread":
@@ -1273,9 +1291,7 @@ def notification_list_view(request: HttpRequest) -> HttpResponse:
         "filters": {"category": category, "level": level, "status": status},
         "search_query": search_query,
         "list_query_string": list_query_string,
-        "category_choices": [
-            choice for choice in ScorecardNotification.CATEGORY_CHOICES if choice[0] in BUSINESS_NOTIFICATION_CATEGORIES
-        ],
+        "category_choices": _notification_category_choices(),
         "level_choices": ScorecardNotification.LEVEL_CHOICES,
     }
     return render(request, "notifications/list.html", context)

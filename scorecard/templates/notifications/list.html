@@ -95,8 +95,11 @@
             <div class="filter-row">
                 <select id="notification-category-filter" name="category" class="filter-select">
                     <option value="">All Modules</option>
+                    <option value="auto_score_updates" {% if filters.category == 'auto_score_updates' %}selected{% endif %}>Auto Score Updates</option>
                     {% for value, label in category_choices %}
+                    {% if value != 'auto_score_updates' %}
                     <option value="{{ value|lower }}" {% if filters.category == value %}selected{% endif %}>{{ label }}</option>
+                    {% endif %}
                     {% endfor %}
                 </select>
                 <select id="notification-level-filter" name="level" class="filter-select">

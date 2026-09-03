@@ -3965,6 +3965,11 @@ class ScorecardWorkflowApprovalSetting(models.Model):
         default=0,
         help_text="Internal resume cursor for batched IFRS9 score auto-refresh runs.",
     )
+    auto_refresh_autofilled_scores_pending_updates = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Serialized auto-update rows waiting for the current batched refresh cycle to complete before notification.",
+    )
     auto_refresh_autofilled_scores_last_run_at = models.DateTimeField(
         null=True,
         blank=True,

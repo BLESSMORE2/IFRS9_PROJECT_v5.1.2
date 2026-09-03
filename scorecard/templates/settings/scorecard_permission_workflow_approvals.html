@@ -181,6 +181,7 @@
         {% endif %}
         <span>Batch: up to {{ workflow_summary.auto_refresh.batch_size }} Basel and {{ workflow_summary.auto_refresh.batch_size }} IFRS9 forms per run.</span>
         <span>Resume cursor: Basel #{{ workflow_summary.auto_refresh.basel_cursor_id }}, IFRS9 #{{ workflow_summary.auto_refresh.ifrs9_cursor_id }}.</span>
+        <span>Pending final notification rows: {{ workflow_summary.auto_refresh.pending_update_count }}.</span>
         <span>Last completed: {{ workflow_summary.auto_refresh.last_run_at|date:"Y-m-d H:i"|default:"Never" }}</span>
       </div>
     </div>

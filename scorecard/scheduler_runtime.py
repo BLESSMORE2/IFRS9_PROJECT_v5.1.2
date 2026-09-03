@@ -445,6 +445,8 @@ def run_scheduler_cycle(
             f"adopted={auto_refresh_result.get('adopted_count', 0)}, "
             f"errors={auto_refresh_result.get('error_count', 0)}, "
             f"batch={auto_refresh_result.get('batch_size', '-')}, "
+            f"cycle_complete={auto_refresh_result.get('cycle_complete', False)}, "
+            f"pending_final_notification={auto_refresh_result.get('cycle_updates_pending', 0)}, "
             f"basel_cursor={auto_refresh_result.get('basel_cursor_id', 0)}, "
             f"ifrs9_cursor={auto_refresh_result.get('ifrs9_cursor_id', 0)}, "
             f"document={notification.get('document_name', '-')}, "
@@ -460,6 +462,8 @@ def run_scheduler_cycle(
                 f"adopted={auto_refresh_result.get('adopted_count', 0)}, "
                 f"errors={auto_refresh_result.get('error_count', 0)}, "
                 f"batch={auto_refresh_result.get('batch_size', '-')}, "
+                f"cycle_complete={auto_refresh_result.get('cycle_complete', False)}, "
+                f"pending_final_notification={auto_refresh_result.get('cycle_updates_pending', 0)}, "
                 f"basel_cursor={auto_refresh_result.get('basel_cursor_id', 0)}, "
                 f"ifrs9_cursor={auto_refresh_result.get('ifrs9_cursor_id', 0)}."
             ),

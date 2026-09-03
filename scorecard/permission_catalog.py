@@ -501,6 +501,11 @@ NOTIFICATION_ROUTES = [
     "notification_detail",
     "notification_mark_all_read",
 ]
+NOTIFICATION_ACCESS_PERMISSIONS = (
+    "scorecard.view_scorecard_notifications",
+    "scorecard.reopen_basel_scores",
+    "scorecard.reopen_ifrs9_scores",
+)
 
 DOCUMENT_VIEW_ROUTES = [
     "document_list",
@@ -586,7 +591,7 @@ ROUTE_PERMISSION_MAP.update({name: "scorecard.view_scorecard_customers" for name
 ROUTE_PERMISSION_MAP.update({name: "scorecard.manage_scorecard_customers" for name in CUSTOMER_MANAGE_ROUTES})
 ROUTE_PERMISSION_MAP.update({name: "scorecard.view_scorecard_branches" for name in BRANCH_VIEW_ROUTES})
 ROUTE_PERMISSION_MAP.update({name: "scorecard.manage_scorecard_branches" for name in BRANCH_MANAGE_ROUTES})
-ROUTE_PERMISSION_MAP.update({name: "scorecard.view_scorecard_notifications" for name in NOTIFICATION_ROUTES})
+ROUTE_PERMISSION_MAP.update({name: NOTIFICATION_ACCESS_PERMISSIONS for name in NOTIFICATION_ROUTES})
 ROUTE_PERMISSION_MAP.update({name: "scorecard.view_scorecard_documents" for name in DOCUMENT_VIEW_ROUTES})
 ROUTE_PERMISSION_MAP.update({name: "scorecard.manage_scorecard_documents" for name in DOCUMENT_MANAGE_ROUTES})
 ROUTE_PERMISSION_MAP.update({name: "scorecard.view_scorecard_email" for name in EMAIL_VIEW_ROUTES})
