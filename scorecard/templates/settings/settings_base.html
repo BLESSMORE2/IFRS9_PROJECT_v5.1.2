@@ -1,0 +1,230 @@
+{% extends 'credit_scoreshifts/base.html' %}
+
+{% block content %}
+<div class="settings-workspace">
+  <div class="settings-hero">
+    <div>
+      <div class="settings-eyebrow">Scorecard Settings</div>
+      <h1 class="settings-title">{% block settings_title %}Permission Workspace{% endblock %}</h1>
+      <p class="settings-subtitle mb-0">{% block settings_subtitle %}Manage scorecard permission coverage, user role assignment, and settings audit from one place.{% endblock %}</p>
+    </div>
+    <div class="settings-hero-badge">ðŸ”</div>
+  </div>
+
+  <div class="settings-shell">
+    <aside class="settings-sidebar">
+      <div class="settings-sidebar-header">
+        <div class="settings-sidebar-icon">ðŸ§­</div>
+        <div>
+          <div class="settings-sidebar-eyebrow">Navigation</div>
+          <div class="settings-sidebar-title">Permission Menu</div>
+        </div>
+      </div>
+
+      <nav class="settings-nav">
+        {% if scorecard_route_access.settings_permissions %}
+        <a href="{% url 'scorecard:settings_permissions' %}" class="settings-nav-link {% if request.resolver_match.url_name == 'settings_permissions' %}active{% endif %}">
+          <span class="settings-nav-icon">ðŸ“Š</span>
+          <span>Dashboard</span>
+        </a>
+        {% endif %}
+        {% if scorecard_route_access.settings_user_roles %}
+        <a href="{% url 'scorecard:settings_user_roles' %}" class="settings-nav-link {% if request.resolver_match.url_name == 'settings_user_roles' or request.resolver_match.url_name == 'settings_user_role_assignment' %}active{% endif %}">
+          <span class="settings-nav-icon">ðŸ‘¥</span>
+          <span>User Roles</span>
+        </a>
+        {% endif %}
+        {% if scorecard_route_access.settings_audit_trail %}
+        <a href="{% url 'scorecard:settings_audit_trail' %}" class="settings-nav-link {% if request.resolver_match.url_name == 'settings_audit_trail' %}active{% endif %}">
+          <span class="settings-nav-icon">ðŸ•˜</span>
+          <span>Audit Trail</span>
+        </a>
+        {% endif %}
+      </nav>
+    </aside>
+
+    <section class="settings-main">
+      {% if messages %}
+      <div class="settings-message-stack">
+        {% for message in messages %}
+        <div class="settings-message settings-message-{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% block settings_content %}{% endblock %}
+    </section>
+  </div>
+</div>
+
+<style>
+  .settings-workspace {
+    padding: 1rem 1rem 1.5rem;
+  }
+  .settings-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.15rem;
+    margin-bottom: 1rem;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #0b1931 0%, #123462 60%, #175494 100%);
+    color: #fff;
+    box-shadow: 0 14px 30px rgba(11, 25, 49, 0.18);
+  }
+  .settings-eyebrow,
+  .settings-sidebar-eyebrow {
+    font-size: 0.58rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.65);
+    margin-bottom: 0.2rem;
+    font-weight: 700;
+  }
+  .settings-title {
+    font-size: 1.08rem;
+    line-height: 1.2;
+    margin: 0 0 0.2rem;
+  }
+  .settings-subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.74rem;
+    max-width: 720px;
+    line-height: 1.45;
+  }
+  .settings-hero-badge,
+  .settings-sidebar-icon,
+  .settings-nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .settings-hero-badge {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .settings-shell {
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+  }
+  .settings-sidebar {
+    position: sticky;
+    top: 80px;
+    border-radius: 16px;
+    padding: 0.9rem;
+    background: linear-gradient(180deg, #0a1325 0%, #11223f 100%);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.15);
+  }
+  .settings-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding-bottom: 0.8rem;
+    margin-bottom: 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .settings-sidebar-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 0.9rem;
+  }
+  .settings-sidebar-title {
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.84rem;
+  }
+  .settings-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .settings-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.62rem 0.72rem;
+    border-radius: 12px;
+    text-decoration: none;
+    color: rgba(255, 255, 255, 0.78);
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 0.76rem;
+    font-weight: 600;
+    transition: all 0.18s ease;
+  }
+  .settings-nav-link:hover {
+    text-decoration: none;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .settings-nav-link.active {
+    color: #fff;
+    background: linear-gradient(135deg, rgba(0, 198, 167, 0.2), rgba(23, 84, 148, 0.28));
+    border: 1px solid rgba(0, 198, 167, 0.2);
+  }
+  .settings-nav-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+  }
+  .settings-main {
+    min-width: 0;
+  }
+  .settings-surface,
+  .settings-main-card {
+    background: #fff;
+    border: 1px solid #dbe7f4;
+    border-radius: 16px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  }
+  .settings-message-stack {
+    display: grid;
+    gap: 0.55rem;
+    margin-bottom: 0.85rem;
+  }
+  .settings-message {
+    padding: 0.75rem 0.9rem;
+    border-radius: 12px;
+    font-size: 0.74rem;
+    line-height: 1.45;
+    border: 1px solid transparent;
+  }
+  .settings-message-success {
+    background: #ecfdf5;
+    color: #166534;
+    border-color: #bbf7d0;
+  }
+  .settings-message-error {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+  .settings-message-warning {
+    background: #fff7ed;
+    color: #9a3412;
+    border-color: #fed7aa;
+  }
+  .settings-message-info {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+  }
+  @media (max-width: 991px) {
+    .settings-shell {
+      grid-template-columns: 1fr;
+    }
+    .settings-sidebar {
+      position: static;
+    }
+  }
+</style>
+{% endblock %}

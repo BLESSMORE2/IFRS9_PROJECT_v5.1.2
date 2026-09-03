@@ -1,0 +1,308 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}{{ template.name|default:"Farmers Credit Scoresheet" }}{% endblock %}
+
+{% block content %}
+    <!-- Sheet header, mimicking the Excel layout -->
+    <table class="no-border" style="border: none; margin-bottom: 0.25rem;">
+        <tr class="no-border">
+            <td class="no-border" style="font-weight: 700; font-size: 1.05rem;">
+                FARMERS CREDIT SCORESHEET
+            </td>
+            <td class="no-border text-right" style="font-size: 0.9rem; font-weight: 600;">
+                {% if template %}{{ template.code }}{% else %}AFCSC1-17{% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <table>
+        <tr>
+            <td style="width: 18%; font-weight: 600;">Branch</td>
+            <td style="width: 32%;">
+                {% if evaluation %}
+                    {{ evaluation.branch_name }}
+                {% else %}
+                    <input type="text" name="branch_name" form="farmers-form" id="id_branch_name" style="width: 100%; border: none; padding: 0.1rem 0.2rem;" required>
+                {% endif %}
+            </td>
+            <td style="width: 20%; font-weight: 600;">Customer Name</td>
+            <td style="width: 30%;">
+                {% if evaluation %}
+                    {{ evaluation.customer_name }}
+                {% else %}
+                    <input type="text" name="customer_name" form="farmers-form" id="id_customer_name" style="width: 100%; border: none; padding: 0.1rem 0.2rem;" required>
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td style="font-weight: 600;">Customer ID</td>
+            <td>
+                {% if evaluation %}
+                    {{ evaluation.customer_id }}
+                {% else %}
+                    <input type="text" name="customer_id" form="farmers-form" id="id_customer_id" style="width: 100%; border: none; padding: 0.1rem 0.2rem;" required>
+                {% endif %}
+            </td>
+            <td class="no-border"></td>
+            <td class="no-border"></td>
+        </tr>
+    </table>
+
+    {% if missing_template %}
+        <div class="error">
+            <strong>No Basel score sheet template configured.</strong><br>
+            Please create a <code>BaselScoreSheetTemplate</code> and related configuration\n
+            via the frontend configuration screen, then mark one template as active.<br>
+            <a href="{% url 'scorecard:basel_template_list' %}" class="btn-primary" style="margin-top: 0.5rem; display: inline-block; padding: 0.35rem 0.8rem; text-decoration: none;">
+                Manage Basel Templates
+            </a>
+        </div>
+    {% endif %}
+
+    {% if not evaluation %}
+        {% if errors %}
+            <div class="error">
+                {% if errors.missing_meta %}
+                    <div>Please provide Branch, Customer Name and Customer ID.</div>
+                {% endif %}
+                {% if errors.missing_attributes %}
+                    <div>The following questions are required:</div>
+                    <ul>
+                        {% for attr in errors.missing_attributes %}
+                            <li>{{ attr.label }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <form method="post" id="farmers-form">
+            {% csrf_token %}
+            {% load dict_extras %}
+
+            {% for section in sections %}
+                <table>
+                    <thead>
+                    <tr>
+                        <th colspan="6" class="section-header">
+                            {{ section.code }}) {{ section.name|upper }}
+                        </th>
+                    </tr>
+                    <tr>
+                        <th style="width: 40%;">RISK DRIVERS</th>
+                        <th style="width: 12%;" class="text-center">ALLOCATED<br> SCORE</th>
+                        <th style="width: 12%;" class="text-center">ACTUAL<br> SCORE</th>
+                        <th style="width: 12%;" class="text-center">WEIGHT</th>
+                        <th style="width: 12%;" class="text-center">WEIGHTED<br> SCORE</th>
+                        <th style="width: 12%;">PROOF</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for driver in drivers_by_section|get_item:section.id %}
+                        <tr>
+                            <td colspan="6" class="driver-header">
+                                {{ driver.code }}. {{ driver.name }}
+                                (Max Score: {{ driver.get_max_score }}, Weight: {{ driver.get_total_weight_percent }}%)
+                            </td>
+                        </tr>
+                        {% for attribute in attributes_by_driver|get_item:driver.id %}
+                            {% if attribute.group_label %}
+                                <tr>
+                                    <td colspan="6" class="group-label">
+                                        {{ attribute.group_label }}
+                                    </td>
+                                </tr>
+                            {% endif %}
+                            {% for option in attribute.options.all %}
+                                <tr>
+                                    {% if forloop.first %}
+                                        <td rowspan="{{ attribute.options.count }}">
+                                            {{ attribute.label }}
+                                            {% if attribute.help_text %}
+                                                <br><small>{{ attribute.help_text }}</small>
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
+                                    <td>
+                                        <label>
+                                            <input type="radio"
+                                                   name="attr_{{ attribute.id }}"
+                                                   value="{{ option.id }}"
+                                                   {% if attribute.is_required %}required{% endif %}>
+                                            {{ option.label }}
+                                        </label>
+                                    </td>
+                                    <td class="text-right">{{ option.allocated_score }}</td>
+                                    <td></td>
+                                    <td class="text-right">
+                                        {% if forloop.first %}
+                                            {{ attribute.weight_percent }}%
+                                        {% endif %}
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% endfor %}
+
+            <div class="actions">
+                <button type="reset" class="btn-secondary">Clear</button>
+                <button type="submit" class="btn-primary">Calculate Score</button>
+            </div>
+        </form>
+
+        {% if grade_bands %}
+            <div style="margin-top: 2rem; page-break-inside: avoid;">
+                <h2 style="margin-bottom: 0.75rem; font-size: 0.95rem; font-weight: 600;">Grading Scale</h2>
+                <table style="width: 50%; margin-bottom: 1rem;">
+                    <thead>
+                        <tr>
+                            <th style="width: 60%; text-align: left; padding: 0.4rem 0.5rem; background-color: #f0f0f0; border: 1px solid #ccc;">Score Range</th>
+                            <th style="width: 40%; text-align: left; padding: 0.4rem 0.5rem; background-color: #f0f0f0; border: 1px solid #ccc;">Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for band in grade_bands %}
+                            <tr>
+                                <td style="padding: 0.4rem 0.5rem; border: 1px solid #ccc;">
+                                    {% if band.min_percent == 0 and band.max_percent == 30.99 %}
+                                        Below 31%
+                                    {% elif band.min_percent == 85 and band.max_percent == 100 %}
+                                        85% & Above
+                                    {% else %}
+                                        [{{ band.min_percent|floatformat:0 }}% - {{ band.max_percent|floatformat:0 }}%]
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 0.4rem 0.5rem; border: 1px solid #ccc; font-weight: 600;">
+                                    {{ band.grade_code }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="summary-card">
+            <div class="summary-grid">
+                <div>
+                    <div class="summary-label">Branch</div>
+                    <div>{{ evaluation.branch_name }}</div>
+                </div>
+                <div>
+                    <div class="summary-label">Customer</div>
+                    <div>{{ evaluation.customer_name }} ({{ evaluation.customer_id }})</div>
+                </div>
+                <div>
+                    <div class="summary-label">Total Raw Score</div>
+                    <div>{{ evaluation.total_raw_score }}</div>
+                </div>
+                <div>
+                    <div class="summary-label">Total Weighted %</div>
+                    <div>{{ evaluation.total_weighted_percent }}%</div>
+                </div>
+                <div>
+                    <div class="summary-label">Grade</div>
+                    <div>{{ evaluation.final_grade }}</div>
+                </div>
+                {% if grade_band %}
+                    <div>
+                        <div class="summary-label">Grade Description</div>
+                        <div>{{ grade_band.description }}</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <h2 style="margin-top: 0.75rem; font-size: 0.95rem;">Section Scores</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Section</th>
+                <th class="text-right">Weighted %</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for s in section_scores %}
+                <tr>
+                    <td>{{ s.section.name }}</td>
+                    <td class="text-right">{{ s.weighted_percent }}%</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Driver Scores</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Risk Driver</th>
+                <th class="text-right">Actual Score</th>
+                <th class="text-right">Weight</th>
+                <th class="text-right">Weighted Score</th>
+                <th class="text-right">Proof</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for ds in driver_scores %}
+                <tr>
+                    <td>{{ ds.risk_driver.section.name }} - {{ ds.risk_driver.name }}</td>
+                    <td class="text-right">{{ ds.raw_score }}</td>
+                    <td class="text-right">{{ ds.risk_driver.weight_percent }}%</td>
+                    <td class="text-right">{{ ds.weighted_percent }}%</td>
+                    <td class="text-right {% if ds.proof == 'ERROR' %}error{% endif %}">{{ ds.proof }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <div style="margin-top: 1.5rem; padding: 1rem; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
+            <h3 style="margin-top: 0; font-size: 0.9rem; font-weight: 600;">Calculation Formulas (Same for all sections):</h3>
+            <ul style="margin: 0.5rem 0; padding-left: 1.5rem; font-size: 0.85rem;">
+                <li><strong>ACTUAL_SCORE</strong> = ALLOCATED_SCORE (sum of selected option scores)</li>
+                <li><strong>WEIGHTED_SCORE</strong> = ACTUAL_SCORE / Highest Possible Score × WEIGHT</li>
+                <li><strong>PROOF</strong> = IF(WEIGHTED_SCORE = ACTUAL_SCORE × WEIGHT / Highest_Possible_Score, WEIGHT, "ERROR")</li>
+            </ul>
+        </div>
+
+        <div class="actions">
+            <a href="{% url 'scorecard:farmers_credit_scoresheet' %}" class="btn-primary" style="text-decoration: none; text-align: center; display: inline-block; padding: 0.55rem 1.2rem;">New Evaluation</a>
+        </div>
+    {% endif %}
+
+    {% if grade_bands %}
+        <div style="margin-top: 2rem; page-break-inside: avoid;">
+            <h2 style="margin-bottom: 0.75rem; font-size: 0.95rem; font-weight: 600;">Grading Scale</h2>
+            <table style="width: 50%; margin-bottom: 1rem;">
+                <thead>
+                    <tr>
+                        <th style="width: 60%; text-align: left; padding: 0.4rem 0.5rem; background-color: #f0f0f0; border: 1px solid #ccc;">Score Range</th>
+                        <th style="width: 40%; text-align: left; padding: 0.4rem 0.5rem; background-color: #f0f0f0; border: 1px solid #ccc;">Grade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for band in grade_bands %}
+                        <tr>
+                            <td style="padding: 0.4rem 0.5rem; border: 1px solid #ccc;">
+                                {% if band.min_percent == 0 and band.max_percent == 30.99 %}
+                                    Below 31%
+                                {% elif band.min_percent == 85 and band.max_percent == 100 %}
+                                    85% & Above
+                                {% else %}
+                                    [{{ band.min_percent|floatformat:0 }}% - {{ band.max_percent|floatformat:0 }}%]
+                                {% endif %}
+                            </td>
+                            <td style="padding: 0.4rem 0.5rem; border: 1px solid #ccc; font-weight: 600;">
+                                {{ band.grade_code }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+{% endblock %}
+

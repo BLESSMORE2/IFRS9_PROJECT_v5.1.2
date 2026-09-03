@@ -1,0 +1,22 @@
+Customers without Basel II/IFRS9 scores
+
+Branch: {{ branch_name }}{% if branch_code %} ({{ branch_code }}){% endif %}
+Reporting date: {{ reporting_date|default:"-" }}
+Sources: {{ source_label }}
+Schedule: {{ schedule_label }}
+Generated: {{ generated_at|date:"Y-m-d H:i" }}
+
+Without Basel II Scores: {{ basel_count }}
+{% for row in basel_rows %}- {{ row.customer_ref_code }} | {{ row.customer_name }} | Branch: {{ row.branch_name }} | Loans: {{ row.loan_count }} | Overdrafts: {{ row.overdraft_count }}
+{% empty %}- None
+{% endfor %}
+
+Without IFRS9 Score Forms: {{ ifrs9_count }}
+{% for row in ifrs9_rows %}- {{ row.customer_ref_code }} | {{ row.customer_name }} | Branch: {{ row.branch_name }} | Loans: {{ row.loan_count }} | Overdrafts: {{ row.overdraft_count }}
+{% empty %}- None
+{% endfor %}
+
+Open Customers:
+{{ action_url }}
+
+{{ footer_text }}

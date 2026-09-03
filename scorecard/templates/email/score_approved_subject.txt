@@ -1,0 +1,1 @@
+{{ score_label }} approved: {{ customer_name }} ({{ customer_code }})

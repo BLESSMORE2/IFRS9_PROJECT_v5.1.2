@@ -1,0 +1,205 @@
+{% extends 'credit_scoreshifts/base.html' %}
+
+{% block content %}
+<div class="permission-module">
+  <section class="permission-header">
+    <div>
+      <div class="permission-header-eyebrow">Scorecard Settings</div>
+      <h1>{% block settings_title %}Permission Workspace{% endblock %}</h1>
+      <p>{% block settings_subtitle %}Manage scorecard permission coverage, user role assignment, and settings audit from one place.{% endblock %}</p>
+    </div>
+    <div class="permission-header-badge">🔐</div>
+  </section>
+
+  {% block settings_toolbar %}
+  <section class="permission-toolbar">
+    {% if scorecard_route_access.settings_permissions %}
+    <a href="{% url 'scorecard:settings_permissions' %}" class="permission-nav-card {% if request.resolver_match.url_name == 'settings_permissions' %}active{% endif %}">
+      <div class="permission-nav-title">Dashboard</div>
+      <div class="permission-nav-copy">Coverage and overview</div>
+    </a>
+    {% endif %}
+
+    {% if scorecard_nav_visibility.settings_permissions_workspace %}
+    {% if scorecard_route_access.settings_user_roles %}
+    <a href="{% url 'scorecard:settings_user_roles' %}" class="permission-nav-card {% if request.resolver_match.url_name == 'settings_user_roles' or request.resolver_match.url_name == 'settings_user_role_assignment' or request.resolver_match.url_name == 'settings_user_access_summary' %}active{% endif %}">
+      <div class="permission-nav-title">User Roles</div>
+      <div class="permission-nav-copy">Assign scorecard access</div>
+    </a>
+    {% endif %}
+
+    {% if scorecard_route_access.settings_permission_matrix %}
+    <a href="{% url 'scorecard:settings_permission_matrix' %}" class="permission-nav-card {% if request.resolver_match.url_name == 'settings_permission_matrix' %}active{% endif %}">
+      <div class="permission-nav-title">Permission Matrix</div>
+      <div class="permission-nav-copy">See view, work, approve, and admin coverage</div>
+    </a>
+    {% endif %}
+
+    {% endif %}
+  </section>
+  {% endblock %}
+
+  {% if messages %}
+  <div class="permission-message-stack">
+    {% for message in messages %}
+    <div class="permission-message permission-message-{{ message.tags|default:'info' }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% block settings_content %}{% endblock %}
+</div>
+
+<style>
+  .permission-module {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    padding: 0.25rem 0 1rem;
+  }
+  .permission-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.35rem 1.6rem;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0f4c81 0%, #1766a6 100%);
+    color: #fff;
+    box-shadow: 0 14px 28px rgba(15, 76, 129, 0.18);
+  }
+  .permission-header-eyebrow {
+    margin-bottom: 0.3rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.74);
+  }
+  .permission-header h1 {
+    margin: 0 0 0.38rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .permission-header p {
+    margin: 0;
+    max-width: 760px;
+    font-size: 0.93rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.92);
+  }
+  .permission-header-badge {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 1.3rem;
+    flex-shrink: 0;
+  }
+  .permission-toolbar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+    align-items: stretch;
+    padding: 0.35rem;
+    background: linear-gradient(180deg, #f4f9fd 0%, #eef5fb 100%);
+    border: 1px solid #d9e6f2;
+    border-radius: 16px;
+  }
+  .permission-nav-card {
+    display: block;
+    text-decoration: none;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 0.95rem 1rem;
+    min-height: 72px;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  }
+  .permission-nav-card:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.72);
+    border-color: #c1d7ea;
+    box-shadow: 0 8px 18px rgba(17, 60, 102, 0.08);
+    text-decoration: none;
+  }
+  .permission-nav-card.active {
+    border-color: #1766a6;
+    background: linear-gradient(135deg, #1766a6 0%, #1b79c2 100%);
+    box-shadow: 0 12px 24px rgba(23, 102, 166, 0.2);
+  }
+  .permission-nav-title {
+    margin-bottom: 0.18rem;
+    font-size: 1.04rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #16324f;
+    letter-spacing: 0.01em;
+  }
+  .permission-nav-copy {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #607385;
+  }
+  .permission-nav-card.active .permission-nav-title,
+  .permission-nav-card.active .permission-nav-copy {
+    color: #fff;
+  }
+  .permission-message-stack {
+    display: grid;
+    gap: 0.6rem;
+  }
+  .permission-message {
+    padding: 0.82rem 0.95rem;
+    border-radius: 12px;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    border: 1px solid transparent;
+  }
+  .permission-message-success {
+    background: #ecfdf5;
+    color: #166534;
+    border-color: #bbf7d0;
+  }
+  .permission-message-error {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+  .permission-message-warning {
+    background: #fff7ed;
+    color: #9a3412;
+    border-color: #fed7aa;
+  }
+  .permission-message-info {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+  }
+  .settings-surface,
+  .settings-main-card {
+    background: #fff;
+    border: 1px solid #dce7f2;
+    border-radius: 14px;
+    box-shadow: 0 12px 24px rgba(17, 60, 102, 0.06);
+  }
+  @media (max-width: 1100px) {
+    .permission-toolbar {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 760px) {
+    .permission-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .permission-toolbar {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}

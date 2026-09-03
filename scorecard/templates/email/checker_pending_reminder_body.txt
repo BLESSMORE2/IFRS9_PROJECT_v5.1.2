@@ -1,0 +1,12 @@
+Hello,
+
+This is a reminder that {{ score_label|lower }} for {{ customer_name }} ({{ customer_code }}) has been waiting for checker review longer than expected.
+
+Branch: {{ branch_name }}
+Submitted By: {{ actor_name }}
+Pending Since: {{ pending_since|date:"Y-m-d H:i"|default:"-" }}
+
+Open Review:
+{{ action_url|default:"-" }}
+
+This email was sent because the event needs attention.

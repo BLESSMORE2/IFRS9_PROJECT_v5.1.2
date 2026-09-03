@@ -1,0 +1,624 @@
+{% extends "email/base.html" %}
+
+{% block title %}Email Delivery{% endblock %}
+{% block email_title %}Email Delivery{% endblock %}
+{% block email_intro %}Review delivery activity, retry failed sends, and monitor reminder trigger conditions from one operational page.{% endblock %}
+{% block email_summary_section %}{% endblock %}
+
+{% block email_body %}
+<style>
+    .email-delivery-overview {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+        gap: 1rem;
+        margin-top: 1rem;
+        padding: 1.15rem 1.2rem;
+        border: 1px solid #d7e5f0;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #fbfdff 0%, #f6fbff 100%);
+        box-shadow: 0 14px 30px rgba(15, 52, 86, 0.05);
+    }
+    .email-delivery-overview h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.1rem;
+        color: #16324f;
+    }
+    .email-delivery-overview p {
+        margin: 0;
+        color: #607385;
+        line-height: 1.62;
+    }
+    .email-delivery-meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.8rem;
+    }
+    .email-delivery-chip {
+        padding: 0.9rem 1rem;
+        border-radius: 16px;
+        border: 1px solid #d7e5f0;
+        background: #fff;
+        box-shadow: 0 10px 22px rgba(15, 52, 86, 0.04);
+    }
+    .email-delivery-chip-label {
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #70839a;
+    }
+    .email-delivery-chip-value {
+        margin-top: 0.35rem;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #16324f;
+        line-height: 1.4;
+    }
+    .email-metric-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .email-metric-card {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #d8e5f2;
+        border-radius: 18px;
+        background: #fff;
+        padding: 1.05rem 1.1rem;
+        box-shadow: 0 12px 28px rgba(15, 52, 86, 0.05);
+    }
+    .email-metric-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 5px;
+        background: linear-gradient(180deg, #1766a6 0%, #69b6dc 100%);
+    }
+    .email-metric-label {
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #70839a;
+    }
+    .email-metric-value {
+        margin-top: 0.45rem;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #16324f;
+        line-height: 1;
+    }
+    .email-metric-subtext {
+        margin-top: 0.45rem;
+        color: #607385;
+        line-height: 1.55;
+        font-size: 0.84rem;
+    }
+    .email-table-section {
+        margin-top: 1rem;
+        border: 1px solid #d8e5f2;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 14px 28px rgba(15, 52, 86, 0.05);
+    }
+    .email-table-section-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.1rem 0.95rem;
+        border-bottom: 1px solid #e5edf6;
+        background: linear-gradient(180deg, #f8fbff 0%, #f3f9ff 100%);
+    }
+    .email-table-section-header h2 {
+        margin: 0;
+        font-size: 1.04rem;
+        color: #16324f;
+    }
+    .email-table-section-header p {
+        margin: 0.32rem 0 0;
+        color: #607385;
+        font-size: 0.87rem;
+        line-height: 1.55;
+    }
+    .email-table-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    .email-filter-form {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+    }
+    .entries-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #333;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .email-filter-input,
+    .email-filter-select,
+    .entries-select {
+        padding: 0.4rem 0.75rem;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        background: #fff;
+        color: #333;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .email-filter-input {
+        min-width: 240px;
+    }
+    .email-filter-button {
+        border: 1px solid #d4e3f0;
+        border-radius: 10px;
+        padding: 0.45rem 0.85rem;
+        background: #f4f9fd;
+        color: #204d74;
+        font-size: 0.86rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    }
+    .email-filter-button:hover {
+        background: #eaf3fb;
+        border-color: #bfd5e8;
+        transform: translateY(-1px);
+    }
+    .email-list-table-wrap {
+        overflow-x: auto;
+    }
+    .email-list-table {
+        width: 100%;
+        min-width: 980px;
+        border-collapse: collapse;
+    }
+    .email-list-table th,
+    .email-list-table td {
+        padding: 0.95rem 1rem;
+        border-bottom: 1px solid #e7eef5;
+        text-align: left;
+        vertical-align: top;
+    }
+    .email-list-table thead th {
+        background: #fbfdff;
+        color: #70839a;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .email-list-table tbody tr:hover {
+        background: #f9fcff;
+    }
+    .email-list-title {
+        font-size: 0.94rem;
+        font-weight: 700;
+        color: #16324f;
+        line-height: 1.4;
+    }
+    .email-list-subtext {
+        display: block;
+        margin-top: 0.35rem;
+        color: #6e8295;
+        font-size: 0.78rem;
+        line-height: 1.45;
+    }
+    .email-reference-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.24rem 0.58rem;
+        border-radius: 999px;
+        background: #eef6fd;
+        color: #1d5f96;
+        font-size: 0.75rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .email-notes {
+        max-width: 340px;
+        color: #607385;
+        line-height: 1.55;
+    }
+    .email-inline-form {
+        display: inline;
+    }
+    .email-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.22rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .email-tag.success {
+        background: #eaf8ef;
+        color: #207a43;
+    }
+    .email-tag.failed {
+        background: #fff1f1;
+        color: #c73a3a;
+    }
+    .email-pagination-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 1.5rem;
+        flex-wrap: wrap;
+        background: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+    .pagination-info {
+        color: #666;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .pagination {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+    }
+    .pagination-link,
+    .pagination-current {
+        min-width: auto;
+        height: auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        border: 1px solid #cbd2e1;
+        background: #fff;
+        color: #333;
+        font-size: 12px;
+        text-decoration: none;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    }
+    .pagination-link:hover {
+        background: #e9ecef;
+    }
+    .pagination-current {
+        background: #0066cc;
+        border-color: #0066cc;
+        color: #fff;
+    }
+    .email-reminder-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .email-reminder-card {
+        border: 1px solid #d8e5f2;
+        border-radius: 18px;
+        background: #fff;
+        padding: 1.05rem 1.1rem;
+        box-shadow: 0 12px 28px rgba(15, 52, 86, 0.05);
+    }
+    .email-reminder-label {
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #70839a;
+    }
+    .email-reminder-value {
+        margin-top: 0.45rem;
+        font-size: 1.7rem;
+        font-weight: 700;
+        color: #16324f;
+        line-height: 1;
+    }
+    .email-reminder-subtext {
+        margin-top: 0.45rem;
+        color: #607385;
+        line-height: 1.55;
+        font-size: 0.84rem;
+    }
+    @media (max-width: 980px) {
+        .email-delivery-overview,
+        .email-delivery-meta,
+        .email-metric-grid,
+        .email-reminder-grid {
+            grid-template-columns: 1fr;
+        }
+        .email-table-section-header,
+        .email-pagination-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .email-table-header-actions {
+            justify-content: space-between;
+        }
+    }
+</style>
+
+<section class="email-panel">
+    <div class="email-delivery-overview">
+        <div>
+            <h2>Delivery Monitoring</h2>
+            <p>Use this page to review email activity, retry failed sends, and monitor reminder trigger conditions. The activity and retry lists below now follow a paginated operational-table layout instead of long scrolling blocks.</p>
+        </div>
+        <div class="email-delivery-meta">
+            <div class="email-delivery-chip">
+                <div class="email-delivery-chip-label">Delivery Scope</div>
+                <div class="email-delivery-chip-value">Recent sends and failure retries</div>
+            </div>
+            <div class="email-delivery-chip">
+                <div class="email-delivery-chip-label">Reminder Monitoring</div>
+                <div class="email-delivery-chip-value">Basel, IFRS9, and schedule alerts</div>
+            </div>
+        </div>
+    </div>
+
+    <section class="email-metric-grid">
+        <div class="email-metric-card">
+            <div class="email-metric-label">Email Delivery</div>
+            <div class="email-metric-value">{{ email_summary.total_send_count|default:0 }}</div>
+            <div class="email-metric-subtext">Total recorded email sends and retries captured by the audit log.</div>
+        </div>
+        <div class="email-metric-card">
+            <div class="email-metric-label">Successful Sends</div>
+            <div class="email-metric-value">{{ email_summary.success_send_count|default:0 }}</div>
+            <div class="email-metric-subtext">Completed deliveries recorded by the system mailbox.</div>
+        </div>
+        <div class="email-metric-card">
+            <div class="email-metric-label">Failed Sends</div>
+            <div class="email-metric-value">{{ email_summary.failed_send_count|default:0 }}</div>
+            <div class="email-metric-subtext">Failures that admins can review and retry from this page.</div>
+        </div>
+    </section>
+
+    <section class="email-table-section">
+        <div class="email-table-section-header">
+            <div>
+                <h2>Email Delivery Activity</h2>
+                <p>Track who received what, when it was sent, which reference it belonged to, and whether the delivery succeeded.</p>
+            </div>
+            <div class="email-table-header-actions">
+                <form method="get" class="email-filter-form">
+                    <input type="hidden" name="activity_page" value="1">
+                    <input type="hidden" name="failed_page" value="{{ failed_page_obj.number|default:1 }}">
+                    <input type="hidden" name="failed_per_page" value="{{ failed_per_page }}">
+                    <input type="hidden" name="failed_search" value="{{ failed_search }}">
+                    <input type="text" name="activity_search" value="{{ activity_search }}" class="email-filter-input" placeholder="Search event, recipient, reference">
+                    <select name="activity_status" class="email-filter-select">
+                        <option value="" {% if not activity_status %}selected{% endif %}>All statuses</option>
+                        <option value="success" {% if activity_status == 'success' %}selected{% endif %}>Success</option>
+                        <option value="failed" {% if activity_status == 'failed' %}selected{% endif %}>Failed</option>
+                    </select>
+                    <div class="entries-control">
+                    <span>Show</span>
+                    <select name="activity_per_page" class="entries-select" onchange="this.form.submit()">
+                        <option value="10" {% if activity_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if activity_per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if activity_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if activity_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                    <span>entries</span>
+                    </div>
+                    <button type="submit" class="email-filter-button">Filter</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="email-list-table-wrap">
+            <table class="email-list-table">
+                <thead>
+                    <tr>
+                        <th>What</th>
+                        <th>Recipient</th>
+                        <th>Reference</th>
+                        <th>Status</th>
+                        <th>When</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in recent_send_logs %}
+                    <tr>
+                        <td>
+                            <div class="email-list-title">{{ log.event_name }}</div>
+                            {% if log.is_retry %}
+                                <span class="email-list-subtext">Retry attempt</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="email-list-title">{{ log.recipient_email }}</div>
+                        </td>
+                        <td>
+                            <span class="email-reference-badge">{{ log.related_reference }}</span>
+                        </td>
+                        <td>
+                            <span class="email-tag {% if log.status == 'success' %}success{% else %}failed{% endif %}">{{ log.status_label }}</span>
+                        </td>
+                        <td>
+                            <div class="email-list-title">{{ log.created_at|date:"Y-m-d" }}</div>
+                            <span class="email-list-subtext">{{ log.created_at|date:"H:i" }}</span>
+                        </td>
+                        <td><div class="email-notes">{{ log.error_message }}</div></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6">No email send activity has been recorded yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="email-pagination-bar">
+            <div class="pagination-info">
+                Showing
+                {% if activity_page_obj and activity_page_obj.paginator.count %}
+                    {{ activity_page_obj.start_index }} to {{ activity_page_obj.end_index }} of {{ activity_page_obj.paginator.count }}
+                {% else %}
+                    0 to 0 of 0
+                {% endif %}
+                entries
+            </div>
+            {% if activity_page_obj and activity_page_obj.paginator.num_pages > 1 %}
+            <div class="pagination">
+                {% if activity_page_obj.has_previous %}
+                    <a class="pagination-link" href="?activity_page={{ activity_page_obj.previous_page_number }}&activity_per_page={{ activity_per_page }}&activity_search={{ activity_search|urlencode }}&activity_status={{ activity_status|urlencode }}&failed_page={{ failed_page_obj.number|default:1 }}&failed_per_page={{ failed_per_page }}&failed_search={{ failed_search|urlencode }}">Previous</a>
+                {% endif %}
+                {% for num in activity_page_obj.paginator.page_range %}
+                    {% if num == activity_page_obj.number %}
+                        <span class="pagination-current">{{ num }}</span>
+                    {% elif num >= activity_page_obj.number|add:'-2' and num <= activity_page_obj.number|add:'2' %}
+                        <a class="pagination-link" href="?activity_page={{ num }}&activity_per_page={{ activity_per_page }}&activity_search={{ activity_search|urlencode }}&activity_status={{ activity_status|urlencode }}&failed_page={{ failed_page_obj.number|default:1 }}&failed_per_page={{ failed_per_page }}&failed_search={{ failed_search|urlencode }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if activity_page_obj.has_next %}
+                    <a class="pagination-link" href="?activity_page={{ activity_page_obj.next_page_number }}&activity_per_page={{ activity_per_page }}&activity_search={{ activity_search|urlencode }}&activity_status={{ activity_status|urlencode }}&failed_page={{ failed_page_obj.number|default:1 }}&failed_per_page={{ failed_per_page }}&failed_search={{ failed_search|urlencode }}">Next</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="email-table-section">
+        <div class="email-table-section-header">
+            <div>
+                <h2>Retry Tools</h2>
+                <p>Review failed sends and retry individual items or launch a controlled batch retry for the latest failures.</p>
+            </div>
+            <div class="email-table-header-actions">
+                {% if email_can_manage %}
+                <form method="post" class="email-inline-form">
+                    {% csrf_token %}
+                    <button type="submit" name="retry_failed_emails" class="email-button secondary">Retry Latest Failed Emails</button>
+                </form>
+                {% endif %}
+                <form method="get" class="email-filter-form">
+                    <input type="hidden" name="failed_page" value="1">
+                    <input type="hidden" name="activity_page" value="{{ activity_page_obj.number|default:1 }}">
+                    <input type="hidden" name="activity_per_page" value="{{ activity_per_page }}">
+                    <input type="hidden" name="activity_search" value="{{ activity_search }}">
+                    <input type="hidden" name="activity_status" value="{{ activity_status }}">
+                    <input type="text" name="failed_search" value="{{ failed_search }}" class="email-filter-input" placeholder="Search failed event, recipient, reference">
+                    <div class="entries-control">
+                    <span>Show</span>
+                    <select name="failed_per_page" class="entries-select" onchange="this.form.submit()">
+                        <option value="10" {% if failed_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if failed_per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if failed_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if failed_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                    <span>entries</span>
+                    </div>
+                    <button type="submit" class="email-filter-button">Filter</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="email-list-table-wrap">
+            <table class="email-list-table">
+                <thead>
+                    <tr>
+                        <th>What</th>
+                        <th>Recipient</th>
+                        <th>Reference</th>
+                        <th>Failure Reason</th>
+                        <th>When</th>
+                        {% if email_can_manage %}<th>Action</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in failed_send_logs %}
+                    <tr>
+                        <td><div class="email-list-title">{{ log.event_name }}</div></td>
+                        <td><div class="email-list-title">{{ log.recipient_email }}</div></td>
+                        <td><span class="email-reference-badge">{{ log.related_reference }}</span></td>
+                        <td><div class="email-notes">{{ log.error_message }}</div></td>
+                        <td>
+                            <div class="email-list-title">{{ log.created_at|date:"Y-m-d" }}</div>
+                            <span class="email-list-subtext">{{ log.created_at|date:"H:i" }}</span>
+                        </td>
+                        {% if email_can_manage %}<td>
+                            <form method="post" class="email-inline-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="send_log_id" value="{{ log.id }}">
+                                <button type="submit" name="retry_email_log" class="email-button secondary">Retry</button>
+                            </form>
+                        </td>{% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if email_can_manage %}6{% else %}5{% endif %}">There are no failed email sends waiting for retry.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="email-pagination-bar">
+            <div class="pagination-info">
+                Showing
+                {% if failed_page_obj and failed_page_obj.paginator.count %}
+                    {{ failed_page_obj.start_index }} to {{ failed_page_obj.end_index }} of {{ failed_page_obj.paginator.count }}
+                {% else %}
+                    0 to 0 of 0
+                {% endif %}
+                entries
+            </div>
+            {% if failed_page_obj and failed_page_obj.paginator.num_pages > 1 %}
+            <div class="pagination">
+                {% if failed_page_obj.has_previous %}
+                    <a class="pagination-link" href="?failed_page={{ failed_page_obj.previous_page_number }}&failed_per_page={{ failed_per_page }}&failed_search={{ failed_search|urlencode }}&activity_page={{ activity_page_obj.number|default:1 }}&activity_per_page={{ activity_per_page }}&activity_search={{ activity_search|urlencode }}&activity_status={{ activity_status|urlencode }}">Previous</a>
+                {% endif %}
+                {% for num in failed_page_obj.paginator.page_range %}
+                    {% if num == failed_page_obj.number %}
+                        <span class="pagination-current">{{ num }}</span>
+                    {% elif num >= failed_page_obj.number|add:'-2' and num <= failed_page_obj.number|add:'2' %}
+                        <a class="pagination-link" href="?failed_page={{ num }}&failed_per_page={{ failed_per_page }}&failed_search={{ failed_search|urlencode }}&activity_page={{ activity_page_obj.number|default:1 }}&activity_per_page={{ activity_per_page }}&activity_search={{ activity_search|urlencode }}&activity_status={{ activity_status|urlencode }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if failed_page_obj.has_next %}
+                    <a class="pagination-link" href="?failed_page={{ failed_page_obj.next_page_number }}&failed_per_page={{ failed_per_page }}&failed_search={{ failed_search|urlencode }}&activity_page={{ activity_page_obj.number|default:1 }}&activity_per_page={{ activity_per_page }}&activity_search={{ activity_search|urlencode }}&activity_status={{ activity_status|urlencode }}">Next</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="email-table-section">
+        <div class="email-table-section-header">
+            <div>
+                <h2>Reminder Status</h2>
+                <p>Monitor the reminder rules that watch for delayed reviews and schedules that keep failing repeatedly.</p>
+            </div>
+        </div>
+        <div class="email-reminder-grid" style="padding: 1rem 1.1rem 1.1rem;">
+            <div class="email-reminder-card">
+                <div class="email-reminder-label">Pending Basel Reviews</div>
+                <div class="email-reminder-value">{{ reminder_status.pending_basel_reviews }}</div>
+                <div class="email-reminder-subtext">Basel score submissions waiting longer than {{ reminder_status.checker_threshold_hours }} hours.</div>
+            </div>
+            <div class="email-reminder-card">
+                <div class="email-reminder-label">Pending IFRS9 Reviews</div>
+                <div class="email-reminder-value">{{ reminder_status.pending_ifrs9_reviews }}</div>
+                <div class="email-reminder-subtext">IFRS9 score submissions waiting longer than {{ reminder_status.checker_threshold_hours }} hours.</div>
+            </div>
+            <div class="email-reminder-card">
+                <div class="email-reminder-label">Repeated Failed Schedules</div>
+                <div class="email-reminder-value">{{ reminder_status.repeated_failed_schedules }}</div>
+                <div class="email-reminder-subtext">Schedules with repeated failures inside the last {{ reminder_status.schedule_window_hours }} hours.</div>
+            </div>
+        </div>
+    </section>
+</section>
+{% endblock %}

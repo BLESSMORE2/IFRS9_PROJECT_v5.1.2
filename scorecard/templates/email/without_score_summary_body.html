@@ -1,0 +1,85 @@
+<p>Hello,</p>
+
+<p>
+    Below is the scheduled list of customers that still need Basel II and/or IFRS9 scores
+    for <strong>{{ branch_name }}{% if branch_code %} ({{ branch_code }}){% endif %}</strong>.
+</p>
+
+<table style="width:100%; border-collapse:collapse; margin:14px 0;">
+    <tr>
+        <td style="padding:10px; border:1px solid #d8e5f2;"><strong>Reporting date</strong></td>
+        <td style="padding:10px; border:1px solid #d8e5f2;">{{ reporting_date|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td style="padding:10px; border:1px solid #d8e5f2;"><strong>Sources</strong></td>
+        <td style="padding:10px; border:1px solid #d8e5f2;">{{ source_label }}</td>
+    </tr>
+    <tr>
+        <td style="padding:10px; border:1px solid #d8e5f2;"><strong>Schedule</strong></td>
+        <td style="padding:10px; border:1px solid #d8e5f2;">{{ schedule_label }}</td>
+    </tr>
+</table>
+
+<h3 style="margin-top:20px;">Without Basel II Scores: {{ basel_count }}</h3>
+<table style="width:100%; border-collapse:collapse; margin:10px 0 18px;">
+    <thead>
+        <tr>
+            <th style="text-align:left; padding:8px; border:1px solid #d8e5f2; background:#eef6fd;">Customer Code</th>
+            <th style="text-align:left; padding:8px; border:1px solid #d8e5f2; background:#eef6fd;">Customer Name</th>
+            <th style="text-align:left; padding:8px; border:1px solid #d8e5f2; background:#eef6fd;">Branch</th>
+            <th style="text-align:left; padding:8px; border:1px solid #d8e5f2; background:#eef6fd;">Loans</th>
+            <th style="text-align:left; padding:8px; border:1px solid #d8e5f2; background:#eef6fd;">Overdrafts</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in basel_rows %}
+        <tr>
+            <td style="padding:8px; border:1px solid #d8e5f2;">{{ row.customer_ref_code }}</td>
+            <td style="padding:8px; border:1px solid #d8e5f2;">{{ row.customer_name }}</td>
+            <td style="padding:8px; border:1px solid #d8e5f2;">{{ row.branch_name }}</td>
+            <td style="padding:8px; border:1px solid #d8e5f2;">{{ row.loan_count }}</td>
+            <td style="padding:8px; border:1px solid #d8e5f2;">{{ row.overdraft_count }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" style="padding:10px; border:1px solid #d8e5f2;">No customers are missing Basel II scores for this branch.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3 style="margin-top:20px;">Without IFRS9 Score Forms: {{ ifrs9_count }}</h3>
+<table style="width:100%; border-collapse:collapse; margin:10px 0 18px;">
+    <thead>
+        <tr>
+            <th style="text-align:left; padding:8px; border:1px solid #d8e5f2; background:#eef6fd;">Customer Code</th>
+            <th style="text-align:left; padding:8px; border:1px solid #d8e5f2; background:#eef6fd;">Customer Name</th>
+            <th style="text-align:left; padding:8px; border:1px solid #d8e5f2; background:#eef6fd;">Branch</th>
+            <th style="text-align:left; padding:8px; border:1px solid #d8e5f2; background:#eef6fd;">Loans</th>
+            <th style="text-align:left; padding:8px; border:1px solid #d8e5f2; background:#eef6fd;">Overdrafts</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in ifrs9_rows %}
+        <tr>
+            <td style="padding:8px; border:1px solid #d8e5f2;">{{ row.customer_ref_code }}</td>
+            <td style="padding:8px; border:1px solid #d8e5f2;">{{ row.customer_name }}</td>
+            <td style="padding:8px; border:1px solid #d8e5f2;">{{ row.branch_name }}</td>
+            <td style="padding:8px; border:1px solid #d8e5f2;">{{ row.loan_count }}</td>
+            <td style="padding:8px; border:1px solid #d8e5f2;">{{ row.overdraft_count }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" style="padding:10px; border:1px solid #d8e5f2;">No customers are missing IFRS9 score forms for this branch.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p style="margin-top:18px;">
+    <a href="{{ action_url }}" style="display:inline-block; padding:10px 14px; background:#1766a6; color:#ffffff; text-decoration:none; border-radius:8px;">
+        Open Customers
+    </a>
+</p>
+
+<p style="margin-top:18px; color:#607385;">{{ footer_text }}</p>

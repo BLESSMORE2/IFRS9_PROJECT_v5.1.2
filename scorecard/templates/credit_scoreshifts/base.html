@@ -1,0 +1,2944 @@
+﻿<!DOCTYPE html>
+{% load dict_extras %}
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}ScoreCard{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% include "users/includes/workspace_popup_guard.html" %}
+    {% include "users/includes/style_boot_gate.html" %}
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .password-reminder-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, 0.42);
+            backdrop-filter: blur(5px);
+        }
+        .scorecard-nav-loader-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(10, 28, 48, 0.28);
+            backdrop-filter: blur(6px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.18s ease, visibility 0.18s ease;
+            z-index: 9500;
+        }
+        .scorecard-nav-loader-overlay.active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        .scorecard-nav-loader-card {
+            width: min(100%, 520px);
+            border-radius: 22px;
+            border: 1px solid rgba(215, 232, 247, 0.95);
+            background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(245,250,255,0.98) 100%);
+            box-shadow: 0 24px 54px rgba(8, 30, 54, 0.18);
+            padding: 1.35rem 1.45rem;
+            display: grid;
+            gap: 0.8rem;
+        }
+        .scorecard-nav-loader-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            width: fit-content;
+            padding: 0.42rem 0.72rem;
+            border-radius: 999px;
+            background: rgba(23, 102, 166, 0.08);
+            color: #1766a6;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .scorecard-nav-loader-dot {
+            width: 0.55rem;
+            height: 0.55rem;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #1766a6 0%, #1b79c2 100%);
+            animation: scorecardLoaderPulse 1.1s ease-in-out infinite;
+        }
+        .scorecard-nav-loader-title {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #16324f;
+        }
+        .scorecard-nav-loader-copy {
+            margin: 0;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: #5f7387;
+        }
+        .scorecard-nav-loader-progress {
+            position: relative;
+            overflow: hidden;
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(23, 102, 166, 0.12);
+        }
+        .scorecard-nav-loader-progress::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            width: 42%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, rgba(23,102,166,0.15) 0%, #1766a6 55%, #1b79c2 100%);
+            animation: scorecardLoaderProgress 1.15s ease-in-out infinite;
+        }
+        @keyframes scorecardLoaderPulse {
+            0%, 100% { transform: scale(0.9); opacity: 0.7; }
+            50% { transform: scale(1.05); opacity: 1; }
+        }
+        @keyframes scorecardLoaderProgress {
+            0% { transform: translateX(-70%); }
+            100% { transform: translateX(170%); }
+        }
+        .password-reminder-card {
+            width: min(100%, 450px);
+            border-radius: 18px;
+            background: #fff;
+            border: 1px solid #dbe7f4;
+            box-shadow: 0 28px 60px rgba(15, 23, 42, 0.2);
+            overflow: hidden;
+        }
+        .password-reminder-header {
+            padding: 1.1rem 1.35rem 0.95rem;
+            background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
+            border-bottom: 1px solid #dbe7f4;
+        }
+        .password-reminder-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.35rem 0.65rem;
+            border-radius: 999px;
+            background: #e7f0ff;
+            color: #175494;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .password-reminder-header h2 {
+            margin: 0.8rem 0 0.35rem;
+            color: #10213f;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        .password-reminder-header p,
+        .password-reminder-note {
+            margin: 0;
+            color: #49627f;
+            font-size: 0.88rem;
+            line-height: 1.55;
+        }
+        .password-reminder-body {
+            padding: 1rem 1.35rem 1.3rem;
+        }
+        .password-reminder-stat {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.9rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 0.85rem 0.95rem;
+            border-radius: 14px;
+            background: #f8fbff;
+            border: 1px solid #e2ebf5;
+        }
+        .password-reminder-days {
+            min-width: 70px;
+            padding: 0.7rem 0.8rem;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #175494 0%, #1b79c2 100%);
+            color: #fff;
+            text-align: center;
+        }
+        .password-reminder-days strong {
+            display: block;
+            font-size: 1.35rem;
+            line-height: 1;
+        }
+        .password-reminder-days span {
+            display: block;
+            margin-top: 0.2rem;
+            font-size: 0.64rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.72);
+        }
+        .password-reminder-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.7rem;
+            flex-wrap: wrap;
+        }
+        .password-reminder-btn,
+        .password-reminder-link {
+            min-height: 38px;
+            padding: 0 0.95rem;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            border: 1px solid transparent;
+            cursor: pointer;
+        }
+        .password-reminder-btn {
+            background: #fff;
+            color: #35506f;
+            border-color: #d3dfec;
+        }
+        .password-reminder-link {
+            background: linear-gradient(135deg, #10213f 0%, #175494 100%);
+            color: #fff;
+        }
+        
+        /* Header */
+        .header {
+            background: #0066cc;
+            color: #fff;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .header-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+        }
+        .menu-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            transition: background 0.2s ease;
+            color: #fff;
+        }
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .menu-toggle-icon {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+        .menu-toggle-icon span {
+            width: 20px;
+            height: 2px;
+            background: #fff;
+            transition: all 0.3s ease;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+        .header-link {
+            color: #fff;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-height: 40px;
+            padding: 0.45rem 0.85rem;
+            border-radius: 999px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+        }
+        .header-link:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+        .dropdown-icon {
+            font-size: 0.7rem;
+        }
+        .user-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .user-button {
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.72rem;
+            min-height: 44px;
+            padding: 0.28rem 0.58rem 0.28rem 0.34rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.12) 100%);
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+        }
+        .user-button:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.18) 100%);
+            border-color: rgba(255, 255, 255, 0.26);
+            transform: translateY(-1px);
+        }
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #174f95 0%, #0f6dca 100%);
+            color: #ffffff;
+            font-size: 0.92rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+        }
+        .user-meta {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+        }
+        .user-name {
+            max-width: 146px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #fff;
+            font-size: 0.83rem;
+            font-weight: 700;
+            line-height: 1;
+            text-transform: lowercase;
+        }
+        .user-chevron {
+            color: rgba(255, 255, 255, 0.86);
+            font-size: 0.68rem;
+            flex-shrink: 0;
+        }
+        @media (max-width: 1280px) {
+            .user-name {
+                max-width: 118px;
+            }
+        }
+        .section-nav-shell {
+            display: none;
+            margin: 0 0 0.18rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+            border: 1px solid #dbe7f4;
+            border-radius: 16px;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+            overflow: hidden;
+        }
+        .section-nav-shell.has-active-group {
+            display: block;
+        }
+        .section-nav-primary {
+            display: none;
+        }
+        .section-nav-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 36px;
+            padding: 0.55rem 0.95rem;
+            border-radius: 999px;
+            border: 1px solid #d7e4f2;
+            background: #ffffff;
+            color: #175494;
+            text-decoration: none;
+            font-size: 0.82rem;
+            font-weight: 700;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .section-nav-link:hover {
+            text-decoration: none;
+            color: #0f3d78;
+            border-color: #aac7e8;
+            background: #f2f8ff;
+        }
+        .section-nav-link.active {
+            color: #ffffff;
+            border-color: #175494;
+            background: linear-gradient(135deg, #175494 0%, #1b79c2 100%);
+            box-shadow: 0 8px 18px rgba(23, 84, 148, 0.18);
+        }
+        .section-subnav-wrap {
+            display: none;
+            padding: 1rem 1.35rem 1.05rem;
+        }
+        .section-subnav-wrap.has-active-group {
+            display: block;
+        }
+        .section-nav-group {
+            display: none;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            padding-top: 0.1rem;
+        }
+        .section-nav-group.is-visible {
+            display: flex;
+        }
+        .section-subnav-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-height: 34px;
+            padding: 0.5rem 0.9rem;
+            border-radius: 10px;
+            background: #eef4fb;
+            border: 1px solid #d7e3f1;
+            color: #35506f;
+            text-decoration: none;
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .section-subnav-link:hover {
+            text-decoration: none;
+            color: #163b63;
+            background: #e4eef9;
+            border-color: #bfd2e7;
+        }
+        .section-subnav-link.active {
+            color: #0f172a;
+            background: rgba(16, 185, 129, 0.12);
+            border-color: rgba(15, 118, 110, 0.16);
+            box-shadow: 0 8px 18px rgba(16, 185, 129, 0.12);
+        }
+        .section-subnav-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .section-subnav-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: #d92d20;
+            color: #ffffff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            line-height: 1;
+            box-shadow: 0 0 0 1px rgba(180, 35, 24, 0.14);
+        }
+        .section-subnav-badge.muted {
+            background: rgba(23, 102, 166, 0.12);
+            color: #35506f;
+            box-shadow: none;
+        }
+        .section-subnav-link.active .section-subnav-badge.muted {
+            background: rgba(15, 23, 42, 0.12);
+            color: #0f172a;
+        }
+        
+        /* Header Dropdowns */
+        .settings-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .settings-button {
+            color: #fff;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-height: 40px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0.45rem 0.85rem;
+            border-radius: 999px;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+        .settings-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+        .notification-link {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            color: #ffffff;
+            text-decoration: none;
+            background: transparent;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+        .notification-link:hover {
+            transform: translateY(-1px);
+            opacity: 0.92;
+        }
+        .notification-link-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-block;
+            color: #ffffff;
+        }
+        .notification-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: #d92d20;
+            color: #ffffff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            line-height: 1;
+            box-shadow: 0 0 0 1px rgba(180, 35, 24, 0.14);
+        }
+        .notification-badge[hidden],
+        .sidebar-notification-badge[hidden] {
+            display: none !important;
+        }
+        .notification-badge.header {
+            background: #d92d20;
+            color: #ffffff;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+            position: absolute;
+            top: -6px;
+            right: -6px;
+        }
+        .notification-badge.muted {
+            background: rgba(217, 45, 32, 0.85);
+            color: #ffffff;
+            box-shadow: 0 0 0 1px rgba(180, 35, 24, 0.14);
+        }
+        .notification-bell {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            line-height: 1;
+        }
+        .settings-dropdown-item.with-badge {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+        .scorecard-submit-busy {
+            cursor: progress !important;
+        }
+        .scorecard-submit-disabled {
+            opacity: 0.72 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+        }
+        .settings-dropdown-menu,
+        .user-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 0.4rem);
+            right: 0;
+            background: #ffffff;
+            min-width: 220px;
+            box-shadow: 0 18px 34px rgba(9, 30, 66, 0.16);
+            border: 1px solid #dbe7f4;
+            border-radius: 16px;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        .settings-dropdown-menu.show,
+        .user-dropdown-menu.show {
+            display: block;
+        }
+        .dropdown-menu-header {
+            display: grid;
+            gap: 0.2rem;
+            padding: 0.95rem 1rem 0.85rem;
+            background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+            border-bottom: 1px solid #dbe7f4;
+        }
+        .dropdown-menu-kicker {
+            color: #6b7f95;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .dropdown-menu-header strong {
+            color: #133b63;
+            font-size: 0.92rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .dropdown-menu-header span:last-child {
+            color: #5f7387;
+            font-size: 0.78rem;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+        .settings-dropdown-item,
+        .user-dropdown-item {
+            display: block;
+            padding: 0.78rem 1rem;
+            color: #35506f;
+            text-decoration: none;
+            font-size: 0.88rem;
+            font-weight: 600;
+            transition: background 0.2s ease, color 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+        .settings-dropdown-item:hover,
+        .user-dropdown-item:hover {
+            background: #f5f9ff;
+            border-left-color: #1766a6;
+            color: #133b63;
+        }
+        .user-dropdown-item-danger {
+            color: #c52828;
+        }
+        .user-dropdown-item-danger:hover {
+            background: #fff5f5;
+            border-left-color: #dc2626;
+            color: #a61b1b;
+        }
+        
+        /* Main Layout Container */
+        .layout-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 246px;
+            background: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            min-height: 0;
+            overflow: hidden;
+            transition: width 0.3s ease;
+        }
+        .sidebar.collapsed {
+            width: 70px;
+        }
+        .sidebar.collapsed .sidebar-text {
+            display: none !important;
+        }
+        .sidebar.collapsed .user-info {
+            display: none !important;
+        }
+        .sidebar.collapsed .user-profile {
+            justify-content: center;
+            margin-bottom: 0.5rem;
+        }
+        .sidebar.collapsed .user-avatar {
+            margin: 0 auto;
+            width: 40px;
+            height: 40px;
+        }
+        .sidebar.collapsed .user-option {
+            justify-content: center;
+            padding: 0.5rem 0;
+            margin: 0;
+        }
+        .sidebar.collapsed .user-option.view-branch .view-branch-content {
+            display: none;
+        }
+        .sidebar.collapsed .user-option-icon {
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        .sidebar.collapsed .user-option span:not(.user-option-icon) {
+            display: none !important;
+        }
+        .sidebar.collapsed .nav-item {
+            justify-content: center;
+            padding: 0.75rem 0;
+            margin: 0;
+        }
+        .sidebar.collapsed .nav-item-left {
+            justify-content: center;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .sidebar.collapsed .nav-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            font-size: 1.2rem;
+            width: 24px;
+            height: 24px;
+        }
+        .sidebar.collapsed .nav-arrow {
+            display: none !important;
+        }
+        .sidebar.collapsed .nav-item-left span:not(.nav-icon) {
+            display: none !important;
+        }
+        .sidebar.collapsed .nav-dropdown {
+            display: none !important;
+        }
+        .sidebar.collapsed .branch-option {
+            justify-content: center;
+            padding: 0.5rem 0;
+            margin: 0;
+            width: 100%;
+        }
+        .sidebar.collapsed .branch-option span:not(.nav-icon) {
+            display: none !important;
+        }
+        .sidebar.collapsed .branch-option .branch-radio {
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sidebar.collapsed .branch-option .nav-icon {
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        .sidebar.collapsed .sidebar-section {
+            padding: 0.75rem 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            border-bottom: 1px solid #34495e;
+        }
+        .sidebar.collapsed .branch-selection {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0.5rem 0;
+        }
+        .sidebar.collapsed .nav-menu {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            padding: 0.5rem 0;
+        }
+        .sidebar.collapsed .user-profile {
+            width: 100%;
+            margin-bottom: 0;
+            align-items: center;
+            justify-content: center;
+        }
+        .sidebar.collapsed .user-avatar {
+            margin-top: 0;
+        }
+        .sidebar.collapsed .user-info {
+            display: none !important;
+        }
+        .sidebar.collapsed .nav-item,
+        .sidebar.collapsed .branch-option,
+        .sidebar.collapsed .user-option {
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sidebar.collapsed .branch-radio {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+        .sidebar.collapsed .branch-radio.selected {
+            background: #3498db !important;
+            border-color: #3498db !important;
+        }
+        .sidebar.collapsed .branch-radio.selected::after {
+            background: #fff !important;
+        }
+        .sidebar.collapsed .user-avatar svg {
+            width: 24px;
+            height: 24px;
+        }
+        .sidebar.collapsed .user-option-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sidebar.collapsed .nav-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+        }
+        .sidebar.collapsed .nav-item,
+        .sidebar.collapsed .branch-option,
+        .sidebar.collapsed .user-option {
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sidebar-text {
+            transition: opacity 0.2s ease;
+        }
+        .sidebar-section {
+            padding: 0.85rem 0.9rem;
+            border-bottom: 1px solid #34495e;
+            flex-shrink: 0;
+        }
+        .user-profile {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            margin-bottom: 0;
+        }
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #34495e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 0.25rem;
+        }
+        .user-avatar svg {
+            width: 24px;
+            height: 24px;
+            fill: #ecf0f1;
+        }
+        .user-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .user-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #fff;
+            margin-bottom: 0;
+            padding-top: 0.25rem;
+        }
+        .user-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: #ecf0f1;
+            padding: 0.25rem 0;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s ease;
+        }
+        .user-option .sidebar-text {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .user-option.view-branch {
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 0.25rem 0;
+        }
+        .user-option.view-branch .user-option-icon {
+            font-size: 1rem;
+            margin-top: 0.1rem;
+            flex-shrink: 0;
+        }
+        .user-option.view-branch .view-branch-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            flex: 1;
+        }
+        .user-option.view-branch .sidebar-text {
+            font-size: 0.8rem;
+            line-height: 1.3;
+            white-space: normal;
+        }
+        .user-option:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .user-option-icon {
+            width: 18px;
+            text-align: center;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Branch Selection */
+        .branch-selection {
+            padding: 0.25rem 0 0;
+        }
+        .branch-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            color: #ecf0f1;
+            padding: 0.4rem 0;
+            cursor: pointer;
+        }
+        .branch-option .sidebar-text {
+            display: block;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .branch-option:hover {
+            color: #fff;
+        }
+        .branch-radio {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ecf0f1;
+            border-radius: 50%;
+            position: relative;
+            cursor: pointer;
+        }
+        .branch-radio.selected::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 50%;
+        }
+        
+        /* Navigation Menu */
+        .nav-menu {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0.5rem 0 1rem;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6rem 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            cursor: pointer;
+            position: relative;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .nav-item:hover {
+            background: #34495e;
+            color: #fff;
+        }
+        .nav-item.bottom-link {
+            margin-top: 0;
+            border-top: none;
+            padding-top: 0.6rem;
+        }
+        .nav-item.active {
+            background: #0066cc;
+            color: #fff;
+        }
+        .nav-item.active .nav-icon {
+            color: #fff;
+        }
+        .nav-dropdown-item.active {
+            background: rgba(0, 102, 204, 0.2);
+            color: #fff;
+            border-left: 3px solid #0066cc;
+        }
+        .nav-item.has-active-child {
+            background: rgba(0, 102, 204, 0.15);
+            color: #fff;
+        }
+        .nav-item.has-active-child .nav-icon {
+            color: #fff;
+        }
+        .nav-item-left {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .nav-icon {
+            width: 20px;
+            text-align: center;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-arrow {
+            font-size: 0.8rem;
+            color: #95a5a6;
+            transition: transform 0.3s ease;
+        }
+        .nav-item.dropdown-open .nav-arrow {
+            transform: rotate(180deg);
+        }
+        .nav-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #2c3e50;
+            padding: 0.25rem 0;
+            margin-top: 0.25rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            z-index: 10000;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .sidebar .nav-dropdown {
+            display: none !important;
+        }
+        .sidebar .nav-item.dropdown-toggle .nav-arrow {
+            display: none;
+        }
+        .nav-item.dropdown-open .nav-dropdown {
+            display: block !important;
+        }
+        .nav-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.5rem 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: background 0.2s ease, color 0.2s ease;
+            width: 100%;
+        }
+        .nav-dropdown-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        .nav-dropdown-radio {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ecf0f1;
+            border-radius: 50%;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .nav-dropdown-radio.selected {
+            border-color: #fff;
+        }
+        .nav-dropdown-radio.selected::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 50%;
+        }
+        .sidebar-notification-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            margin-left: auto;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: #d92d20;
+            color: #ffffff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .sidebar-divider {
+            height: 1px;
+            background: #34495e;
+            margin: 0.5rem 0;
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            background: #ffffff;
+            overflow-y: auto;
+            padding: 0.45rem 2rem 2rem;
+        }
+        
+        /* Content Styles (existing) */
+        main {
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 0.45rem 0.6rem;
+            border-radius: 4px;
+            border: 1px solid #cbd2e1;
+            font-size: 0.9rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+        th, td {
+            padding: 0.25rem 0.35rem;
+            border: 1px solid #808080;
+            vertical-align: top;
+        }
+        th {
+            background: #d9d9d9;
+            font-weight: 600;
+        }
+        .section-header {
+            background: #bfbfbf;
+            font-weight: 700;
+        }
+        .driver-header {
+            background: #e7e7e7;
+            font-weight: 600;
+        }
+        .group-label {
+            font-weight: 600;
+            padding-top: 0.4rem;
+        }
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        button {
+            border-radius: 4px;
+            border: none;
+            padding: 0.55rem 1.2rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #0b8457;
+            color: #fff;
+        }
+        .btn-secondary {
+            background: #e2e6f3;
+            color: #222;
+        }
+        .error {
+            background: #ffe9e9;
+            color: #b00020;
+            border-radius: 4px;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+        .summary-card {
+            border-radius: 0;
+            border: 1px solid #808080;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.75rem;
+            background: #f9f9f9;
+            font-size: 0.9rem;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.5rem 1.5rem;
+        }
+        .summary-label {
+            font-weight: 600;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .no-border {
+            border: none !important;
+        }
+        h1, h2, h3 {
+            margin-bottom: 1rem;
+        }
+        h2 {
+            font-size: 1.5rem;
+        }
+        .desktop-app-shell {
+            display: contents;
+        }
+        .screen-size-guard {
+            display: none;
+        }
+        @media (max-width: 900px) {
+            body {
+                overflow: hidden;
+                height: 100dvh;
+                min-height: 100dvh;
+            }
+            .desktop-app-shell {
+                display: none !important;
+            }
+            .screen-size-guard {
+                position: fixed;
+                inset: 0;
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 1.5rem;
+                background: linear-gradient(180deg, #eef5fb 0%, #dfeaf7 100%);
+            }
+            .screen-size-guard-card {
+                width: min(100%, 28rem);
+                padding: 1.8rem 1.4rem;
+                border-radius: 24px;
+                background: #ffffff;
+                border: 1px solid #d4e1ee;
+                box-shadow: 0 22px 55px rgba(15, 23, 42, 0.18);
+                text-align: center;
+            }
+            .screen-size-guard-icon {
+                width: 4rem;
+                height: 4rem;
+                margin: 0 auto 1rem;
+                border-radius: 999px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(0, 102, 204, 0.12);
+                color: #0066cc;
+                font-size: 1.7rem;
+                font-weight: 700;
+            }
+            .screen-size-guard-card h1 {
+                margin: 0 0 0.65rem;
+                font-size: 1.35rem;
+                color: #17324d;
+            }
+            .screen-size-guard-card p {
+                margin: 0;
+                line-height: 1.65;
+                color: #4c6987;
+                font-size: 0.97rem;
+            }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <div class="screen-size-guard" aria-hidden="true">
+        <div class="screen-size-guard-card">
+            <div class="screen-size-guard-icon">PC</div>
+            <h1>Open On A Laptop</h1>
+            <p>This scorecard workspace is designed for laptop or desktop screens. Please reopen it on a larger device for the full experience.</p>
+        </div>
+    </div>
+    <div class="desktop-app-shell">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <div class="header-title">ScoreCard</div>
+            <div class="menu-toggle">
+                <div class="menu-toggle-icon">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <span>Menu</span>
+            </div>
+        </div>
+        <div class="header-right">
+            {% if user.is_authenticated %}
+                <a href="{% url 'modules_home' %}" class="header-link">
+                    <span>&#129513;</span>
+                    <span>Modules</span>
+                </a>
+                <div class="settings-dropdown">
+                    <div class="settings-button" id="settings-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+                        <span>&#9881;</span>
+                        <span>Settings</span>
+                        <span class="dropdown-icon">▼</span>
+                    </div>
+                    <div class="settings-dropdown-menu" id="settings-dropdown-menu">
+                        {% if scorecard_nav_visibility.settings_branch_master %}
+                        <a href="{% url 'scorecard:branch_master' %}" class="settings-dropdown-item">Branch Master</a>
+                        {% endif %}
+                        {% if scorecard_nav_visibility.settings_email %}
+                        <a href="{% url 'scorecard:email_configuration' %}" class="settings-dropdown-item">Email Configuration</a>
+                        {% endif %}
+                        {% if scorecard_route_access.settings_permissions %}
+                        <a href="{% url 'scorecard:settings_permissions' %}" class="settings-dropdown-item">User Roles</a>
+                        {% endif %}
+                        {% if scorecard_nav_visibility.settings_workflow %}
+                        <a href="{% url 'scorecard:settings_workflow_approvals' %}" class="settings-dropdown-item">Workflow</a>
+                        {% endif %}
+                        {% if scorecard_nav_visibility.settings_audit %}
+                        <a href="{% url 'scorecard:settings_audit_trail' %}" class="settings-dropdown-item">Audit Trail</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if scorecard_nav_visibility.notifications %}
+                <a href="{% url 'scorecard:notifications' %}" class="notification-link" aria-label="Notifications">
+                    <svg class="notification-link-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path
+                            d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V10a6 6 0 1 0-12 0v4.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 0 1-6 0m6 0H9"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        />
+                    </svg>
+                    <span class="notification-badge header" data-live-badge="notifications.unread"{% if not scorecard_notification_unread_count %} hidden{% endif %}>{{ scorecard_notification_unread_count }}</span>
+                </a>
+                {% endif %}
+                {% if scorecard_nav_visibility.api %}
+                <a href="{% url 'scorecard:api_dashboard' %}" class="header-link">
+                    <span>&#128279;</span>
+                    <span>API</span>
+                </a>
+                {% endif %}
+                <div class="user-dropdown">
+                    <div class="user-button" id="user-menu-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+                        <span class="user-avatar">{{ user.email|email_localpart|slice:":2"|upper }}</span>
+                        <span class="user-meta">
+                            <span class="user-name">{{ user.email|email_localpart }}</span>
+                        </span>
+                        <span class="user-chevron">▼</span>
+                    </div>
+                    <div class="user-dropdown-menu" id="user-dropdown-menu">
+                        <div class="dropdown-menu-header">
+                            <span class="dropdown-menu-kicker">Signed in as</span>
+                            {% if user.name or user.surname %}
+                            <strong>{{ user.name }} {{ user.surname|default:"" }}</strong>
+                            {% else %}
+                            <strong>{{ user.email|email_localpart }}</strong>
+                            {% endif %}
+                            {% if user.is_superuser %}
+                            <span>Superuser</span>
+                            {% elif user.is_staff %}
+                            <span>Administrator</span>
+                            {% else %}
+                            <span>Scorecard User</span>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'change_password' %}" class="user-dropdown-item">Change Password</a>
+                        <a href="{% url 'logout' %}" class="user-dropdown-item user-dropdown-item-danger">Logout</a>
+                    </div>
+                </div>
+            {% else %}
+                <a href="{% url 'login' %}" class="header-link">
+                    <span>&#128273;</span>
+                    <span>Login</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Layout Container -->
+    <div class="layout-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <!-- View Another Branch Section -->
+            {% if user.is_authenticated and can_switch_scorecard_branch %}
+                <div class="sidebar-section">
+                    <div class="user-option view-branch" id="view-another-branch" style="cursor: pointer;">
+                        <span class="user-option-icon">&#128065;</span>
+                        <div class="view-branch-content">
+                            <span class="sidebar-text">View Another Branch</span>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Branch Selection Section -->
+            {% if user.is_authenticated and current_branch_label %}
+                <div class="sidebar-section">
+                    <div class="branch-selection">
+                        <div class="branch-option">
+                            <div class="branch-radio selected"></div>
+                            <span class="sidebar-text">{{ current_branch_label }}</span>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Navigation Menu -->
+            <div class="nav-menu">
+                {% if scorecard_nav_visibility.dashboard %}
+                <a href="{% url 'scorecard:scorecard_dashboard' %}" class="nav-item">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128200;</span>
+                        <span class="sidebar-text">Dashboard</span>
+                    </div>
+                </a>
+                {% endif %}
+                {% if scorecard_nav_visibility.basel_templates %}
+                <a href="{% url 'scorecard:basel_template_list' %}" class="nav-item">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128196;</span>
+                        <span class="sidebar-text">Basel II Templates</span>
+                    </div>
+                </a>
+                {% endif %}
+                {% if scorecard_nav_visibility.ifrs9_templates %}
+                <a href="{% url 'scorecard:ifrs9_template_list' %}" class="nav-item">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#127919;</span>
+                        <span class="sidebar-text">IFRS 9 PD Templates</span>
+                    </div>
+                </a>
+                {% endif %}
+                
+                {% if scorecard_nav_visibility.basel_scores %}
+                <div class="nav-item dropdown-toggle" id="maker-checker-dropdown-toggle" data-dropdown-id="maker-checker-dropdown">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128221;</span>
+                        <span class="sidebar-text">Basel II Score Forms</span>
+                    </div>
+                    <span class="nav-arrow sidebar-text">&#9662;</span>
+                </div>
+                <div class="nav-dropdown" id="maker-checker-dropdown">
+                    {% if scorecard_route_access.basel_scores_template_select %}
+                    <a href="{% url 'scorecard:basel_scores_template_select' %}" class="nav-dropdown-item" data-option="new">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">New Basel II Score</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.basel_scores_submitted_list %}
+                    <a href="{% url 'scorecard:basel_scores_submitted_list' %}" class="nav-dropdown-item" data-option="submitted">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">All Submitted</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.basel_scores_customer_versions_list %}
+                    <a href="{% url 'scorecard:basel_scores_customer_versions_list' %}" class="nav-dropdown-item" data-option="versions">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Versions for Customer</span>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if scorecard_nav_visibility.ifrs9_scores %}
+                <div class="nav-item dropdown-toggle" id="ifrs9-scores-dropdown-toggle" data-dropdown-id="ifrs9-scores-dropdown">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128195;</span>
+                        <span class="sidebar-text">IFRS9 Score Forms</span>
+                    </div>
+                    <span class="nav-arrow sidebar-text">&#9662;</span>
+                </div>
+                <div class="nav-dropdown" id="ifrs9-scores-dropdown">
+                    {% if scorecard_route_access.ifrs9_scores_template_select %}
+                    <a href="{% url 'scorecard:ifrs9_scores_template_select' %}" class="nav-dropdown-item" data-option="ifrs9-new">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">New IFRS9 Score Form</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.ifrs9_scores_submitted_list %}
+                    <a href="{% url 'scorecard:ifrs9_scores_submitted_list' %}" class="nav-dropdown-item" data-option="ifrs9-submitted">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">All Submitted</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.ifrs9_customer_versions_list %}
+                    <a href="{% url 'scorecard:ifrs9_customer_versions_list' %}" class="nav-dropdown-item" data-option="ifrs9-versions">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Versions for Customer</span>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if scorecard_nav_visibility.customers %}
+                <div class="nav-item dropdown-toggle" id="customers-dropdown-toggle" data-dropdown-id="customers-dropdown">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128101;</span>
+                        <span class="sidebar-text">Customers</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="customers.total"{% if not scorecard_customer_counts.total %} hidden{% endif %}>{{ scorecard_customer_counts.total }}</span>
+                    </div>
+                    <span class="nav-arrow sidebar-text">&#9662;</span>
+                </div>
+                <div class="nav-dropdown" id="customers-dropdown">
+                    {% if scorecard_route_access.customer_list %}
+                    <a href="{% url 'scorecard:customer_list' %}" class="nav-dropdown-item" data-option="all">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">All Customers</span>
+                    </a>
+                    {% endif %}
+                    
+                    {% if scorecard_route_access.customer_without_questionnaire_list %}
+                    <a href="{% url 'scorecard:customer_without_questionnaire_list' %}" class="nav-dropdown-item" data-option="without-basel">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Without Basel II Scores</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="customers.without_basel_total"{% if not scorecard_customer_counts.without_basel_total %} hidden{% endif %}>{{ scorecard_customer_counts.without_basel_total }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.customer_without_ifrs9_list %}
+                    <a href="{% url 'scorecard:customer_without_ifrs9_list' %}" class="nav-dropdown-item" data-option="without-ifrs9">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Without IFRS9 Scores</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="customers.without_ifrs9_total"{% if not scorecard_customer_counts.without_ifrs9_total %} hidden{% endif %}>{{ scorecard_customer_counts.without_ifrs9_total }}</span>
+                    </a>
+                    {% endif %}
+
+                    {% if scorecard_route_access.add_customer %}
+                    <a href="{% url 'scorecard:add_customer' %}" class="nav-dropdown-item" data-option="add">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Add Customer</span>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                {% if scorecard_nav_visibility.maker %}
+                <div class="nav-item dropdown-toggle" id="maker-dropdown-toggle" data-dropdown-id="maker-dropdown">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#9998;</span>
+                        <span class="sidebar-text">Maker</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="maker.total"{% if not scorecard_maker_queue_counts.total %} hidden{% endif %}>{{ scorecard_maker_queue_counts.total }}</span>
+                    </div>
+                    <span class="nav-arrow sidebar-text">&#9662;</span>
+                </div>
+                <div class="nav-dropdown" id="maker-dropdown">
+                    {% if scorecard_route_access.maker_draft_list %}
+                    <a href="{% url 'scorecard:maker_draft_list' %}" class="nav-dropdown-item" data-option="my-drafts">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Basel Score Drafts</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="maker.basel_score_drafts"{% if not scorecard_maker_queue_counts.basel_score_drafts %} hidden{% endif %}>{{ scorecard_maker_queue_counts.basel_score_drafts }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.maker_submitted_list %}
+                    <a href="{% url 'scorecard:maker_submitted_list' %}" class="nav-dropdown-item" data-option="my-submitted">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Basel Score Submissions</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="maker.basel_score_submissions"{% if not scorecard_maker_queue_counts.basel_score_submissions %} hidden{% endif %}>{{ scorecard_maker_queue_counts.basel_score_submissions }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.template_maker_draft_list %}
+                    <a href="{% url 'scorecard:template_maker_draft_list' %}" class="nav-dropdown-item" data-option="template-drafts">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Basel Template Drafts</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="maker.basel_template_drafts"{% if not scorecard_maker_queue_counts.basel_template_drafts %} hidden{% endif %}>{{ scorecard_maker_queue_counts.basel_template_drafts }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.template_maker_submitted_list %}
+                    <a href="{% url 'scorecard:template_maker_submitted_list' %}" class="nav-dropdown-item" data-option="template-submitted">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Basel Template Submissions</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="maker.basel_template_submissions"{% if not scorecard_maker_queue_counts.basel_template_submissions %} hidden{% endif %}>{{ scorecard_maker_queue_counts.basel_template_submissions }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.ifrs9_template_maker_draft_list %}
+                    <a href="{% url 'scorecard:ifrs9_template_maker_draft_list' %}" class="nav-dropdown-item" data-option="ifrs9-template-drafts">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">IFRS9 Template Drafts</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="maker.ifrs9_template_drafts"{% if not scorecard_maker_queue_counts.ifrs9_template_drafts %} hidden{% endif %}>{{ scorecard_maker_queue_counts.ifrs9_template_drafts }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.ifrs9_template_maker_submitted_list %}
+                    <a href="{% url 'scorecard:ifrs9_template_maker_submitted_list' %}" class="nav-dropdown-item" data-option="ifrs9-template-submitted">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">IFRS9 Template Submissions</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="maker.ifrs9_template_submissions"{% if not scorecard_maker_queue_counts.ifrs9_template_submissions %} hidden{% endif %}>{{ scorecard_maker_queue_counts.ifrs9_template_submissions }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.maker_ifrs9_scores_draft_list %}
+                    <a href="{% url 'scorecard:maker_ifrs9_scores_draft_list' %}" class="nav-dropdown-item" data-option="ifrs9-scores-drafts">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">IFRS9 Score Form Drafts</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="maker.ifrs9_score_drafts"{% if not scorecard_maker_queue_counts.ifrs9_score_drafts %} hidden{% endif %}>{{ scorecard_maker_queue_counts.ifrs9_score_drafts }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.maker_ifrs9_scores_submitted_list %}
+                    <a href="{% url 'scorecard:maker_ifrs9_scores_submitted_list' %}" class="nav-dropdown-item" data-option="ifrs9-scores-submitted">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">IFRS9 Score Form Submissions</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="maker.ifrs9_score_submissions"{% if not scorecard_maker_queue_counts.ifrs9_score_submissions %} hidden{% endif %}>{{ scorecard_maker_queue_counts.ifrs9_score_submissions }}</span>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if scorecard_nav_visibility.checker %}
+                <div class="nav-item dropdown-toggle" id="checker-dropdown-toggle" data-dropdown-id="checker-dropdown">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#9989;</span>
+                        <span class="sidebar-text">Checker</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="checker.total"{% if not scorecard_checker_pending_counts.total %} hidden{% endif %}>{{ scorecard_checker_pending_counts.total }}</span>
+                    </div>
+                    <span class="nav-arrow sidebar-text">&#9662;</span>
+                </div>
+                <div class="nav-dropdown" id="checker-dropdown">
+                    {% if scorecard_route_access.checker_pending_list %}
+                    <a href="{% url 'scorecard:checker_pending_list' %}" class="nav-dropdown-item" data-option="pending">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Basel Scores Pending Review</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="checker.basel_scores"{% if not scorecard_checker_pending_counts.basel_scores %} hidden{% endif %}>{{ scorecard_checker_pending_counts.basel_scores }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.template_checker_pending_list %}
+                    <a href="{% url 'scorecard:template_checker_pending_list' %}" class="nav-dropdown-item" data-option="template-pending">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Basel Template Pending Review</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="checker.basel_templates"{% if not scorecard_checker_pending_counts.basel_templates %} hidden{% endif %}>{{ scorecard_checker_pending_counts.basel_templates }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.ifrs9_template_checker_pending_list %}
+                    <a href="{% url 'scorecard:ifrs9_template_checker_pending_list' %}" class="nav-dropdown-item" data-option="ifrs9-template-pending">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">IFRS9 Template Pending Review</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="checker.ifrs9_templates"{% if not scorecard_checker_pending_counts.ifrs9_templates %} hidden{% endif %}>{{ scorecard_checker_pending_counts.ifrs9_templates }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.checker_ifrs9_scores_pending_list %}
+                    <a href="{% url 'scorecard:checker_ifrs9_scores_pending_list' %}" class="nav-dropdown-item" data-option="ifrs9-scores-pending">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">IFRS9 Score Forms Pending Review</span>
+                        <span class="notification-badge sidebar-text" data-live-badge="checker.ifrs9_scores"{% if not scorecard_checker_pending_counts.ifrs9_scores %} hidden{% endif %}>{{ scorecard_checker_pending_counts.ifrs9_scores }}</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.checker_my_approvals %}
+                    <a href="{% url 'scorecard:checker_my_approvals' %}" class="nav-dropdown-item" data-option="my-approvals">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">My Approvals</span>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if scorecard_nav_visibility.ifrs9_supporting_data %}
+                <a href="{% url 'scorecard:ifrs9_supporting_data' %}" class="nav-item">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128451;</span>
+                        <span class="sidebar-text">IFRS9 Supporting Data</span>
+                    </div>
+                </a>
+                {% endif %}
+                {% if scorecard_nav_visibility.ifrs9_results %}
+                <a href="{% url 'scorecard:ifrs9_results_home' %}" class="nav-item">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128202;</span>
+                        <span class="sidebar-text">IFRS9 Results</span>
+                    </div>
+                </a>
+                {% endif %}
+                {% if scorecard_nav_visibility.historical_scores %}
+                <a href="{% url 'scorecard:historical_scores_list' %}" class="nav-item">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128197;</span>
+                        <span class="sidebar-text">Historical Scores</span>
+                    </div>
+                </a>
+                {% endif %}
+                {% if scorecard_nav_visibility.documents %}
+                <div class="nav-item dropdown-toggle" id="documents-dropdown-toggle" data-dropdown-id="documents-dropdown">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128206;</span>
+                        <span class="sidebar-text">Documents</span>
+                    </div>
+                    <span class="nav-arrow sidebar-text">&#9662;</span>
+                </div>
+                <div class="nav-dropdown" id="documents-dropdown">
+                    {% if scorecard_route_access.document_list %}
+                    <a href="{% url 'scorecard:document_list' %}" class="nav-dropdown-item" data-option="questionnaire">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Evaluation Documents</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.scorecard_document_list %}
+                    <a href="{% url 'scorecard:scorecard_document_list' %}" class="nav-dropdown-item" data-option="scorecard">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Scorecard Documents</span>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% if scorecard_nav_visibility.imports %}
+                <a href="{% url 'scorecard:upload_home' %}" class="nav-item">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#8682;</span>
+                        <span class="sidebar-text">External Imports</span>
+                    </div>
+                </a>
+                {% endif %}
+                
+                {% if scorecard_nav_visibility.notifications %}
+                <a href="{% url 'scorecard:notifications' %}" class="nav-item">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128276;</span>
+                        <span class="sidebar-text">Notifications</span>
+                    </div>
+                    <span class="sidebar-notification-badge" data-live-badge="notifications.unread"{% if not scorecard_notification_unread_count %} hidden{% endif %}>{{ scorecard_notification_unread_count }}</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div class="section-nav-shell">
+                <div class="section-nav-primary">
+                    {% if scorecard_nav_visibility.customers %}
+                    <a href="{% url 'scorecard:customer_list' %}" class="section-nav-link" data-section="customers">Customers</a>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.basel_scores %}
+                    <a href="{% url 'scorecard:basel_scores_submitted_list' %}" class="section-nav-link" data-section="basel-scores">Basel II Score </a>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.ifrs9_scores %}
+                    <a href="{% url 'scorecard:ifrs9_scores_submitted_list' %}" class="section-nav-link" data-section="ifrs9-scores">IFRS9 Score Forms</a>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.maker %}
+                    <a href="{% if scorecard_route_access.maker_draft_list %}{% url 'scorecard:maker_draft_list' %}{% elif scorecard_route_access.template_maker_draft_list %}{% url 'scorecard:template_maker_draft_list' %}{% elif scorecard_route_access.ifrs9_template_maker_draft_list %}{% url 'scorecard:ifrs9_template_maker_draft_list' %}{% else %}{% url 'scorecard:maker_ifrs9_scores_draft_list' %}{% endif %}" class="section-nav-link" data-section="maker">Maker</a>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.checker %}
+                    <a href="{% if scorecard_route_access.checker_pending_list %}{% url 'scorecard:checker_pending_list' %}{% elif scorecard_route_access.template_checker_pending_list %}{% url 'scorecard:template_checker_pending_list' %}{% elif scorecard_route_access.ifrs9_template_checker_pending_list %}{% url 'scorecard:ifrs9_template_checker_pending_list' %}{% elif scorecard_route_access.checker_ifrs9_scores_pending_list %}{% url 'scorecard:checker_ifrs9_scores_pending_list' %}{% else %}{% url 'scorecard:ifrs9_supporting_data' %}{% endif %}" class="section-nav-link" data-section="checker">Checker</a>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.historical_scores %}
+                    <a href="{% url 'scorecard:historical_scores_list' %}" class="section-nav-link" data-section="historical-scores">Historical Scores</a>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.documents %}
+                    <a href="{% url 'scorecard:document_list' %}" class="section-nav-link" data-section="documents">Documents</a>
+                    {% endif %}
+                </div>
+                <div class="section-subnav-wrap" id="section-subnav-wrap">
+                    {% if scorecard_nav_visibility.customers %}
+                    <div class="section-nav-group" data-section="customers">
+                        {% if scorecard_route_access.customer_list %}
+                        <a href="{% url 'scorecard:customer_list' %}" class="section-subnav-link">All Customers</a>
+                        {% endif %}
+                        
+                        {% if scorecard_route_access.customer_without_questionnaire_list %}
+                        <a href="{% url 'scorecard:customer_without_questionnaire_list' %}" class="section-subnav-link">
+                            <span>Without Basel II Scores</span>
+                            <span class="notification-badge{% if not scorecard_customer_counts.without_basel_total %} muted{% endif %} sidebar-text" data-live-badge="customers.without_basel_total">{{ scorecard_customer_counts.without_basel_total }}</span>
+                        </a>
+                        {% endif %}
+                        {% if scorecard_route_access.customer_without_ifrs9_list %}
+                        <a href="{% url 'scorecard:customer_without_ifrs9_list' %}" class="section-subnav-link">
+                            <span>Without IFRS9 Scores</span>
+                            <span class="notification-badge{% if not scorecard_customer_counts.without_ifrs9_total %} muted{% endif %} sidebar-text" data-live-badge="customers.without_ifrs9_total">{{ scorecard_customer_counts.without_ifrs9_total }}</span>
+                        </a>
+                        {% endif %}
+                        
+                        {% if scorecard_route_access.add_customer %}
+                        <a href="{% url 'scorecard:add_customer' %}" class="section-subnav-link">Add Customer</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.basel_scores %}
+                    <div class="section-nav-group" data-section="basel-scores">
+                        {% if scorecard_route_access.basel_scores_template_select %}
+                        <a href="{% url 'scorecard:basel_scores_template_select' %}" class="section-subnav-link">New Basel II Score</a>
+                        {% endif %}
+                        {% if scorecard_route_access.basel_scores_submitted_list %}
+                        <a href="{% url 'scorecard:basel_scores_submitted_list' %}" class="section-subnav-link">All Submitted</a>
+                        {% endif %}
+                        {% if scorecard_route_access.basel_scores_customer_versions_list %}
+                        <a href="{% url 'scorecard:basel_scores_customer_versions_list' %}" class="section-subnav-link">Versions for Customer</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.ifrs9_scores %}
+                    <div class="section-nav-group" data-section="ifrs9-scores">
+                        {% if scorecard_route_access.ifrs9_scores_template_select %}
+                        <a href="{% url 'scorecard:ifrs9_scores_template_select' %}" class="section-subnav-link">New IFRS9 Score Form</a>
+                        {% endif %}
+                        {% if scorecard_route_access.ifrs9_scores_submitted_list %}
+                        <a href="{% url 'scorecard:ifrs9_scores_submitted_list' %}" class="section-subnav-link">All Submitted</a>
+                        {% endif %}
+                        {% if scorecard_route_access.ifrs9_customer_versions_list %}
+                        <a href="{% url 'scorecard:ifrs9_customer_versions_list' %}" class="section-subnav-link">Versions for Customer</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.maker %}
+                    <div class="section-nav-group" data-section="maker">
+                        {% if scorecard_route_access.maker_draft_list %}
+                        <a href="{% url 'scorecard:maker_draft_list' %}" class="section-subnav-link"><span class="section-subnav-label">Basel Score Drafts</span><span class="section-subnav-badge{% if not scorecard_maker_queue_counts.basel_score_drafts %} muted{% endif %}" data-live-badge="maker.basel_score_drafts">{{ scorecard_maker_queue_counts.basel_score_drafts }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.maker_submitted_list %}
+                        <a href="{% url 'scorecard:maker_submitted_list' %}" class="section-subnav-link"><span class="section-subnav-label">Basel Score Submissions</span><span class="section-subnav-badge{% if not scorecard_maker_queue_counts.basel_score_submissions %} muted{% endif %}" data-live-badge="maker.basel_score_submissions">{{ scorecard_maker_queue_counts.basel_score_submissions }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.template_maker_draft_list %}
+                        <a href="{% url 'scorecard:template_maker_draft_list' %}" class="section-subnav-link"><span class="section-subnav-label">Basel Template Drafts</span><span class="section-subnav-badge{% if not scorecard_maker_queue_counts.basel_template_drafts %} muted{% endif %}" data-live-badge="maker.basel_template_drafts">{{ scorecard_maker_queue_counts.basel_template_drafts }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.template_maker_submitted_list %}
+                        <a href="{% url 'scorecard:template_maker_submitted_list' %}" class="section-subnav-link"><span class="section-subnav-label">Basel Template Submissions</span><span class="section-subnav-badge{% if not scorecard_maker_queue_counts.basel_template_submissions %} muted{% endif %}" data-live-badge="maker.basel_template_submissions">{{ scorecard_maker_queue_counts.basel_template_submissions }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.ifrs9_template_maker_draft_list %}
+                        <a href="{% url 'scorecard:ifrs9_template_maker_draft_list' %}" class="section-subnav-link"><span class="section-subnav-label">IFRS9 Template Drafts</span><span class="section-subnav-badge{% if not scorecard_maker_queue_counts.ifrs9_template_drafts %} muted{% endif %}" data-live-badge="maker.ifrs9_template_drafts">{{ scorecard_maker_queue_counts.ifrs9_template_drafts }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.ifrs9_template_maker_submitted_list %}
+                        <a href="{% url 'scorecard:ifrs9_template_maker_submitted_list' %}" class="section-subnav-link"><span class="section-subnav-label">IFRS9 Template Submissions</span><span class="section-subnav-badge{% if not scorecard_maker_queue_counts.ifrs9_template_submissions %} muted{% endif %}" data-live-badge="maker.ifrs9_template_submissions">{{ scorecard_maker_queue_counts.ifrs9_template_submissions }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.maker_ifrs9_scores_draft_list %}
+                        <a href="{% url 'scorecard:maker_ifrs9_scores_draft_list' %}" class="section-subnav-link"><span class="section-subnav-label">IFRS9 Score Form Drafts</span><span class="section-subnav-badge{% if not scorecard_maker_queue_counts.ifrs9_score_drafts %} muted{% endif %}" data-live-badge="maker.ifrs9_score_drafts">{{ scorecard_maker_queue_counts.ifrs9_score_drafts }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.maker_ifrs9_scores_submitted_list %}
+                        <a href="{% url 'scorecard:maker_ifrs9_scores_submitted_list' %}" class="section-subnav-link"><span class="section-subnav-label">IFRS9 Score Form Submissions</span><span class="section-subnav-badge{% if not scorecard_maker_queue_counts.ifrs9_score_submissions %} muted{% endif %}" data-live-badge="maker.ifrs9_score_submissions">{{ scorecard_maker_queue_counts.ifrs9_score_submissions }}</span></a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.checker %}
+                    <div class="section-nav-group" data-section="checker">
+                        {% if scorecard_route_access.checker_pending_list %}
+                        <a href="{% url 'scorecard:checker_pending_list' %}" class="section-subnav-link"><span class="section-subnav-label">Basel Scores Pending Review</span><span class="section-subnav-badge{% if not scorecard_checker_pending_counts.basel_scores %} muted{% endif %}" data-live-badge="checker.basel_scores">{{ scorecard_checker_pending_counts.basel_scores }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.template_checker_pending_list %}
+                        <a href="{% url 'scorecard:template_checker_pending_list' %}" class="section-subnav-link"><span class="section-subnav-label">Basel Template Pending Review</span><span class="section-subnav-badge{% if not scorecard_checker_pending_counts.basel_templates %} muted{% endif %}" data-live-badge="checker.basel_templates">{{ scorecard_checker_pending_counts.basel_templates }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.ifrs9_template_checker_pending_list %}
+                        <a href="{% url 'scorecard:ifrs9_template_checker_pending_list' %}" class="section-subnav-link"><span class="section-subnav-label">IFRS9 Template Pending Review</span><span class="section-subnav-badge{% if not scorecard_checker_pending_counts.ifrs9_templates %} muted{% endif %}" data-live-badge="checker.ifrs9_templates">{{ scorecard_checker_pending_counts.ifrs9_templates }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.checker_ifrs9_scores_pending_list %}
+                        <a href="{% url 'scorecard:checker_ifrs9_scores_pending_list' %}" class="section-subnav-link"><span class="section-subnav-label">IFRS9 Score Forms Pending Review</span><span class="section-subnav-badge{% if not scorecard_checker_pending_counts.ifrs9_scores %} muted{% endif %}" data-live-badge="checker.ifrs9_scores">{{ scorecard_checker_pending_counts.ifrs9_scores }}</span></a>
+                        {% endif %}
+                        {% if scorecard_route_access.checker_my_approvals %}
+                        <a href="{% url 'scorecard:checker_my_approvals' %}" class="section-subnav-link"><span class="section-subnav-label">My Approvals</span></a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.historical_scores %}
+                    <div class="section-nav-group" data-section="historical-scores">
+                        <a href="{% url 'scorecard:historical_scores_list' %}" class="section-subnav-link">Scheduled Snapshots</a>
+                    </div>
+                    {% endif %}
+                    {% if scorecard_nav_visibility.documents %}
+                    <div class="section-nav-group" data-section="documents">
+                        {% if scorecard_route_access.document_list %}
+                        <a href="{% url 'scorecard:document_list' %}" class="section-subnav-link">Evaluation Documents</a>
+                        {% endif %}
+                        {% if scorecard_route_access.scorecard_document_list %}
+                        <a href="{% url 'scorecard:scorecard_document_list' %}" class="section-subnav-link">Scorecard Documents</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <main>
+                {% if messages %}
+                    <div style="margin-bottom: 1rem;">
+                        {% for message in messages %}
+                            <div style="background: {% if message.tags == 'success' %}#d4edda{% elif message.tags == 'warning' %}#fff3cd{% elif message.tags == 'error' %}#f8d7da{% else %}#d1ecf1{% endif %}; color: {% if message.tags == 'success' %}#155724{% elif message.tags == 'warning' %}#856404{% elif message.tags == 'error' %}#721c24{% else %}#0c5460{% endif %}; border: 1px solid {% if message.tags == 'success' %}#c3e6cb{% elif message.tags == 'warning' %}#ffc107{% elif message.tags == 'error' %}#f5c6cb{% else %}#bee5eb{% endif %}; border-radius: 4px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; font-size: 0.9rem;">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                {% block content %}{% endblock %}
+
+                {% if password_expiry_reminder %}
+                <div class="password-reminder-overlay" id="passwordExpiryReminder" role="dialog" aria-modal="true" aria-labelledby="passwordReminderTitle">
+                    <div class="password-reminder-card">
+                        <div class="password-reminder-header">
+                            <div class="password-reminder-kicker">Password Reminder</div>
+                            <h2 id="passwordReminderTitle">Your password is nearing expiry</h2>
+                            <p>{{ password_expiry_reminder.message }}</p>
+                        </div>
+                        <div class="password-reminder-body">
+                            <div class="password-reminder-stat">
+                                <div class="password-reminder-days">
+                                    <strong>{{ password_expiry_reminder.days_left }}</strong>
+                                    <span>day{{ password_expiry_reminder.days_left|pluralize }} left</span>
+                                </div>
+                                <p class="password-reminder-note">Please update your password before the expiry date so your next login stays uninterrupted.</p>
+                            </div>
+                            <div class="password-reminder-actions">
+                                <button type="button" class="password-reminder-btn" data-password-reminder-close>Remind Me Later</button>
+                                {% if password_expiry_reminder.can_change_password %}
+                                <a href="{% url 'change_password' %}" class="password-reminder-link">Change Password</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </main>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const sectionNavShell = document.querySelector('.section-nav-shell');
+            const sectionNavWrap = document.getElementById('section-subnav-wrap');
+            const sectionNavLinks = document.querySelectorAll('.section-nav-link');
+            const sectionGroups = document.querySelectorAll('.section-nav-group');
+            const menuToggle = document.querySelector('.menu-toggle');
+            const sidebar = document.getElementById('sidebar');
+            const dropdownParentRoutes = {
+                'customers-dropdown-toggle': '{% url "scorecard:customer_list" %}',
+                'maker-checker-dropdown-toggle': '{% url "scorecard:basel_scores_submitted_list" %}',
+                'ifrs9-scores-dropdown-toggle': '{% url "scorecard:ifrs9_scores_submitted_list" %}',
+                'maker-dropdown-toggle': '{% if perms.scorecard.manage_basel_scores or request.user.is_superuser %}{% url "scorecard:maker_draft_list" %}{% elif perms.scorecard.manage_basel_templates %}{% url "scorecard:template_maker_draft_list" %}{% elif perms.scorecard.manage_ifrs9_templates %}{% url "scorecard:ifrs9_template_maker_draft_list" %}{% else %}{% url "scorecard:maker_ifrs9_scores_draft_list" %}{% endif %}',
+                'checker-dropdown-toggle': '{% if perms.scorecard.review_basel_scores or request.user.is_superuser %}{% url "scorecard:checker_pending_list" %}{% elif perms.scorecard.review_basel_templates %}{% url "scorecard:template_checker_pending_list" %}{% elif perms.scorecard.review_ifrs9_templates %}{% url "scorecard:ifrs9_template_checker_pending_list" %}{% elif perms.scorecard.review_ifrs9_scores %}{% url "scorecard:checker_ifrs9_scores_pending_list" %}{% else %}{% url "scorecard:ifrs9_supporting_data" %}{% endif %}',
+                'documents-dropdown-toggle': '{% url "scorecard:document_list" %}',
+            };
+
+            function normalizePath(value) {
+                if (!value) return '';
+                try {
+                    const parsed = new URL(value, window.location.origin);
+                    value = parsed.pathname;
+                } catch (error) {
+                    value = String(value);
+                }
+                const stripped = value.replace(/^\/|\/$/g, '');
+                return stripped;
+            }
+
+            function isActiveUrl(url) {
+                if (!url || url === '#') return false;
+                const normalizedCurrent = normalizePath(currentPath);
+                const normalizedUrl = normalizePath(url);
+                if (!normalizedUrl) return false;
+                if (normalizedCurrent === normalizedUrl) return true;
+                if (normalizedCurrent.startsWith(normalizedUrl + '/')) return true;
+                return false;
+            }
+
+            function getMatchScore(url) {
+                if (!url || url === '#') return -1;
+                const normalizedCurrent = normalizePath(currentPath);
+                const normalizedUrl = normalizePath(url);
+                if (!normalizedUrl) return -1;
+                if (normalizedCurrent === normalizedUrl) return normalizedUrl.length + 1000;
+                if (normalizedCurrent.startsWith(normalizedUrl + '/')) return normalizedUrl.length;
+                return -1;
+            }
+
+            function showSection(sectionKey) {
+                let hasVisibleGroup = false;
+                sectionGroups.forEach(function(group) {
+                    const matches = group.dataset.section === sectionKey;
+                    group.classList.toggle('is-visible', matches);
+                    if (matches) {
+                        hasVisibleGroup = true;
+                    }
+                });
+                sectionNavLinks.forEach(function(link) {
+                    link.classList.toggle('active', link.dataset.section === sectionKey);
+                });
+                if (sectionNavShell) {
+                    sectionNavShell.classList.toggle('has-active-group', hasVisibleGroup);
+                }
+                if (sectionNavWrap) {
+                    sectionNavWrap.classList.toggle('has-active-group', hasVisibleGroup);
+                }
+            }
+
+            let activeSection = '';
+            const subnavLinks = document.querySelectorAll('.section-subnav-link');
+            let bestSubnavLink = null;
+            let bestSubnavScore = -1;
+            subnavLinks.forEach(function(link) {
+                const score = getMatchScore(link.getAttribute('href'));
+                if (score > bestSubnavScore) {
+                    bestSubnavScore = score;
+                    bestSubnavLink = link;
+                }
+            });
+            if (bestSubnavLink && bestSubnavScore >= 0) {
+                bestSubnavLink.classList.add('active');
+                const parentGroup = bestSubnavLink.closest('.section-nav-group');
+                if (parentGroup) {
+                    activeSection = parentGroup.dataset.section;
+                }
+            }
+
+            document.querySelectorAll('.nav-item[href]').forEach(function(link) {
+                if (isActiveUrl(link.getAttribute('href'))) {
+                    link.classList.add('active');
+                }
+            });
+
+            if (!activeSection) {
+                sectionNavLinks.forEach(function(link) {
+                    if (!activeSection && isActiveUrl(link.getAttribute('href'))) {
+                        activeSection = link.dataset.section;
+                    }
+                });
+            }
+
+            if (activeSection) {
+                showSection(activeSection);
+            } else {
+                if (sectionNavShell) {
+                    sectionNavShell.classList.remove('has-active-group');
+                }
+                if (sectionNavWrap) {
+                    sectionNavWrap.classList.remove('has-active-group');
+                }
+            }
+
+            sectionNavLinks.forEach(function(link) {
+                link.addEventListener('click', function() {
+                    showSection(link.dataset.section);
+                });
+            });
+
+            Object.keys(dropdownParentRoutes).forEach(function(toggleId) {
+                const toggle = document.getElementById(toggleId);
+                const targetUrl = dropdownParentRoutes[toggleId];
+                if (!toggle || !targetUrl) return;
+                toggle.classList.remove('dropdown-toggle');
+                toggle.setAttribute('role', 'link');
+                toggle.setAttribute('tabindex', '0');
+                toggle.addEventListener('click', function() {
+                    window.location.href = targetUrl;
+                });
+                toggle.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        window.location.href = targetUrl;
+                    }
+                });
+                if (isActiveUrl(targetUrl)) {
+                    toggle.classList.add('active');
+                }
+            });
+
+            if (menuToggle && sidebar) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed') ? 'true' : 'false');
+                });
+
+                if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                    sidebar.classList.add('collapsed');
+                }
+            }
+
+            const headerDropdownControllers = [];
+
+            function closeAllHeaderDropdowns(exceptButton) {
+                headerDropdownControllers.forEach(function(controller) {
+                    if (!exceptButton || controller.button !== exceptButton) {
+                        controller.close();
+                    }
+                });
+            }
+
+            function registerHeaderDropdown(buttonId, menuId, wrapperSelector) {
+                const button = document.getElementById(buttonId);
+                const menu = document.getElementById(menuId);
+                const wrapper = button ? button.closest(wrapperSelector) : null;
+                if (!button || !menu || !wrapper) {
+                    return;
+                }
+
+                function closeDropdown() {
+                    menu.classList.remove('show');
+                    button.setAttribute('aria-expanded', 'false');
+                }
+
+                function toggleDropdown() {
+                    const willShow = !menu.classList.contains('show');
+                    closeAllHeaderDropdowns(button);
+                    menu.classList.toggle('show', willShow);
+                    button.setAttribute('aria-expanded', willShow ? 'true' : 'false');
+                }
+
+                button.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    toggleDropdown();
+                });
+
+                button.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggleDropdown();
+                    } else if (event.key === 'Escape') {
+                        closeDropdown();
+                    }
+                });
+
+                document.addEventListener('click', function(event) {
+                    if (!wrapper.contains(event.target)) {
+                        closeDropdown();
+                    }
+                });
+
+                headerDropdownControllers.push({
+                    button: button,
+                    close: closeDropdown
+                });
+            }
+
+            registerHeaderDropdown('settings-button', 'settings-dropdown-menu', '.settings-dropdown');
+            registerHeaderDropdown('user-menu-button', 'user-dropdown-menu', '.user-dropdown');
+
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    closeAllHeaderDropdowns();
+                }
+            });
+        });
+
+        const passwordReminder = document.getElementById('passwordExpiryReminder');
+        if (passwordReminder) {
+            const closeReminder = () => {
+                passwordReminder.style.display = 'none';
+            };
+            passwordReminder.addEventListener('click', function(event) {
+                if (event.target === passwordReminder || event.target.closest('[data-password-reminder-close]')) {
+                    closeReminder();
+                }
+            });
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && passwordReminder.style.display !== 'none') {
+                    closeReminder();
+                }
+            });
+        }
+    </script>
+
+    <script>
+        (function () {
+            function isPostForm(form) {
+                if (!form) {
+                    return false;
+                }
+                const method = (form.getAttribute('method') || 'get').trim().toLowerCase();
+                return method === 'post';
+            }
+
+            function normalizeLabel(value) {
+                return (value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+            }
+
+            function resolveBusyLabel(submitter) {
+                if (!submitter) {
+                    return 'Submitting...';
+                }
+                const configured = submitter.getAttribute('data-submitting-text') || submitter.dataset.submittingText;
+                if (configured) {
+                    return configured;
+                }
+                const rawText = submitter.tagName === 'INPUT'
+                    ? (submitter.value || submitter.getAttribute('value') || '')
+                    : (submitter.textContent || '');
+                const text = normalizeLabel(rawText);
+                if (!text) {
+                    return 'Submitting...';
+                }
+                if (text.includes('save')) return 'Saving...';
+                if (text.includes('submit')) return 'Submitting...';
+                if (text.includes('update')) return 'Updating...';
+                if (text.includes('approve')) return 'Approving...';
+                if (text.includes('return')) return 'Returning...';
+                if (text.includes('reject')) return 'Rejecting...';
+                if (text.includes('delete') || text.includes('remove')) return 'Deleting...';
+                if (text.includes('import')) return 'Importing...';
+                if (text.includes('upload')) return 'Uploading...';
+                if (text.includes('sync')) return 'Syncing...';
+                if (text.includes('run') || text.includes('execute')) return 'Running...';
+                if (text.includes('create') || text.includes('add') || text.includes('new')) return 'Creating...';
+                if (text.includes('send')) return 'Sending...';
+                if (text.includes('test')) return 'Testing...';
+                return 'Submitting...';
+            }
+
+            function captureOriginalState(control) {
+                if (!control || control.dataset.scorecardSubmitStateCaptured === '1') {
+                    return;
+                }
+                control.dataset.scorecardSubmitStateCaptured = '1';
+                control.dataset.scorecardOriginalDisabled = control.disabled ? '1' : '0';
+                if (control.tagName === 'INPUT') {
+                    control.dataset.scorecardOriginalLabel = control.value || '';
+                } else {
+                    control.dataset.scorecardOriginalLabel = control.innerHTML;
+                }
+            }
+
+            function setBusyLabel(control, busyLabel) {
+                if (!control || !busyLabel) {
+                    return;
+                }
+                if (control.tagName === 'INPUT') {
+                    control.value = busyLabel;
+                } else {
+                    control.textContent = busyLabel;
+                }
+            }
+
+            function rememberSubmitter(eventTarget) {
+                const submitter = eventTarget && eventTarget.closest
+                    ? eventTarget.closest('button[type="submit"], input[type="submit"], input[type="image"]')
+                    : null;
+                if (!submitter) {
+                    return;
+                }
+                const form = submitter.form || submitter.closest('form');
+                if (!isPostForm(form)) {
+                    return;
+                }
+                form.__scorecardSubmitter = submitter;
+            }
+
+            document.addEventListener('click', function (event) {
+                rememberSubmitter(event.target);
+            }, true);
+
+            document.addEventListener('submit', function (event) {
+                const form = event.target;
+                if (!isPostForm(form) || form.dataset.allowMultiSubmit === '1') {
+                    return;
+                }
+
+                if (form.dataset.scorecardSubmitting === '1') {
+                    event.preventDefault();
+                    return;
+                }
+
+                form.dataset.scorecardSubmitting = '1';
+                form.classList.add('scorecard-submit-busy');
+                form.setAttribute('aria-busy', 'true');
+
+                const submitter = event.submitter || form.__scorecardSubmitter || form.querySelector('button[type="submit"], input[type="submit"], input[type="image"]');
+                const busyLabel = resolveBusyLabel(submitter);
+                const controls = form.querySelectorAll('button[type="submit"], input[type="submit"], input[type="image"]');
+
+                controls.forEach(function (control) {
+                    captureOriginalState(control);
+                    control.disabled = true;
+                    control.classList.add('scorecard-submit-disabled');
+                    control.setAttribute('aria-disabled', 'true');
+                });
+
+                if (submitter) {
+                    setBusyLabel(submitter, busyLabel);
+                }
+            }, true);
+
+            window.addEventListener('pageshow', function () {
+                document.querySelectorAll('form[data-scorecard-submitting="1"]').forEach(function (form) {
+                    form.dataset.scorecardSubmitting = '0';
+                    form.classList.remove('scorecard-submit-busy');
+                    form.removeAttribute('aria-busy');
+                    form.querySelectorAll('button[type="submit"], input[type="submit"], input[type="image"]').forEach(function (control) {
+                        const originallyDisabled = control.dataset.scorecardOriginalDisabled === '1';
+                        control.disabled = originallyDisabled;
+                        control.classList.remove('scorecard-submit-disabled');
+                        control.removeAttribute('aria-disabled');
+                        if (control.dataset.scorecardSubmitStateCaptured === '1') {
+                            const originalLabel = control.dataset.scorecardOriginalLabel || '';
+                            if (control.tagName === 'INPUT') {
+                                control.value = originalLabel;
+                            } else if (originalLabel) {
+                                control.innerHTML = originalLabel;
+                            }
+                        }
+                    });
+                });
+            });
+        })();
+    </script>
+
+    <!-- Branch Switching Modal -->
+    {% if user.is_authenticated and can_switch_scorecard_branch %}
+    <style>
+        .branch-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .branch-modal-content {
+            background: white;
+            padding: 0;
+            border-radius: 12px;
+            max-width: 550px;
+            width: 90%;
+            max-height: 85vh;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .branch-modal-header {
+            background: linear-gradient(135deg, #0066cc 0%, #004d99 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .branch-modal-header h2 {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        .branch-modal-close-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .branch-modal-close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .branch-modal-body {
+            padding: 1.5rem 2rem;
+            max-height: calc(85vh - 120px);
+            overflow-y: auto;
+        }
+        .branch-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .branch-select-item {
+            padding: 1rem 1.25rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+            position: relative;
+        }
+        .branch-select-item:hover {
+            border-color: #0066cc;
+            background: #f0f8ff;
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0, 102, 204, 0.15);
+        }
+        .branch-select-item.current {
+            border-color: #0066cc;
+            background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+            box-shadow: 0 2px 12px rgba(0, 102, 204, 0.2);
+        }
+        .branch-name {
+            font-weight: 700;
+            font-size: 1rem;
+            color: #1a1a1a;
+            margin-bottom: 0.35rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .branch-bank {
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 0.25rem;
+        }
+        .branch-code {
+            font-size: 0.85rem;
+            color: #888;
+            font-family: 'Courier New', monospace;
+        }
+        .branch-current-badge {
+            margin-top: 0.5rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            color: #0066cc;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            background: rgba(0, 102, 204, 0.1);
+            border-radius: 12px;
+        }
+        .branch-modal-footer {
+            padding: 1rem 2rem;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .branch-modal-close-footer {
+            padding: 0.6rem 1.5rem;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .branch-modal-close-footer:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+    <div class="scorecard-nav-loader-overlay" id="scorecardNavLoader" aria-hidden="true">
+        <div class="scorecard-nav-loader-card" role="status" aria-live="polite">
+            <div class="scorecard-nav-loader-badge"><span class="scorecard-nav-loader-dot"></span><span id="scorecardNavLoaderBadge">Opening scorecard workspace</span></div>
+            <p class="scorecard-nav-loader-title" id="scorecardNavLoaderTitle">Loading scorecard page</p>
+            <p class="scorecard-nav-loader-copy" id="scorecardNavLoaderCopy">Preparing the selected scorecard area inside the current workspace.</p>
+            <div class="scorecard-nav-loader-progress" aria-hidden="true"></div>
+        </div>
+    </div>
+
+    <div id="branch-switch-modal" class="branch-modal-overlay">
+        <div class="branch-modal-content">
+            <div class="branch-modal-header">
+            <h2>&#127963; Select Branch</h2>
+            <button class="branch-modal-close-btn" id="close-branch-modal-header" aria-label="Close">&times;</button>
+            </div>
+            <div class="branch-modal-body">
+                <div class="branch-list">
+                    {% if can_switch_scorecard_branch %}
+                        <div class="branch-select-item {% if all_branches_selected %}current{% endif %}"
+                             data-all-branches="true"
+                             data-branch-id=""
+                             data-branch-code="__ALL__"
+                             data-branch-name="ALL ASSIGNED BRANCHES"
+                             data-bank-name="">
+                            <div class="branch-name">
+                                <span>&#127760;</span>
+                                <span>All Assigned Branches</span>
+                            </div>
+                            <div class="branch-bank">Combined view across your assigned branches</div>
+                            <div class="branch-code">Scope: Assigned branches only</div>
+                            {% if all_branches_selected %}
+                                <div class="branch-current-badge">
+                                    <span>&#10003;</span>
+                                    <span>Current Branch</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    {% for branch in accessible_branches %}
+                        <div class="branch-select-item {% if not all_branches_selected and current_branch and current_branch.id == branch.id %}current{% endif %}" 
+                             data-branch-id="{{ branch.id }}"
+                             data-branch-code="{{ branch.branch_code }}"
+                             data-branch-name="{{ branch.branch_name }}"
+                             data-bank-name="{{ branch.bank_name }}">
+                            <div class="branch-name">
+                    <span>&#127970;</span>
+                                <span>{{ branch.branch_name }}</span>
+                            </div>
+                            <div class="branch-bank">{{ branch.bank_name }}</div>
+                            <div class="branch-code">Code: {{ branch.branch_code }}</div>
+                            {% if not all_branches_selected and current_branch and current_branch.id == branch.id %}
+                                <div class="branch-current-badge">
+                    <span>&#10003;</span>
+                                    <span>Current Branch</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="branch-modal-footer">
+                <button class="branch-modal-close-footer" id="close-branch-modal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Branch switching functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const navLoaderOverlay = document.getElementById('scorecardNavLoader');
+            const navLoaderBadge = document.getElementById('scorecardNavLoaderBadge');
+            const navLoaderTitle = document.getElementById('scorecardNavLoaderTitle');
+            const navLoaderCopy = document.getElementById('scorecardNavLoaderCopy');
+            const viewAnotherBranch = document.getElementById('view-another-branch');
+            const branchModal = document.getElementById('branch-switch-modal');
+            const closeModal = document.getElementById('close-branch-modal');
+            const closeModalHeader = document.getElementById('close-branch-modal-header');
+            const branchItems = document.querySelectorAll('.branch-select-item');
+
+            function hideScorecardNavLoader() {
+                if (!navLoaderOverlay) {
+                    return;
+                }
+                navLoaderOverlay.classList.remove('active');
+                navLoaderOverlay.setAttribute('aria-hidden', 'true');
+                document.body.style.cursor = '';
+            }
+
+            function showScorecardNavLoader(config) {
+                if (!navLoaderOverlay || !navLoaderTitle || !navLoaderCopy || !navLoaderBadge) {
+                    return;
+                }
+                navLoaderBadge.textContent = config.badge;
+                navLoaderTitle.textContent = config.title;
+                navLoaderCopy.textContent = config.copy;
+                navLoaderOverlay.classList.add('active');
+                navLoaderOverlay.setAttribute('aria-hidden', 'false');
+                document.body.style.cursor = 'progress';
+            }
+
+            function scorecardLoaderConfigForLink(link) {
+                const href = (link.getAttribute('href') || '').trim();
+                const textLabel = (link.textContent || '').replace(/\s+/g, ' ').trim();
+                const pathname = href.split('?')[0];
+                const definitions = [
+                    { match: ['/scorecard/scorecard_dashboard/'], badge: 'Opening dashboard', title: 'Loading Scorecard Dashboard', copy: 'Preparing customer, score, document, and workflow statistics inside the current workspace.' },
+
+                    { match: ['/scorecard/customers/without-questionnaires/'], badge: 'Opening customers', title: 'Loading Customers Without Basel II Scores', copy: 'Preparing the branch customer population that still needs Basel II scoring.' },
+                    { match: ['/scorecard/customers/without-ifrs9/'], badge: 'Opening customers', title: 'Loading Customers Without IFRS9 Score Forms', copy: 'Preparing the branch customer population that still needs IFRS9 score forms.' },
+                    { match: ['/scorecard/customers/add/'], badge: 'Opening customers', title: 'Loading Add Customer', copy: 'Preparing the customer capture form inside the current scorecard workspace.' },
+                    { match: ['/scorecard/customers/'], badge: 'Opening customers', title: 'Loading Customer Workspace', copy: 'Preparing customer registers, summaries, and branch-specific customer records.' },
+
+                    { match: ['/scorecard/basel-scores/customer-versions/'], badge: 'Opening Basel II scores', title: 'Loading Basel II Customer Versions', copy: 'Preparing Basel II version history and customer evaluation snapshots.' },
+                    { match: ['/scorecard/basel-scores/submitted/'], badge: 'Opening Basel II scores', title: 'Loading Basel II Submitted Scores', copy: 'Preparing submitted Basel II score forms, grades, and workflow status inside the current workspace.' },
+                    { match: ['/scorecard/basel-scores/drafts/'], badge: 'Opening Basel II scores', title: 'Loading Basel II Draft Scores', copy: 'Preparing draft Basel II score forms, saved progress, and template assignments.' },
+                    { match: ['/scorecard/basel-scores/template-select/'], badge: 'Opening Basel II scores', title: 'Loading New Basel II Score', copy: 'Preparing the Basel II score form entry point and available approved templates.' },
+                    { match: ['/scorecard/basel-scores/'], badge: 'Opening Basel II scores', title: 'Loading Basel II Score Forms', copy: 'Preparing the Basel II scoring workspace inside the current scorecard window.' },
+
+                    { match: ['/scorecard/ifrs9-scores/customer-versions/'], badge: 'Opening IFRS9 scores', title: 'Loading IFRS9 Customer Versions', copy: 'Preparing IFRS9 version history and customer evaluation snapshots.' },
+                    { match: ['/scorecard/ifrs9-scores/submitted/'], badge: 'Opening IFRS9 scores', title: 'Loading IFRS9 Submitted Score Forms', copy: 'Preparing submitted IFRS9 score forms, workflow status, and weighted results.' },
+                    { match: ['/scorecard/ifrs9-scores/drafts/'], badge: 'Opening IFRS9 scores', title: 'Loading IFRS9 Draft Score Forms', copy: 'Preparing draft IFRS9 score forms, saved progress, and template assignments.' },
+                    { match: ['/scorecard/ifrs9-scores/template-select/'], badge: 'Opening IFRS9 scores', title: 'Loading New IFRS9 Score Form', copy: 'Preparing the IFRS9 score form entry point and available approved templates.' },
+                    { match: ['/scorecard/ifrs9-scores/'], badge: 'Opening IFRS9 scores', title: 'Loading IFRS9 Score Forms', copy: 'Preparing the IFRS9 score form workspace inside the current scorecard window.' },
+
+                    { match: ['/scorecard/basel/templates/'], badge: 'Opening Basel II templates', title: 'Loading Basel II Templates', copy: 'Preparing Basel II template registers, workflow status, and template configuration tools.' },
+                    { match: ['/scorecard/ifrs9/templates/'], badge: 'Opening IFRS9 templates', title: 'Loading IFRS9 PD Templates', copy: 'Preparing IFRS9 PD templates, workflow state, and configuration tools.' },
+
+                    { match: ['/scorecard/maker/ifrs9-scores/submitted/'], badge: 'Opening maker workspace', title: 'Loading IFRS9 Score Form Submissions', copy: 'Preparing submitted IFRS9 score forms awaiting maker follow-up and review visibility.' },
+                    { match: ['/scorecard/maker/ifrs9-scores/drafts/'], badge: 'Opening maker workspace', title: 'Loading IFRS9 Score Form Drafts', copy: 'Preparing draft IFRS9 score forms and completion progress inside the maker workspace.' },
+                    { match: ['/scorecard/maker/ifrs9/templates/submitted/'], badge: 'Opening maker workspace', title: 'Loading IFRS9 Template Submissions', copy: 'Preparing submitted IFRS9 template workflow items for maker follow-up.' },
+                    { match: ['/scorecard/maker/ifrs9/templates/drafts/'], badge: 'Opening maker workspace', title: 'Loading IFRS9 Template Drafts', copy: 'Preparing draft IFRS9 template workflow items inside the maker workspace.' },
+                    { match: ['/scorecard/maker/templates/submitted/'], badge: 'Opening maker workspace', title: 'Loading Basel Template Submissions', copy: 'Preparing submitted Basel template workflow items for maker follow-up.' },
+                    { match: ['/scorecard/maker/templates/drafts/'], badge: 'Opening maker workspace', title: 'Loading Basel Template Drafts', copy: 'Preparing Basel template drafts inside the maker workspace.' },
+                    { match: ['/scorecard/maker/submitted/'], badge: 'Opening maker workspace', title: 'Loading Basel Score Submissions', copy: 'Preparing submitted Basel II scores and workflow status for maker follow-up.' },
+                    { match: ['/scorecard/maker/drafts/'], badge: 'Opening maker workspace', title: 'Loading Basel Score Drafts', copy: 'Preparing draft Basel II scores and completion progress inside the maker workspace.' },
+                    { match: ['/scorecard/maker/'], badge: 'Opening maker workspace', title: 'Loading Maker Worklists', copy: 'Preparing draft, submitted, and template maker queues inside the current workspace.' },
+
+                    { match: ['/scorecard/checker/ifrs9-scores/pending/'], badge: 'Opening checker workspace', title: 'Loading IFRS9 Score Forms Pending Review', copy: 'Preparing IFRS9 score forms waiting for checker review in the current branch workspace.' },
+                    { match: ['/scorecard/checker/ifrs9/templates/pending/'], badge: 'Opening checker workspace', title: 'Loading IFRS9 Template Pending Review', copy: 'Preparing IFRS9 template workflow items waiting for checker review.' },
+                    { match: ['/scorecard/checker/templates/pending/'], badge: 'Opening checker workspace', title: 'Loading Basel Template Pending Review', copy: 'Preparing Basel template workflow items waiting for checker review.' },
+                    { match: ['/scorecard/checker/pending/'], badge: 'Opening checker workspace', title: 'Loading Basel Scores Pending Review', copy: 'Preparing Basel II scores waiting for checker review in the current branch workspace.' },
+                    { match: ['/scorecard/checker/my-approvals/'], badge: 'Opening checker workspace', title: 'Loading My Approvals', copy: 'Preparing Basel and IFRS9 scores plus template approvals completed by you.' },
+                    { match: ['/scorecard/checker/ifrs9-supporting-data/'], badge: 'Opening supporting data', title: 'Loading IFRS9 Supporting Data', copy: 'Preparing supporting registers, collateral, payment data, and branch loan summaries.' },
+                    { match: ['/scorecard/ifrs9-results/results-extract/'], badge: 'Opening IFRS9 results', title: 'Loading Results Extract', copy: 'Preparing the latest-run IFRS9 reporting extract for the selected reporting date and branch scope.' },
+                    { match: ['/scorecard/ifrs9-results/ecl-summary/'], badge: 'Opening IFRS9 results', title: 'Loading ECL Summary Report', copy: 'Preparing the latest-run IFRS9 ECL summary for the selected reporting date and branch scope.' },
+                    { match: ['/scorecard/ifrs9-results/'], badge: 'Opening IFRS9 results', title: 'Loading IFRS9 Results', copy: 'Preparing IFRS9 results workspaces and reporting dates for the assigned branch scope.' },
+                    { match: ['/scorecard/checker/'], badge: 'Opening checker workspace', title: 'Loading Checker Worklists', copy: 'Preparing pending score and template reviews for the current branch workspace.' },
+
+                    { match: ['/scorecard/scorecard/documents/scorecard/'], badge: 'Opening documents', title: 'Loading Scorecard Documents', copy: 'Preparing uploaded scorecard reference documents inside the current workspace.' },
+                    { match: ['/scorecard/scorecard/documents/'], badge: 'Opening documents', title: 'Loading Evaluation Documents', copy: 'Preparing Basel and IFRS9 evaluation documents inside the current workspace.' },
+
+                    { match: ['/scorecard/notifications/'], badge: 'Opening notifications', title: 'Loading Notifications', copy: 'Preparing scorecard notifications, unread counts, and recent workflow alerts.' },
+
+                    { match: ['/scorecard/settings/permissions/audit/'], badge: 'Opening settings', title: 'Loading Audit Trail', copy: 'Preparing scorecard activity history, filter options, and audit exports.' },
+                    { match: ['/scorecard/settings/workflow/'], badge: 'Opening settings', title: 'Loading Workflow Approvals', copy: 'Preparing scorecard workflow approval settings and automatic approval rules.' },
+                    { match: ['/scorecard/settings/permissions/matrix/'], badge: 'Opening settings', title: 'Loading Permission Matrix', copy: 'Preparing the scorecard permission matrix and access review tools.' },
+                    { match: ['/scorecard/settings/permissions/users/'], badge: 'Opening settings', title: 'Loading User Roles', copy: 'Preparing scorecard role assignments, permissions, and branch access settings.' },
+                    { match: ['/scorecard/settings/permissions/'], badge: 'Opening settings', title: 'Loading Settings Workspace', copy: 'Preparing scorecard settings, role management, and governance tools.' },
+                    { match: ['/scorecard/branches/master/'], badge: 'Opening settings', title: 'Loading Branch Master', copy: 'Preparing branch master records and branch synchronization tools.' },
+                    { match: ['/scorecard/email/configuration/'], badge: 'Opening settings', title: 'Loading Email Configuration', copy: 'Preparing scorecard email settings, sender rules, and delivery options.' },
+                    { match: ['/scorecard/email/templates/'], badge: 'Opening settings', title: 'Loading Email Templates', copy: 'Preparing configurable scorecard email templates and notification wording.' },
+                    { match: ['/scorecard/email/delivery/'], badge: 'Opening settings', title: 'Loading Email Delivery', copy: 'Preparing email delivery activity, retries, and scorecard message history.' },
+
+                    { match: ['/scorecard/imports/'], badge: 'Opening imports', title: 'Loading External Imports', copy: 'Preparing file uploads, import tools, and data loading actions.' },
+
+                    { match: ['/scorecard/api/'], badge: 'Opening API workspace', title: 'Loading API Workspace', copy: 'Preparing endpoints, schedules, sync tools, and import operations inside the scorecard window.' },
+                ];
+                for (const definition of definitions) {
+                    if (definition.match.some(function (fragment) { return pathname.indexOf(fragment) !== -1; })) {
+                        return definition;
+                    }
+                }
+                return {
+                    badge: 'Opening scorecard workspace',
+                    title: textLabel ? `Loading ${textLabel}` : 'Loading Scorecard Page',
+                    copy: 'Preparing the selected scorecard area inside the current workspace.',
+                };
+            }
+
+            function shouldHandleScorecardNavLink(link, event) {
+                if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                    return false;
+                }
+                if (link.dataset.noNavLoader === '1') {
+                    return false;
+                }
+                const href = (link.getAttribute('href') || '').trim();
+                if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+                    return false;
+                }
+                if (link.hasAttribute('download') || href.indexOf('/export/') !== -1 || href.indexOf('/download/') !== -1 || href.indexOf('download=') !== -1) {
+                    return false;
+                }
+                const target = (link.getAttribute('target') || '').trim().toLowerCase();
+                if (target && target !== '_self') {
+                    return false;
+                }
+                try {
+                    const parsed = new URL(href, window.location.origin);
+                    if (parsed.origin !== window.location.origin) {
+                        return false;
+                    }
+                    if (!parsed.pathname.startsWith('/scorecard/')) {
+                        return false;
+                    }
+                    if (parsed.pathname === window.location.pathname && parsed.search === window.location.search) {
+                        return false;
+                    }
+                    return true;
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            document.addEventListener('click', function (event) {
+                const link = event.target.closest('a[href]');
+                if (!link) {
+                    return;
+                }
+                if (!shouldHandleScorecardNavLink(link, event)) {
+                    return;
+                }
+                showScorecardNavLoader(scorecardLoaderConfigForLink(link));
+            }, true);
+
+            window.addEventListener('pageshow', hideScorecardNavLoader);
+            window.addEventListener('load', hideScorecardNavLoader);
+
+            // Function to show success message
+            function showSuccessMessage(message) {
+                // Create message element
+                const messageDiv = document.createElement('div');
+                messageDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #28a745; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10001; display: flex; align-items: center; gap: 0.75rem; font-size: 0.95rem; font-weight: 500; animation: slideInRight 0.3s ease; max-width: 400px;';
+                messageDiv.innerHTML = '<span style="font-size: 1.2rem;">&#10003;</span><span>' + message + '</span>';
+                
+                // Add animation
+                const style = document.createElement('style');
+                style.textContent = '@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }';
+                document.head.appendChild(style);
+                
+                document.body.appendChild(messageDiv);
+                
+                // Remove after 3 seconds
+                setTimeout(function() {
+                    messageDiv.style.animation = 'slideInRight 0.3s ease reverse';
+                    setTimeout(function() {
+                        if (messageDiv.parentNode) {
+                            messageDiv.parentNode.removeChild(messageDiv);
+                        }
+                    }, 300);
+                }, 3000);
+            }
+
+            // Function to close modal
+            function closeModalFunc() {
+                if (branchModal) {
+                    branchModal.style.display = 'none';
+                }
+            }
+
+            // Open modal when "View Another Branch" is clicked
+            if (viewAnotherBranch) {
+                viewAnotherBranch.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (branchModal) {
+                        branchModal.style.display = 'flex';
+                    }
+                });
+            }
+
+            // Close modal buttons
+            if (closeModal) {
+                closeModal.addEventListener('click', closeModalFunc);
+            }
+            if (closeModalHeader) {
+                closeModalHeader.addEventListener('click', closeModalFunc);
+            }
+
+            // Close modal when clicking outside
+            if (branchModal) {
+                branchModal.addEventListener('click', function(e) {
+                    if (e.target === branchModal) {
+                        closeModalFunc();
+                    }
+                });
+            }
+
+            // Close modal on Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && branchModal && branchModal.style.display === 'flex') {
+                    closeModalFunc();
+                }
+            });
+
+            // Handle branch selection
+            branchItems.forEach(function(item) {
+                item.addEventListener('click', function() {
+                    const allBranches = this.dataset.allBranches === 'true';
+                    const branchId = this.dataset.branchId;
+                    const branchCode = this.dataset.branchCode;
+                    const branchName = this.dataset.branchName;
+                    const bankName = this.dataset.bankName;
+                    
+                    // Don't switch if it's already the current branch
+                    {% if all_branches_selected %}
+                    if (allBranches) {
+                        closeModalFunc();
+                        return;
+                    }
+                    {% elif current_branch %}
+                    if (!allBranches && branchId === '{{ current_branch.id }}') {
+                        closeModalFunc();
+                        return;
+                    }
+                    {% endif %}
+                    {% if current_branch and not all_branches_selected %}
+                    if (branchId === '{{ current_branch.id }}') {
+                        closeModalFunc();
+                        return;
+                    }
+                    {% endif %}
+
+                    // Show loading state
+                    const originalContent = this.innerHTML;
+                    this.style.opacity = '0.6';
+                    this.style.cursor = 'wait';
+                    this.innerHTML = '<div style="text-align: center; padding: 0.5rem;">Switching...</div>';
+
+                    // Switch branch via AJAX
+                    const formData = new FormData();
+                    formData.append('all_branches', allBranches ? '1' : '0');
+                    formData.append('branch_id', branchId);
+                    formData.append('branch_code', branchCode);
+                    formData.append('branch_name', branchName);
+                    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+                    fetch('{% url "scorecard:switch_branch" %}', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Show success message
+                            const successLabel = allBranches ? 'All Assigned Branches' : (branchName + (bankName ? ' (' + bankName + ')' : ''));
+                            showSuccessMessage('Branch switched to ' + successLabel);
+                            
+                            // Close modal
+                            closeModalFunc();
+                            
+                            // Reload the page after a short delay to show the message
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 500);
+                        } else {
+                            // Restore original content
+                            this.innerHTML = originalContent;
+                            this.style.opacity = '1';
+                            this.style.cursor = 'pointer';
+                            
+                            alert('Error switching branch: ' + (data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        // Restore original content
+                        this.innerHTML = originalContent;
+                        this.style.opacity = '1';
+                        this.style.cursor = 'pointer';
+                        
+                        console.error('Error:', error);
+                        alert('Error switching branch. Please try again.');
+                    });
+                });
+            });
+
+            const liveBadgeUrl = '{% url "scorecard:badge_counts" %}';
+            let liveBadgeRequestInFlight = false;
+            let liveCustomerBadgeRequestInFlight = false;
+
+            function liveBadgeValue(payload, path) {
+                return path.split('.').reduce(function(value, key) {
+                    return value && Object.prototype.hasOwnProperty.call(value, key) ? value[key] : 0;
+                }, payload);
+            }
+
+            function applyLiveBadgeCounts(payload) {
+                document.querySelectorAll('[data-live-badge]').forEach(function(badge) {
+                    const value = Number(liveBadgeValue(payload, badge.dataset.liveBadge)) || 0;
+                    const keepZeroVisible = badge.classList.contains('section-subnav-badge');
+                    badge.textContent = String(value);
+                    badge.classList.toggle('muted', value === 0);
+                    badge.hidden = value === 0 && !keepZeroVisible;
+                    badge.setAttribute('aria-label', value + ' items');
+                });
+            }
+
+            function refreshLiveBadgeCounts() {
+                if (liveBadgeRequestInFlight || document.visibilityState === 'hidden') {
+                    return;
+                }
+                liveBadgeRequestInFlight = true;
+                fetch(liveBadgeUrl, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    cache: 'no-store'
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Badge refresh failed');
+                    }
+                    return response.json();
+                })
+                .then(applyLiveBadgeCounts)
+                .catch(function() {
+                    // Keep the last known counts; the next interval retries quietly.
+                })
+                .finally(function() {
+                    liveBadgeRequestInFlight = false;
+                });
+            }
+
+            function refreshLiveCustomerBadgeCounts() {
+                if (liveCustomerBadgeRequestInFlight || document.visibilityState === 'hidden') {
+                    return;
+                }
+                liveCustomerBadgeRequestInFlight = true;
+                fetch(liveBadgeUrl + '?customers=1', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    cache: 'no-store'
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Customer badge refresh failed');
+                    }
+                    return response.json();
+                })
+                .then(applyLiveBadgeCounts)
+                .catch(function() {
+                    // The fast queue refresh continues while a customer recount retries later.
+                })
+                .finally(function() {
+                    liveCustomerBadgeRequestInFlight = false;
+                });
+            }
+
+            refreshLiveBadgeCounts();
+            refreshLiveCustomerBadgeCounts();
+            window.setInterval(refreshLiveBadgeCounts, 4000);
+            window.setInterval(refreshLiveCustomerBadgeCounts, 15000);
+            window.addEventListener('focus', function() {
+                refreshLiveBadgeCounts();
+                refreshLiveCustomerBadgeCounts();
+            });
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    refreshLiveBadgeCounts();
+                    refreshLiveCustomerBadgeCounts();
+                }
+            });
+        });
+    </script>
+    {% endif %}
+    </div>
+    {% include "users/includes/form_submit_guard.html" %}
+</body>
+</html>
+
+

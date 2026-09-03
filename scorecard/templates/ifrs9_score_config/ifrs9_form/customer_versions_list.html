@@ -1,0 +1,275 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Customer Versions{% endblock %}
+{% block header_title %}Versions for Customer{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .table-container {
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    .table-header-section {
+        padding: 1rem 1.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: center;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    .toolbar form {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    .toolbar input,
+    .toolbar select {
+        padding: 0.55rem 0.75rem;
+        border: 1px solid #cfd8e3;
+        border-radius: 4px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .customer-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        padding: 1rem 1.5rem;
+        transition: box-shadow 0.2s ease;
+    }
+    .customer-card:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .customer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .customer-info {
+        flex: 1;
+    }
+    .customer-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .customer-details {
+        font-size: 0.9rem;
+        color: #666;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .evaluations-list {
+        margin-top: 0.75rem;
+    }
+    .evaluation-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background: #f9f9f9;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        border-left: 3px solid #0066cc;
+    }
+    .evaluation-info {
+        flex: 1;
+    }
+    .evaluation-title {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+        font-size: 0.95rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .evaluation-meta {
+        font-size: 0.85rem;
+        color: #666;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .evaluation-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #666;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    .status-approved {
+        color: #28a745;
+        font-weight: 600;
+    }
+    .status-submitted,
+    .status-returned {
+        color: #ff9800;
+        font-weight: 600;
+    }
+    .pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .pagination-links {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+</style>
+
+<div class="page-header">
+    <h1 class="page-title">Versions for Customer</h1>
+</div>
+
+<div class="table-container">
+    <div class="table-header-section">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2 style="margin: 0; font-size: 1.1rem; color: #333; font-family: 'Calibri', sans-serif;">Customers with IFRS9 Score Form Versions</h2>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #666; font-family: 'Calibri', sans-serif;">
+                    Select a customer to view all their IFRS9 score form versions
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div style="padding: 1.5rem;">
+        <div class="toolbar">
+            <form method="get">
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Search customer or branch">
+                <select name="page_size" onchange="this.form.submit()">
+                    <option value="20" {% if page_size == 20 %}selected{% endif %}>20 per page</option>
+                    <option value="50" {% if page_size == 50 %}selected{% endif %}>50 per page</option>
+                    <option value="100" {% if page_size == 100 %}selected{% endif %}>100 per page</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Apply</button>
+            </form>
+        </div>
+
+        {% if customers %}
+            {% for customer_data in customers %}
+            <div class="customer-card">
+                <div class="customer-header">
+                    <div class="customer-info">
+                        <div class="customer-name">
+                            {{ customer_data.customer_name|default:"-" }}
+                        </div>
+                        <div class="customer-details">
+                            Customer ID: {{ customer_data.customer_id|default:"-" }} |
+                            Branch: {{ customer_data.branch_name|default:"-" }} |
+                            Evaluations: {{ customer_data.evaluation_count }} |
+                            Versions: {{ customer_data.version_total }}
+                        </div>
+                    </div>
+                </div>
+                <div class="evaluations-list">
+                    {% for evaluation in customer_data.evaluations %}
+                    <div class="evaluation-item">
+                        <div class="evaluation-info">
+                            <div class="evaluation-title">
+                                {{ evaluation.template.name }} ({{ evaluation.template.code }})
+                            </div>
+                            <div class="evaluation-meta">
+                                Created: {{ evaluation.created_at|date:"Y-m-d H:i" }} |
+                                Status:
+                                {% if evaluation.status == 'approved' %}
+                                    <span class="status-approved">Approved</span>
+                                {% elif evaluation.status == 'submitted' %}
+                                    <span class="status-submitted">Submitted</span>
+                                {% elif evaluation.status == 'returned' %}
+                                    <span class="status-returned">Returned</span>
+                                {% else %}
+                                    {{ evaluation.get_status_display }}
+                                {% endif %}
+                                | Versions: {{ evaluation.version_count }}
+                            </div>
+                        </div>
+                        <div class="evaluation-actions">
+                            <a href="{% url 'scorecard:ifrs9_customer_evaluation_versions' evaluation_id=evaluation.id %}" class="btn btn-primary">
+                                View Versions
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">Records</div>
+                <h3 style="margin: 0 0 0.5rem 0; color: #333;">No Customers Found</h3>
+                <p style="margin: 0; color: #666;">No customers with IFRS9 score form versions found in your branch.</p>
+            </div>
+        {% endif %}
+
+        {% if page_obj %}
+        <div class="pagination">
+            <div>
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} |
+                {{ page_obj.paginator.count }} customer{{ page_obj.paginator.count|pluralize }}
+            </div>
+            <div class="pagination-links">
+                {% if page_obj.has_previous %}
+                <a class="btn" href="?page=1{% if list_query_string %}&{{ list_query_string }}{% endif %}">First</a>
+                <a class="btn" href="?page={{ page_obj.previous_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}">Previous</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a class="btn" href="?page={{ page_obj.next_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}">Next</a>
+                <a class="btn" href="?page={{ page_obj.paginator.num_pages }}{% if list_query_string %}&{{ list_query_string }}{% endif %}">Last</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

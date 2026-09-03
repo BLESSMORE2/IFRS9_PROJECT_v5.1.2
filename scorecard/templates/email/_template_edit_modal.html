@@ -1,0 +1,52 @@
+<div class="email-modal-header">
+    <div>
+        <h3 class="email-modal-title">Update Email Template</h3>
+        <p class="email-modal-subtitle">
+            You're updating <strong>{{ editing_template.name }}</strong>. The event stays fixed, and you can adjust the wording here.
+        </p>
+    </div>
+    <button type="button" class="email-modal-close js-email-template-modal-close" aria-label="Close">×</button>
+</div>
+<div class="email-modal-content">
+    <form method="post" id="email-template-modal-form" action="{% url 'scorecard:email_templates' %}?edit={{ editing_template.event_code }}">
+        {% csrf_token %}
+        <input type="hidden" name="template_id" value="{{ editing_template.id }}">
+        <div class="email-form-grid">
+            <div class="email-field">
+                <label for="{{ template_form.event_code.id_for_label }}">Event Code</label>
+                {{ template_form.event_code }}
+            </div>
+            <div class="email-field">
+                <label for="{{ template_form.name.id_for_label }}">Template Name</label>
+                {{ template_form.name }}
+            </div>
+            <div class="email-field full">
+                <label for="{{ template_form.description.id_for_label }}">Description</label>
+                {{ template_form.description }}
+            </div>
+            <div class="email-field email-checkbox-field">
+                {{ template_form.is_enabled }}
+                <label for="{{ template_form.is_enabled.id_for_label }}">Enable this email template</label>
+            </div>
+            <div class="email-field full">
+                <label for="{{ template_form.subject_template.id_for_label }}">Subject Template</label>
+                {{ template_form.subject_template }}
+                {{ template_form.subject_template.errors }}
+            </div>
+            <div class="email-field full">
+                <label for="{{ template_form.text_body_template.id_for_label }}">Plain Text Body</label>
+                {{ template_form.text_body_template }}
+                {{ template_form.text_body_template.errors }}
+            </div>
+            <div class="email-field full">
+                <label for="{{ template_form.html_body_template.id_for_label }}">HTML Body</label>
+                {{ template_form.html_body_template }}
+                {{ template_form.html_body_template.errors }}
+            </div>
+        </div>
+        <div class="email-button-row">
+            <button type="submit" name="save_template" class="email-button primary">Update Email Template</button>
+            <button type="button" class="email-button secondary js-email-template-modal-close">Cancel</button>
+        </div>
+    </form>
+</div>

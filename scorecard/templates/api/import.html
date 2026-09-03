@@ -1,0 +1,774 @@
+{% extends "api/base.html" %}
+
+{% block title %}Import Data{% endblock %}
+{% block api_title %}Import Data{% endblock %}
+{% block api_intro %}Load data from the selected endpoint into the target table already configured on the saved endpoint. The import uses only the parameters linked to that endpoint.{% endblock %}
+{% block api_summary_section %}{% endblock %}
+
+{% block api_body %}
+<div class="api-layout-two">
+    <div class="api-panel">
+        <h2>Import Using Saved Endpoint</h2>
+        <p>Select a saved endpoint, confirm the parameters, then load the data into the configured destination table.</p>
+        <form method="post" id="api-import-form">
+            {% csrf_token %}
+            <div class="api-form-grid">
+                {% for field in form %}
+                    <div class="api-field {% if field.name == 'extra_query_string' %}full{% endif %}">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {{ field.errors }}
+                        {% if field.help_text %}
+                            <small>{{ field.help_text }}</small>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            {% if selected_endpoint %}
+                <div class="api-message" style="margin-top:1rem;">
+                    Target table: <strong>{{ selected_endpoint.get_target_table_display }}</strong><br>
+                    Parameters used:
+                    {% for parameter in selected_endpoint.parameters.all %}
+                        <strong>{{ parameter.name }}</strong>{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        none
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <div class="api-button-row">
+                <button type="submit" name="action" value="import" class="api-button primary" id="import-data-button"{% if not selected_endpoint %} disabled{% endif %}>Load To Table</button>
+            </div>
+        </form>
+        <div id="import-progress-message" class="api-message progress" style="display:none;margin-top:1rem;">
+            Loading data from the API. Please wait while we fetch the records and prepare the result below...
+        </div>
+    </div>
+
+    <div class="api-panel">
+        <h2>Import Notes</h2>
+        <p>The endpoint decides the destination table. Loading pulls all pages and upserts records into the target table.</p>
+        <div class="api-message-list">
+            <div class="api-message">Use <strong>Load To Table</strong> to import all records page by page.</div>
+            <div class="api-message">Corporate endpoints load into <code>CustomerCorporate</code>. Individual endpoints load into <code>CustomerIndividual</code>.</div>
+            <div class="api-message">Preview and imported values are normalized before saving, so the data stored in the target table follows the same cleaning rules shown across the API module.</div>
+            <div class="api-message">Because the schema requires it, the backend maintains the linked <code>Customer</code> row automatically in the background.</div>
+        </div>
+    </div>
+</div>
+
+<div class="api-panel api-result-panel" id="import-progress-panel" style="display:none;">
+    <h2>Import Progress</h2>
+    <p id="import-progress-copy">The import is running. Progress updates will appear below as each API page is completed.</p>
+    <div class="api-code-box" id="import-progress-log" style="max-height:320px;overflow:auto;">Waiting for the import to start...</div>
+</div>
+
+<div id="import-live-result"></div>
+
+{% if import_error %}
+    <div class="api-panel api-result-panel">
+        <h2>Import Challenge</h2>
+        <p>The data load could not complete. Review the details below and correct the issue before trying again.</p>
+        <div class="api-code-box">{{ import_error }}</div>
+    </div>
+{% endif %}
+
+{% if import_stats %}
+    <div class="api-panel api-result-panel">
+        <h2>Import Completed</h2>
+        <p>The data load finished and the summary below shows the outcome for the selected endpoint.</p>
+        <div class="api-summary">
+            <div class="api-summary-card">
+                <div class="api-summary-label">Total Loaded</div>
+                <div class="api-summary-value">{{ import_stats.created|add:import_stats.updated }}</div>
+                <div class="api-summary-subtext">Records successfully written into the target table.</div>
+            </div>
+            <div class="api-summary-card">
+                <div class="api-summary-label">Fetched</div>
+                <div class="api-summary-value">{{ import_stats.fetched }}</div>
+                <div class="api-summary-subtext">Rows received from the API.</div>
+            </div>
+            <div class="api-summary-card">
+                <div class="api-summary-label">Created</div>
+                <div class="api-summary-value">{{ import_stats.created }}</div>
+                <div class="api-summary-subtext">New records inserted into the target table.</div>
+            </div>
+            <div class="api-summary-card">
+                <div class="api-summary-label">Updated</div>
+                <div class="api-summary-value">{{ import_stats.updated }}</div>
+                <div class="api-summary-subtext">Existing records refreshed using the unique key.</div>
+            </div>
+            <div class="api-summary-card">
+                <div class="api-summary-label">Unchanged</div>
+                <div class="api-summary-value">{{ import_stats.unchanged }}</div>
+                <div class="api-summary-subtext">Existing records that already matched the API data and did not need writing.</div>
+            </div>
+            <div class="api-summary-card">
+                <div class="api-summary-label">Failed / Skipped</div>
+                <div class="api-summary-value">{{ import_stats.skipped }}</div>
+                <div class="api-summary-subtext">Rows not loaded because required fields were missing or the API repeated the same client code.</div>
+            </div>
+            <div class="api-summary-card">
+                <div class="api-summary-label">Target</div>
+                <div class="api-summary-value">{{ selected_endpoint.get_target_table_display }}</div>
+                <div class="api-summary-subtext">Destination used for this import.</div>
+            </div>
+            <div class="api-summary-card">
+                <div class="api-summary-label">Status</div>
+                <div class="api-summary-value">{% if import_stats.skipped %}Completed{% else %}Successful{% endif %}</div>
+                <div class="api-summary-subtext">Overall status of the finished load.</div>
+            </div>
+            <div class="api-summary-card">
+                <div class="api-summary-label">Completed At</div>
+                <div class="api-summary-value">{% if import_completed_at %}{{ import_completed_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</div>
+                <div class="api-summary-subtext">Time when the import finished.</div>
+            </div>
+            <div class="api-summary-card">
+                <div class="api-summary-label">Time Taken</div>
+                <div class="api-summary-value">{{ import_duration_display }}</div>
+                <div class="api-summary-subtext">Elapsed time for the full API fetch and database load.</div>
+            </div>
+        </div>
+        <div class="api-message-list" style="margin-top:1rem;">
+            <div class="api-message">The load completed for <strong>{{ selected_endpoint.name }}</strong> into <strong>{{ selected_endpoint.get_target_table_display }}</strong>.</div>
+            {% if import_stats.missing_required_skipped %}
+                <div class="api-message">Missing required fields skipped: <strong>{{ import_stats.missing_required_skipped }}</strong>.</div>
+            {% else %}
+                <div class="api-message">No rows were skipped because of missing required fields.</div>
+            {% endif %}
+            <div class="api-message">Duplicate rows skipped: <strong>{{ import_stats.duplicate_skipped }}</strong>. The import kept one record per repeated client code.</div>
+            <div class="api-message">Unchanged rows: <strong>{{ import_stats.unchanged }}</strong>. These already matched the current database values, so no write was needed.</div>
+            <div class="api-message">Cleaning applied: imported values were normalized to match the saved import data standards.</div>
+            {% if selected_endpoint.parameters.all %}
+                <div class="api-message">
+                    Parameters used:
+                    {% for parameter in selected_endpoint.parameters.all %}
+                        <strong>{{ parameter.name }}</strong>{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% if import_failure_details.samples %}
+                <div class="api-message">
+                    Failure detail samples:
+                    {% for sample in import_failure_details.samples %}
+                        <br><strong>{{ forloop.counter }}.</strong> {{ sample.reason }} | Client: {{ sample.client_code }}{% if sample.detail %} | {{ sample.detail }}{% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        {% if preview_text %}
+        {% endif %}
+    </div>
+{% endif %}
+
+<div class="api-panel api-result-panel">
+    <h2>History</h2>
+    <p>Recent import runs are kept here for audit, troubleshooting, and follow-up on skipped rows.</p>
+    <div class="api-table-section-header">
+        <div></div>
+        <div class="api-table-controls">
+            <form method="get">
+                {% if selected_endpoint %}
+                    <input type="hidden" name="endpoint" value="{{ selected_endpoint.id }}">
+                {% endif %}
+                <input type="hidden" name="import_history_page" value="1">
+                <div class="entries-control">
+                    <span>Show</span>
+                    <select name="import_history_per_page" class="entries-select" onchange="this.form.submit()">
+                        <option value="10" {% if import_history_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if import_history_per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if import_history_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if import_history_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                    <span>entries</span>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="api-table-wrap api-table-scroll">
+        <table class="api-table">
+            <thead>
+                <tr>
+                    <th>Started</th>
+                    <th>Endpoint</th>
+                    <th>Source</th>
+                    <th>Status</th>
+                    <th>Target</th>
+                    <th>Fetched</th>
+                    <th>Created</th>
+                    <th>Updated</th>
+                    <th>Unchanged</th>
+                    <th>Skipped</th>
+                    <th>Time</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in import_history_page_obj %}
+                    <tr>
+                        <td>{{ run.started_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ run.endpoint.name }}</td>
+                        <td>{{ run.get_run_source_display }}</td>
+                        <td>
+                            {% if run.status == "success" %}
+                                <span class="api-status success">Success</span>
+                            {% elif run.status == "failed" %}
+                                <span class="api-status failed">Failed</span>
+                            {% elif run.status == "stopped" %}
+                                <span class="api-badge-soft" style="background:#fff5e8;color:#9a6a16;">Stopped</span>
+                            {% elif run.status == "retried" %}
+                                <span class="api-badge-soft" style="background:#eef5ff;color:#1d5d96;">Retried</span>
+                            {% else %}
+                                <span class="api-badge-soft">{{ run.status|title }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ run.target_table|default:"-" }}</td>
+                        <td>{{ run.fetched }}</td>
+                        <td>{{ run.created }}</td>
+                        <td>{{ run.updated }}</td>
+                        <td>{{ run.unchanged }}</td>
+                        <td>{{ run.skipped }}</td>
+                        <td>{% if run.duration_seconds %}{{ run.duration_seconds|floatformat:0 }}s{% else %}-{% endif %}</td>
+                        <td>
+                            <div class="api-action-stack">
+                                <button
+                                    type="button"
+                                    class="api-action-button api-button secondary js-import-history-view"
+                                    data-tooltip="View"
+                                    data-started="{{ run.started_at|date:'Y-m-d H:i:s' }}"
+                                    data-endpoint="{{ run.endpoint.name|escape }}"
+                                    data-source="{{ run.get_run_source_display|escape }}"
+                                    data-status="{{ run.get_status_display|escape }}"
+                                    data-target="{{ run.target_table|default:'-'|escape }}"
+                                    data-completed="{% if run.completed_at %}{{ run.completed_at|date:'Y-m-d H:i:s' }}{% else %}-{% endif %}"
+                                    data-duration="{% if run.duration_seconds %}{{ run.duration_seconds|floatformat:2 }}s{% else %}-{% endif %}"
+                                    data-stats="Fetched {{ run.fetched }}, Created {{ run.created }}, Updated {{ run.updated }}, Unchanged {{ run.unchanged }}, Skipped {{ run.skipped }}"
+                                    data-duplicates="{{ run.duplicate_skipped }}"
+                                    data-missing="{{ run.missing_required_skipped }}"
+                                    data-message="{{ run.failure_message|default:'No failure message recorded.'|escape }}"
+                                    data-failure-details="{{ run.failure_details|default:'{}'|escape }}"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                </button>
+                                {% if run.status == "running" %}
+                                    <button
+                                        type="button"
+                                        class="api-action-button api-button danger js-import-stop"
+                                        data-tooltip="Stop"
+                                        data-run-id="{{ run.id }}"
+                                        data-url="{% url 'scorecard:api_import_stop' run.id %}"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                            <rect x="6" y="6" width="12" height="12" rx="1.5"></rect>
+                                        </svg>
+                                    </button>
+                                {% elif run.status == "failed" or run.status == "stopped" %}
+                                    <button
+                                        type="button"
+                                        class="api-action-button api-button primary js-import-retry"
+                                        data-tooltip="Retry"
+                                        data-run-id="{{ run.id }}"
+                                        data-url="{% url 'scorecard:api_import_retry' run.id %}"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M23 4v6h-6"/>
+                                            <path d="M20.49 15A9 9 0 1 1 17 5.13L23 10"/>
+                                        </svg>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="12">No import history saved yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="api-pagination-bar">
+        <div class="pagination-info">
+            Showing
+            {% if import_history_page_obj and import_history_page_obj.paginator.count %}
+                {{ import_history_page_obj.start_index }} to {{ import_history_page_obj.end_index }} of {{ import_history_page_obj.paginator.count }}
+            {% else %}
+                0 to 0 of 0
+            {% endif %}
+            entries
+        </div>
+        {% if import_history_page_obj and import_history_page_obj.paginator.num_pages > 1 %}
+            <div class="pagination">
+                {% if import_history_page_obj.has_previous %}
+                    <a class="pagination-link" href="?{% if selected_endpoint %}endpoint={{ selected_endpoint.id }}&{% endif %}import_history_page={{ import_history_page_obj.previous_page_number }}&import_history_per_page={{ import_history_per_page }}">Previous</a>
+                {% endif %}
+                {% for num in import_history_page_obj.paginator.page_range %}
+                    {% if num == import_history_page_obj.number %}
+                        <span class="pagination-current">{{ num }}</span>
+                    {% elif num >= import_history_page_obj.number|add:'-2' and num <= import_history_page_obj.number|add:'2' %}
+                        <a class="pagination-link" href="?{% if selected_endpoint %}endpoint={{ selected_endpoint.id }}&{% endif %}import_history_page={{ num }}&import_history_per_page={{ import_history_per_page }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if import_history_page_obj.has_next %}
+                    <a class="pagination-link" href="?{% if selected_endpoint %}endpoint={{ selected_endpoint.id }}&{% endif %}import_history_page={{ import_history_page_obj.next_page_number }}&import_history_per_page={{ import_history_per_page }}">Next</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="api-modal-backdrop" id="importHistoryModal" aria-hidden="true">
+    <div class="api-modal" role="dialog" aria-modal="true" aria-labelledby="importHistoryTitle">
+        <div class="api-modal-header">
+            <div>
+                <h3 class="api-modal-title" id="importHistoryTitle">Import Run Details</h3>
+                <p class="api-modal-subtitle">Review the saved outcome and failure details for this import run.</p>
+            </div>
+            <button type="button" class="api-modal-close" id="importHistoryClose" aria-label="Close">×</button>
+        </div>
+        <div class="api-modal-content">
+            <div class="api-modal-grid">
+                <div class="api-modal-card"><div class="api-modal-label">Started</div><div class="api-modal-value" data-history-field="started">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Completed</div><div class="api-modal-value" data-history-field="completed">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Endpoint</div><div class="api-modal-value" data-history-field="endpoint">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Source</div><div class="api-modal-value" data-history-field="source">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Status</div><div class="api-modal-value" data-history-field="status">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Target</div><div class="api-modal-value" data-history-field="target">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Time Taken</div><div class="api-modal-value" data-history-field="duration">-</div></div>
+                <div class="api-modal-card full"><div class="api-modal-label">Summary</div><div class="api-modal-value" data-history-field="stats">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Duplicate Rows Skipped</div><div class="api-modal-value" data-history-field="duplicates">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Missing Required Skipped</div><div class="api-modal-value" data-history-field="missing">-</div></div>
+                <div class="api-modal-card full"><div class="api-modal-label">Failure Message</div><div class="api-modal-value" data-history-field="message">-</div></div>
+                <div class="api-modal-card full"><div class="api-modal-label">Failure Samples</div><div class="api-code-box" data-history-field="failureSamples">No failure samples recorded.</div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const endpointField = document.getElementById("id_endpoint");
+        const importForm = document.getElementById("api-import-form");
+        const importButton = document.getElementById("import-data-button");
+        const progressMessage = document.getElementById("import-progress-message");
+        const progressPanel = document.getElementById("import-progress-panel");
+        const progressCopy = document.getElementById("import-progress-copy");
+        const progressLog = document.getElementById("import-progress-log");
+        const liveResult = document.getElementById("import-live-result");
+        const historyModal = document.getElementById("importHistoryModal");
+        const historyClose = document.getElementById("importHistoryClose");
+        const runUrl = "{% url 'scorecard:api_import_run' %}";
+        const progressUrl = "{% url 'scorecard:api_import_progress' %}";
+        let pollTimer = null;
+        if (!endpointField) {
+            return;
+        }
+
+        function updateImportButtonState() {
+            if (!importButton) {
+                return;
+            }
+            importButton.disabled = !endpointField.value || importButton.classList.contains("is-loading");
+        }
+
+        function syncImportFormSelection(data) {
+            if (!data) {
+                return;
+            }
+            if (endpointField && data.endpoint_id) {
+                endpointField.value = String(data.endpoint_id);
+            }
+            const parametersUsed = data.parameters_used || {};
+            Object.keys(parametersUsed).forEach(function(key) {
+                if (key === "extra_query_string") {
+                    const extraQueryField = importForm.querySelector('[name="extra_query_string"]');
+                    if (extraQueryField) {
+                        extraQueryField.value = parametersUsed[key] || "";
+                    }
+                    return;
+                }
+                const parameterField = importForm.querySelector(`[data-parameter-name="${key}"]`);
+                if (parameterField) {
+                    parameterField.value = parametersUsed[key] || "";
+                }
+            });
+            updateImportButtonState();
+        }
+
+        endpointField.addEventListener("change", function () {
+            const endpointId = endpointField.value;
+            const baseUrl = "{% url 'scorecard:api_import' %}";
+            if (!endpointId) {
+                window.location.href = baseUrl;
+                return;
+            }
+            window.location.href = `${baseUrl}?endpoint=${encodeURIComponent(endpointId)}`;
+        });
+
+        if (!importForm || !importButton || !progressMessage) {
+            return;
+        }
+
+        function escapeHtml(value) {
+            return String(value || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/\"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function setLoadingState() {
+            importButton.dataset.originalText = importButton.dataset.originalText || importButton.textContent;
+            importButton.disabled = true;
+            importButton.classList.add("is-loading");
+            importButton.textContent = "Loading Data...";
+            progressMessage.textContent = "Loading data from the API and writing it into the target table. Please wait...";
+            progressMessage.style.display = "block";
+            progressPanel.style.display = "block";
+            progressCopy.textContent = "The import is starting. Each completed API page will be logged below.";
+            progressLog.textContent = "Starting import...";
+            liveResult.innerHTML = "";
+        }
+
+        function clearLoadingState() {
+            importButton.disabled = false;
+            importButton.classList.remove("is-loading");
+            importButton.textContent = importButton.dataset.originalText || "Load To Table";
+            updateImportButtonState();
+        }
+
+        function stopPolling() {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        }
+
+        function ensurePollingStarted() {
+            if (pollTimer) {
+                return;
+            }
+            pollTimer = window.setInterval(pollProgressOnce, 1000);
+        }
+
+        function renderProgress(state) {
+            if (!state || !progressPanel || !progressLog || !progressCopy) {
+                return;
+            }
+            progressPanel.style.display = "block";
+            const stats = state.stats || {};
+            const endpointName = state.endpoint_name ? ` for ${state.endpoint_name}` : "";
+            progressCopy.textContent = `${state.message || "Import in progress"}${endpointName} Fetched: ${stats.fetched || 0}, Created: ${stats.created || 0}, Updated: ${stats.updated || 0}, Unchanged: ${stats.unchanged || 0}, Skipped: ${stats.skipped || 0}, Duplicate skipped: ${stats.duplicate_skipped || 0}.`;
+            const logs = Array.isArray(state.logs) && state.logs.length
+                ? state.logs.map(function(log) {
+                    return `[${escapeHtml(log.logged_at || "")}] ${escapeHtml(log.message || "")}`;
+                }).join("\n")
+                : "Waiting for the first completed page...";
+            progressLog.textContent = logs;
+            progressLog.scrollTop = progressLog.scrollHeight;
+        }
+
+        function renderResultCard(label, value, subtext) {
+            return `
+                <div class="api-summary-card">
+                    <div class="api-summary-label">${escapeHtml(label)}</div>
+                    <div class="api-summary-value">${escapeHtml(value)}</div>
+                    <div class="api-summary-subtext">${escapeHtml(subtext)}</div>
+                </div>
+            `;
+        }
+
+        function renderSuccessResult(data) {
+            syncImportFormSelection(data);
+            const stats = data.stats || {};
+            const failureDetails = data.failure_details || {};
+            const failureSamples = Array.isArray(failureDetails.samples) ? failureDetails.samples : [];
+            const completedAt = data.completed_at ? new Date(data.completed_at) : null;
+            const completedText = completedAt && !Number.isNaN(completedAt.getTime())
+                ? completedAt.toLocaleString()
+                : "-";
+            const statusText = (stats.skipped || 0) > 0 ? "Completed" : "Successful";
+            const parameters = Array.isArray(data.parameters) && data.parameters.length
+                ? data.parameters.map(escapeHtml).join(", ")
+                : "none";
+            const durationText = escapeHtml(data.duration_display || `${Number(data.duration_seconds || 0).toFixed(2)}s`);
+            liveResult.innerHTML = `
+                <div class="api-panel api-result-panel">
+                    <h2>Import Completed</h2>
+                    <p>The data load finished and the summary below shows the outcome for the selected endpoint.</p>
+                    <div class="api-summary">
+                        ${renderResultCard("Total Loaded", stats.total_loaded || 0, "Records successfully written into the target table.")}
+                        ${renderResultCard("Fetched", stats.fetched || 0, "Rows received from the API.")}
+                        ${renderResultCard("Created", stats.created || 0, "New records inserted into the target table.")}
+                        ${renderResultCard("Updated", stats.updated || 0, "Existing records refreshed using the unique key.")}
+                        ${renderResultCard("Unchanged", stats.unchanged || 0, "Existing records that already matched the API data and did not need writing.")}
+                        ${renderResultCard("Failed / Skipped", stats.skipped || 0, "Rows not loaded because required fields were missing or the API repeated the same client code.")}
+                        ${renderResultCard("Target", data.target_table || "-", "Destination used for this import.")}
+                        ${renderResultCard("Status", statusText, "Overall status of the finished load.")}
+                        ${renderResultCard("Completed At", completedText, "Time when the import finished.")}
+                        ${renderResultCard("Time Taken", durationText, "Elapsed time for the full API fetch and database load.")}
+                    </div>
+                    <div class="api-message-list" style="margin-top:1rem;">
+                        <div class="api-message">The load completed for <strong>${escapeHtml(data.endpoint_name || "")}</strong> into <strong>${escapeHtml(data.target_table || "")}</strong>.</div>
+                        <div class="api-message">Missing required fields skipped: <strong>${escapeHtml(stats.missing_required_skipped || 0)}</strong>.</div>
+                        <div class="api-message">Duplicate rows skipped: <strong>${escapeHtml(stats.duplicate_skipped || 0)}</strong>. The import kept one record per repeated client code.</div>
+                        <div class="api-message">Unchanged rows: <strong>${escapeHtml(stats.unchanged || 0)}</strong>. These already matched the current database values, so no write was needed.</div>
+                        <div class="api-message">Cleaning applied: imported values were normalized to match the saved import data standards.</div>
+                        <div class="api-message">Parameters used: <strong>${parameters}</strong></div>
+                        ${failureSamples.length ? `<div class="api-message">Failure detail samples:${failureSamples.map(function(sample, index) { return `<br><strong>${index + 1}.</strong> ${escapeHtml(sample.reason || "-")} | Client: ${escapeHtml(sample.client_code || "-")}${sample.detail ? ` | ${escapeHtml(sample.detail)}` : ""}`; }).join("")}</div>` : ""}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderFailureResult(message) {
+            liveResult.innerHTML = `
+                <div class="api-panel api-result-panel">
+                    <h2>Import Challenge</h2>
+                    <p>The data load could not complete. Review the details below and correct the issue before trying again.</p>
+                    <div class="api-code-box">${escapeHtml(message)}</div>
+                </div>
+            `;
+        }
+
+        updateImportButtonState();
+
+        async function pollProgressOnce() {
+            try {
+                const response = await fetch(progressUrl, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                    credentials: "same-origin"
+                });
+                if (!response.ok) {
+                    return;
+                }
+                const state = await response.json();
+                renderProgress(state);
+                if (state.status === "completed") {
+                    stopPolling();
+                    progressMessage.style.display = "none";
+                    clearLoadingState();
+                    renderSuccessResult(state);
+                }
+                if (state.status === "failed" || state.status === "stopped") {
+                    stopPolling();
+                    progressMessage.style.display = "none";
+                    clearLoadingState();
+                    renderFailureResult(state.error || state.message || "Import stopped.");
+                }
+            } catch (error) {
+                stopPolling();
+                clearLoadingState();
+            }
+        }
+
+        async function postHistoryAction(url, button, loadingText, actionKind) {
+            const originalTooltip = button.dataset.tooltip || "";
+            button.disabled = true;
+            button.dataset.tooltip = loadingText;
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    credentials: "same-origin"
+                });
+                const payload = await response.json();
+                if (!response.ok || !payload.ok) {
+                    syncImportFormSelection(payload);
+                    renderFailureResult(payload.message || "The requested action could not complete.");
+                    return;
+                }
+                if (actionKind === "retry") {
+                    progressMessage.textContent = payload.message || "Import started in the background.";
+                    progressMessage.style.display = "block";
+                    progressPanel.style.display = "block";
+                    progressCopy.textContent = "The import is running in the background. This page can stay open or be closed.";
+                    await pollProgressOnce();
+                    ensurePollingStarted();
+                } else {
+                    window.location.reload();
+                }
+            } catch (error) {
+                renderFailureResult("The requested action could not complete.");
+            } finally {
+                if (actionKind === "retry") {
+                    clearLoadingState();
+                }
+                button.disabled = false;
+                button.dataset.tooltip = originalTooltip;
+            }
+        }
+
+        importForm.addEventListener("submit", async function(event) {
+            event.preventDefault();
+            setLoadingState();
+            stopPolling();
+            pollProgressOnce();
+            ensurePollingStarted();
+
+            try {
+                const response = await fetch(runUrl, {
+                    method: "POST",
+                    body: new FormData(importForm),
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    credentials: "same-origin"
+                });
+                const payload = await response.json();
+                if (!response.ok || !payload.ok) {
+                    syncImportFormSelection(payload);
+                    renderFailureResult(payload.message || "Import failed.");
+                    return;
+                }
+                syncImportFormSelection(payload);
+                progressMessage.textContent = payload.message || "Import started in the background.";
+                progressMessage.style.display = "block";
+                progressPanel.style.display = "block";
+                progressCopy.textContent = "The import is running in the background. You can move to other tabs while it continues.";
+                await pollProgressOnce();
+            } catch (error) {
+                renderFailureResult(error.message || "Import failed.");
+            } finally {
+                clearLoadingState();
+            }
+        });
+
+        document.querySelectorAll(".js-import-stop").forEach(function(button) {
+            button.addEventListener("click", function() {
+                const runId = button.dataset.runId;
+                const actionUrl = button.dataset.url;
+                if (!runId || !actionUrl) {
+                    return;
+                }
+                postHistoryAction(actionUrl, button, "Stopping...", "stop");
+            });
+        });
+
+        document.querySelectorAll(".js-import-retry").forEach(function(button) {
+            button.addEventListener("click", function() {
+                const runId = button.dataset.runId;
+                const actionUrl = button.dataset.url;
+                if (!runId || !actionUrl) {
+                    return;
+                }
+                liveResult.innerHTML = "";
+                setLoadingState();
+                stopPolling();
+                pollProgressOnce();
+                ensurePollingStarted();
+                postHistoryAction(actionUrl, button, "Retrying...", "retry");
+            });
+        });
+
+        function openHistoryModal(trigger) {
+            if (!historyModal) {
+                return;
+            }
+            const setField = function(name, value) {
+                const target = historyModal.querySelector(`[data-history-field="${name}"]`);
+                if (target) {
+                    target.textContent = value || "-";
+                }
+            };
+            setField("started", trigger.dataset.started);
+            setField("completed", trigger.dataset.completed);
+            setField("endpoint", trigger.dataset.endpoint);
+            setField("source", trigger.dataset.source);
+            setField("status", trigger.dataset.status);
+            setField("target", trigger.dataset.target);
+            setField("duration", trigger.dataset.duration);
+            setField("stats", trigger.dataset.stats);
+            setField("duplicates", trigger.dataset.duplicates);
+            setField("missing", trigger.dataset.missing);
+            setField("message", trigger.dataset.message);
+
+            const failureSamplesTarget = historyModal.querySelector('[data-history-field="failureSamples"]');
+            let failureSamplesText = "No failure samples recorded.";
+            try {
+                const parsed = JSON.parse(trigger.dataset.failureDetails || "{}");
+                if (Array.isArray(parsed.samples) && parsed.samples.length) {
+                    failureSamplesText = parsed.samples.map(function(sample, index) {
+                        return `${index + 1}. ${sample.reason || "-"} | Client: ${sample.client_code || "-"}${sample.detail ? ` | ${sample.detail}` : ""}`;
+                    }).join("\n");
+                }
+            } catch (error) {
+                failureSamplesText = "Failure details could not be read for this run.";
+            }
+            if (failureSamplesTarget) {
+                failureSamplesTarget.textContent = failureSamplesText;
+            }
+
+            historyModal.classList.add("is-open");
+            historyModal.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
+        }
+
+        function closeHistoryModal() {
+            if (!historyModal) {
+                return;
+            }
+            historyModal.classList.remove("is-open");
+            historyModal.setAttribute("aria-hidden", "true");
+            document.body.style.overflow = "";
+        }
+
+        document.querySelectorAll(".js-import-history-view").forEach(function(button) {
+            button.addEventListener("click", function() {
+                openHistoryModal(button);
+            });
+        });
+
+        if (historyClose) {
+            historyClose.addEventListener("click", closeHistoryModal);
+        }
+
+        if (historyModal) {
+            historyModal.addEventListener("click", function(event) {
+                if (event.target === historyModal) {
+                    closeHistoryModal();
+                }
+            });
+        }
+
+        document.addEventListener("keydown", function(event) {
+            if (event.key === "Escape" && historyModal && historyModal.classList.contains("is-open")) {
+                closeHistoryModal();
+            }
+        });
+
+        fetch(progressUrl, {
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+            credentials: "same-origin"
+        })
+            .then(function(response) {
+                return response.ok ? response.json() : null;
+            })
+            .then(function(state) {
+                if (!state) {
+                    return;
+                }
+                renderProgress(state);
+                if (state.status === "running") {
+                    progressMessage.style.display = "block";
+                    progressPanel.style.display = "block";
+                    progressCopy.textContent = "The import is already running in the background.";
+                    ensurePollingStarted();
+                }
+                if (state.status === "completed") {
+                    renderSuccessResult(state);
+                }
+                if (state.status === "failed" || state.status === "stopped") {
+                    renderFailureResult(state.error || state.message || "Import stopped.");
+                }
+            })
+            .catch(function() {});
+    })();
+</script>
+{% endblock %}

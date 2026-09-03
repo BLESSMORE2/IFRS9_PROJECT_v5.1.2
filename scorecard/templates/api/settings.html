@@ -1,0 +1,293 @@
+{% extends "api/base.html" %}
+
+{% block title %}API Settings{% endblock %}
+{% block api_title %}API Settings{% endblock %}
+{% block api_intro %}Define the API URL, secret key, header name, and connection defaults here. Keep setup simple, then use saved settings everywhere else.{% endblock %}
+
+{% block api_body %}
+<div class="api-layout-two">
+    <div class="api-panel">
+        <h2>
+            {% if api_settings_read_only and api_settings_missing_configuration %}
+                Connection Settings
+            {% elif api_configuration and not edit_mode %}
+                Saved Connection Settings
+            {% elif api_configuration %}
+                Edit Connection Settings
+            {% else %}
+                Connection Settings
+            {% endif %}
+        </h2>
+        <p>
+            {% if api_settings_read_only and api_settings_missing_configuration %}
+                No API connection settings have been saved yet. You have read-only access, so setup and editing actions are hidden.
+            {% elif api_configuration and not edit_mode %}
+                These settings are already saved and shown in read-only mode. Click edit only when you want to change them.
+            {% elif api_configuration %}
+                Update the saved API URL and authentication details here. Saved endpoints and retrieval pages will use the latest configuration.
+            {% else %}
+                Set the main API URL and authentication details once. Saved endpoints and retrieval pages will use this configuration.
+            {% endif %}
+        </p>
+        {% if api_settings_read_only and api_settings_missing_configuration %}
+            <div class="api-message">No saved API configuration is available yet for read-only viewing.</div>
+        {% elif api_configuration and not edit_mode %}
+            <div class="api-form-grid">
+                <div class="api-field full">
+                    <label>Name</label>
+                    <input type="text" value="{{ api_configuration.name }}" readonly>
+                </div>
+                <div class="api-field full">
+                    <label>Base URL</label>
+                    <input type="text" value="{{ api_configuration.base_url }}" readonly>
+                </div>
+                <div class="api-field">
+                    <label>Header Name</label>
+                    <input type="text" value="{{ api_configuration.auth_header_name }}" readonly>
+                </div>
+                <div class="api-field">
+                    <label>Secret key / API key</label>
+                    <input type="password" value="Stored securely" readonly autocomplete="off">
+                    <small>The real secret is hidden and is not sent to the browser in read-only mode.</small>
+                </div>
+                <div class="api-field">
+                    <label>Request timeout (seconds)</label>
+                    <input type="text" value="{{ api_configuration.timeout_seconds }}" readonly>
+                </div>
+                <div class="api-field">
+                    <label>Endpoint test timeout (seconds)</label>
+                    <input type="text" value="{{ api_configuration.test_timeout_seconds }}" readonly>
+                </div>
+                <div class="api-field">
+                    <label>Browser wait timeout (seconds)</label>
+                    <input type="text" value="{{ api_configuration.browser_timeout_seconds }}" readonly>
+                </div>
+                <div class="api-field">
+                    <label>Active</label>
+                    <input type="text" value="{% if api_configuration.is_active %}Yes{% else %}No{% endif %}" readonly>
+                </div>
+            </div>
+            <div style="margin-top:1rem;">
+                <h3 style="margin:0 0 0.65rem;font-size:1rem;color:#16324f;">Saved Parameters</h3>
+                {% if saved_parameters %}
+                    <div class="api-table-wrap">
+                        <table class="api-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Default Value</th>
+                                    <th>Required</th>
+                                    <th>Testing</th>
+                                    <th>Retrieval</th>
+                                    <th>Active</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for parameter in saved_parameters %}
+                                    <tr>
+                                        <td>{{ parameter.name }}</td>
+                                        <td>{{ parameter.default_value|default:"-" }}</td>
+                                        <td>{% if parameter.is_required %}<span class="api-badge-soft">Yes</span>{% else %}No{% endif %}</td>
+                                        <td>{% if parameter.use_for_testing %}<span class="api-badge-soft">Yes</span>{% else %}No{% endif %}</td>
+                                        <td>{% if parameter.use_for_retrieval %}<span class="api-badge-soft">Yes</span>{% else %}No{% endif %}</td>
+                                        <td>{% if parameter.is_active %}<span class="api-badge-soft">Yes</span>{% else %}No{% endif %}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="api-message">No reusable parameters have been configured yet.</div>
+                {% endif %}
+            </div>
+            {% if api_can_manage_settings %}
+            <div class="api-button-row">
+                <a href="{% url 'scorecard:api_settings' %}?edit=1" class="api-button primary" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">Edit Settings</a>
+            </div>
+            {% endif %}
+        {% else %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="api-form-grid">
+                    {% for field in form %}
+                        <div class="api-field {% if field.name == 'name' or field.name == 'base_url' %}full{% endif %}">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {{ field.errors }}
+                            {% if field.help_text %}
+                                <small>{{ field.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                <div style="margin-top:1rem;">
+                    <h3 style="margin:0 0 0.35rem;font-size:1rem;color:#16324f;">Reusable Parameters</h3>
+                    <p style="margin:0 0 0.85rem;font-size:0.88rem;line-height:1.55;color:#607385;">Define reusable parameters here once. They can be used automatically during endpoint testing and shown again on the retrieve page.</p>
+                    {{ parameter_formset.management_form }}
+                    <div class="api-parameter-scroll">
+                        <div class="api-parameter-head">
+                            <div>Name</div>
+                            <div>Default Value</div>
+                            <div>Order</div>
+                            <div>Required</div>
+                            <div>Testing</div>
+                            <div>Retrieval</div>
+                            <div>Delete</div>
+                        </div>
+                        <div class="api-parameter-grid" id="api-parameter-grid">
+                            {% for param_form in parameter_formset %}
+                                {{ param_form.id }}
+                                <div class="api-parameter-row" data-parameter-row>
+                                    <div class="api-field">
+                                        {{ param_form.name }}
+                                        {{ param_form.name.errors }}
+                                    </div>
+                                    <div class="api-field">
+                                        {{ param_form.default_value }}
+                                        {{ param_form.default_value.errors }}
+                                    </div>
+                                    <div class="api-field">
+                                        {{ param_form.display_order }}
+                                        {{ param_form.display_order.errors }}
+                                    </div>
+                                    <div class="api-field">
+                                        {{ param_form.is_required }}
+                                    </div>
+                                    <div class="api-field">
+                                        {{ param_form.use_for_testing }}
+                                    </div>
+                                    <div class="api-field">
+                                        {{ param_form.use_for_retrieval }}
+                                    </div>
+                                    <div class="api-field">
+                                        <div style="display:none;">{{ param_form.DELETE }}</div>
+                                        <button
+                                            type="button"
+                                            class="api-action-button api-button danger js-parameter-remove"
+                                            data-tooltip="Remove"
+                                            aria-label="Remove parameter"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <polyline points="3 6 5 6 21 6"></polyline>
+                                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                                                <path d="M10 11v6"></path>
+                                                <path d="M14 11v6"></path>
+                                                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <div class="api-field" style="grid-column:1 / -1;">
+                                        {{ param_form.is_active }} <small>Active</small>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <template id="api-parameter-template">
+                        <div class="api-parameter-row" data-parameter-row>
+                            <div class="api-field">
+                                {{ parameter_formset.empty_form.name }}
+                            </div>
+                            <div class="api-field">
+                                {{ parameter_formset.empty_form.default_value }}
+                            </div>
+                            <div class="api-field">
+                                {{ parameter_formset.empty_form.display_order }}
+                            </div>
+                            <div class="api-field">
+                                {{ parameter_formset.empty_form.is_required }}
+                            </div>
+                            <div class="api-field">
+                                {{ parameter_formset.empty_form.use_for_testing }}
+                            </div>
+                            <div class="api-field">
+                                {{ parameter_formset.empty_form.use_for_retrieval }}
+                            </div>
+                            <div class="api-field">
+                                <div style="display:none;">{{ parameter_formset.empty_form.DELETE }}</div>
+                                <button
+                                    type="button"
+                                    class="api-action-button api-button danger js-parameter-remove"
+                                    data-tooltip="Remove"
+                                    aria-label="Remove parameter"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                                        <path d="M10 11v6"></path>
+                                        <path d="M14 11v6"></path>
+                                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="api-field" style="grid-column:1 / -1;">
+                                {{ parameter_formset.empty_form.is_active }} <small>Active</small>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="api-button-row" style="margin-top:0.85rem;">
+                        <button type="button" class="api-button secondary" id="add-parameter-button">Add Parameter</button>
+                    </div>
+                </div>
+                <div class="api-button-row">
+                    <button type="submit" class="api-button primary">
+                        {% if api_configuration %}Update Settings{% else %}Save Settings{% endif %}
+                    </button>
+                    {% if api_configuration %}
+                        <a href="{% url 'scorecard:api_settings' %}" class="api-button secondary" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">Cancel</a>
+                    {% endif %}
+                </div>
+            </form>
+        {% endif %}
+    </div>
+
+    <div class="api-panel">
+        <h2>How This Works</h2>
+        <p>This page stores the base connection only. Endpoints are created separately, and retrieval uses the saved settings automatically.</p>
+        <div class="api-message-list">
+            <div class="api-message">`Base URL` is the API host, for example `http://192.168.4.48:8090`.</div>
+            <div class="api-message">`Header Name` is how the secret key is sent, for example `X-API-KEY`.</div>
+            <div class="api-message">`Secret Key` is stored in settings so you do not have to repeat it on every endpoint or retrieval screen.</div>
+            <div class="api-message">Reusable parameters such as `reporting_date`, `page`, `page_size`, or `branch_code` can be defined once here and reused professionally across testing and retrieval.</div>
+            <div class="api-message">`Request timeout (seconds)` means how long the system waits for the API to respond before stopping the request and marking it as failed.</div>
+            <div class="api-message">`Endpoint test timeout (seconds)` controls how long the server spends checking an endpoint before the test is stopped.</div>
+            <div class="api-message">`Browser wait timeout (seconds)` controls how long the page waits before cancelling a test request in the browser and showing failure quickly.</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const addButton = document.getElementById("add-parameter-button");
+        const grid = document.getElementById("api-parameter-grid");
+        const template = document.getElementById("api-parameter-template");
+        const totalForms = document.getElementById("id_params-TOTAL_FORMS");
+        if (!addButton || !grid || !template || !totalForms) {
+            return;
+        }
+
+        addButton.addEventListener("click", function () {
+            const formIndex = Number(totalForms.value);
+            const html = template.innerHTML.replace(/__prefix__/g, formIndex);
+            grid.insertAdjacentHTML("beforeend", html);
+            totalForms.value = String(formIndex + 1);
+        });
+
+        grid.addEventListener("click", function (event) {
+            const removeButton = event.target.closest(".js-parameter-remove");
+            if (!removeButton) {
+                return;
+            }
+            const row = removeButton.closest("[data-parameter-row]");
+            if (!row) {
+                return;
+            }
+            const deleteField = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            if (deleteField) {
+                deleteField.checked = true;
+            }
+            row.style.display = "none";
+        });
+    })();
+  </script>
+{% endblock %}

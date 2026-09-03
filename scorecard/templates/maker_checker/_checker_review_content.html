@@ -1,0 +1,503 @@
+{# Independent checker review content template showing comparison of approved vs pending #}
+{% load dict_extras %}
+<style>
+    .comparison-section {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .comparison-header {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .comparison-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.5rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .comparison-table thead th {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        padding: 0.5rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    .comparison-table thead th.text-center {
+        text-align: center;
+    }
+    .comparison-table tbody td {
+        border: 1px solid #e0e0e0;
+        padding: 0.4rem 0.5rem;
+        font-size: 12px;
+        color: #333;
+        vertical-align: top;
+    }
+    .comparison-table tbody td.text-center {
+        text-align: center;
+    }
+    .approved-column {
+        background-color: #e8f5e9;
+        border-left: 3px solid #28a745;
+    }
+    .pending-column {
+        background-color: #fff3cd;
+        border-left: 3px solid #ff9800;
+    }
+    .changed-row {
+        background-color: #ffeaa7 !important;
+        font-weight: 600;
+    }
+    .new-row {
+        background-color: #fff7e1 !important;
+        font-weight: 600;
+    }
+    .no-change-row {
+        background-color: #f8f9fa;
+    }
+    .status-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 3px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    .status-approved {
+        background-color: #28a745;
+        color: white;
+    }
+    .status-pending {
+        background-color: #ff9800;
+        color: white;
+    }
+    .status-changed {
+        background-color: #dc3545;
+        color: white;
+    }
+    .status-new {
+        background-color: #ff9800;
+        color: white;
+    }
+    .section-header-row {
+        background-color: #f5f5f5;
+        font-weight: 600;
+        font-size: 13px;
+    }
+    .driver-header-row {
+        background-color: #f9f9f9;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .option-row {
+        font-size: 12px;
+    }
+    .option-selected {
+        font-weight: 600;
+    }
+    .autofill-row {
+        background-color: #e8f6ee !important;
+    }
+    .autofill-badge {
+        display: inline-block;
+        margin-left: 0.45rem;
+        padding: 0.15rem 0.45rem;
+        border-radius: 999px;
+        background: #1f7a4c;
+        color: white;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .document-comparison-row td {
+        background-color: #f8fbff;
+    }
+    .document-box {
+        padding: 0.6rem;
+        background: #ffffff;
+        border: 1px solid #d7e3f4;
+        border-radius: 4px;
+        margin-top: 0.25rem;
+    }
+    .document-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-right: 0.5rem;
+        color: #0066cc;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .document-link:hover {
+        text-decoration: underline;
+    }
+    .document-meta {
+        display: block;
+        font-size: 0.75rem;
+        color: #666;
+        margin-top: 0.2rem;
+    }
+</style>
+
+<div class="comparison-section">
+<h2 class="comparison-header">Basel II Score Comparison: Approved vs Pending</h2>
+    
+    {% if latest_approved_version and latest_unapproved_version %}
+        <p style="margin-bottom: 1rem; color: #666; font-size: 0.9rem;">
+            This view compares the <strong style="color: #28a745;">currently approved version (Version {{ latest_approved_version.version_number }})</strong> 
+            with the <strong style="color: #ff9800;">pending submission (Version {{ latest_unapproved_version.version_number }})</strong>.
+            Changes are highlighted in yellow.
+        </p>
+    {% elif latest_unapproved_version %}
+        <p style="margin-bottom: 1rem; color: #666; font-size: 0.9rem;">
+            This is the <strong style="color: #ff9800;">pending submission (Version {{ latest_unapproved_version.version_number }})</strong> awaiting approval.
+            There is no previously approved version to compare against.
+        </p>
+    {% endif %}
+    
+    {% for section in sections %}
+        {% with section_drivers=drivers_by_section|get_item:section.id %}
+        <h3 style="margin-top: 2rem; margin-bottom: 1rem; font-size: 1rem; color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 0.5rem;">
+            {{ section.code }}) {{ section.name|upper }}
+        </h3>
+        
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th style="width: 30%;">RISK DRIVERS / OPTIONS</th>
+                    <th style="width: 12%;" class="text-center">ALLOCATED<br>SCORE</th>
+                    <th style="width: 14%;" class="text-center approved-column">APPROVED<br>(Current)</th>
+                    <th style="width: 14%;" class="text-center pending-column">PENDING<br>(To Review)</th>
+                    <th style="width: 10%;" class="text-center">WEIGHT</th>
+                    <th style="width: 10%;" class="text-center">WEIGHTED<br>SCORE %</th>
+                    <th style="width: 10%;" class="text-center">STATUS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for driver in section_drivers %}
+                    {% with driver_attrs=attributes_by_driver|get_item:driver.id %}
+                    <tr class="driver-header-row">
+                        <td colspan="7" style="padding-left: 0.5rem; font-weight: 600;">
+                            {{ driver.code }}. {{ driver.name }}
+                        </td>
+                    </tr>
+                    
+                    {% if driver_attrs %}
+                        {% for attribute in driver_attrs %}
+                            <tr class="section-header-row">
+                                <td colspan="7" style="padding-left: 1rem;">
+                                    {{ attribute.group_label|default:attribute.label }}
+                                </td>
+                            </tr>
+                            
+                            {% with approved_attr=approved_attribute_responses|get_item:attribute.id pending_attr=attribute_responses|get_item:attribute.id %}
+                            {% for option in attribute.options.all %}
+                                {% with approved_option_id=approved_attr.option_id|default:0 pending_option_id=pending_attr.option.id|default:pending_attr.option_id|default:0 current_option_id=option.id|default:0 %}
+                                {# Determine row class based on change status #}
+                                {% if latest_approved_version and approved_option_id != pending_option_id and pending_option_id == current_option_id %}
+                                    <tr class="option-row changed-row{% if attribute.id in active_autofill_metadata.applied_attribute_ids %} autofill-row{% endif %}">
+                                {% elif not latest_approved_version and pending_option_id == current_option_id %}
+                                    <tr class="option-row new-row{% if attribute.id in active_autofill_metadata.applied_attribute_ids %} autofill-row{% endif %}">
+                                {% else %}
+                                    {% if approved_option_id == pending_option_id and pending_option_id == current_option_id %}
+                                        <tr class="option-row no-change-row{% if attribute.id in active_autofill_metadata.applied_attribute_ids %} autofill-row{% endif %}">
+                                    {% else %}
+                                        <tr class="option-row">
+                                    {% endif %}
+                                {% endif %}
+                                    <td style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %};">
+                                        {{ option.label }}
+                                        {% if pending_option_id == current_option_id and attribute.id in active_autofill_metadata.applied_attribute_ids %}
+                                            <span class="autofill-badge">Auto</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ option.allocated_score }}</td>
+                                    
+                                    {# Approved Column #}
+                                    <td class="text-center approved-column">
+                                        {% if approved_option_id == current_option_id %}
+                                            <span class="option-selected" style="color: #28a745; font-weight: 600;">✓ {{ option.allocated_score|floatformat:2 }}</span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    
+                                    {# Pending Column #}
+                                    <td class="text-center pending-column">
+                                        {% if pending_option_id == current_option_id %}
+                                            <span class="option-selected" style="color: #ff9800; font-weight: 600;">✓ {{ option.allocated_score|floatformat:2 }}</span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <td class="text-center">{{ attribute.weight_percent|floatformat:2 }}%</td>
+                                    
+                                    <td class="text-center">
+                                        {% if pending_option_id == current_option_id %}
+                                            {% with max_score=attribute.options.all|max_score %}
+                                                {% if max_score and max_score > 0 %}
+                                                    {% widthratio option.allocated_score max_score 100 as ratio %}
+                                                    {% widthratio ratio 100 attribute.weight_percent as weighted %}
+                                                    {{ weighted|floatformat:2 }}%
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <td class="text-center">
+                                        {% if latest_approved_version and approved_option_id != pending_option_id %}
+                                            {# Changed #}
+                                            {% if approved_option_id == current_option_id %}
+                                                <span class="status-badge status-approved">APPROVED</span>
+                                            {% elif pending_option_id == current_option_id %}
+                                                <span class="status-badge status-changed">CHANGED</span>
+                                            {% endif %}
+                                        {% elif not latest_approved_version and pending_option_id == current_option_id %}
+                                            <span class="status-badge status-new">NEW</span>
+                                        {% elif pending_option_id == current_option_id %}
+                                            {# Same, selected #}
+                                            {% if approved_option_id == current_option_id %}
+                                                <span class="status-badge status-approved">APPROVED</span>
+                                            {% else %}
+                                                <span class="status-badge status-pending">PENDING</span>
+                                            {% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endwith %}
+                            {% endfor %}
+                            {% if approved_attr.documents or pending_attr.documents %}
+                            <tr class="document-comparison-row">
+                                <td style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %}; font-weight: 600;">
+                                    Supporting Documents
+                                </td>
+                                <td class="text-center">-</td>
+                                <td class="approved-column">
+                                    {% if approved_attr.documents %}
+                                        <div class="document-box">
+                                            {% for doc in approved_attr.documents %}
+                                                <div style="margin-bottom: 0.45rem;">
+                                                    <a class="document-link" href="{{ doc.file.url }}" target="_blank" rel="noopener">
+                                                        View {{ doc.file_name }}
+                                                    </a>
+                                                    <a class="document-link" href="{{ doc.file.url }}" download="{{ doc.file_name }}">
+                                                        Download
+                                                    </a>
+                                                    <span class="document-meta">
+                                                        Uploaded {{ doc.uploaded_at|date:"Y-m-d H:i" }}{% if doc.uploaded_by %} by {{ doc.uploaded_by.email }}{% endif %}
+                                                    </span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="pending-column">
+                                    {% if pending_attr.documents %}
+                                        <div class="document-box">
+                                            {% for doc in pending_attr.documents %}
+                                                <div style="margin-bottom: 0.45rem;">
+                                                    <a class="document-link" href="{{ doc.file.url }}" target="_blank" rel="noopener">
+                                                        View {{ doc.file_name }}
+                                                    </a>
+                                                    <a class="document-link" href="{{ doc.file.url }}" download="{{ doc.file_name }}">
+                                                        Download
+                                                    </a>
+                                                    <span class="document-meta">
+                                                        Uploaded {{ doc.uploaded_at|date:"Y-m-d H:i" }}{% if doc.uploaded_by %} by {{ doc.uploaded_by.email }}{% endif %}
+                                                    </span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">-</td>
+                                <td class="text-center">-</td>
+                                <td class="text-center">
+                                    <span class="status-badge status-pending">DOCS</span>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endwith %}
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {# Driver Totals #}
+                    {% with approved_driver=approved_driver_scores|get_item:driver.id pending_driver=driver_scores|get_item:driver.id %}
+                    {% if approved_driver or pending_driver %}
+                    <tr class="driver-header-row" style="background-color: #e0e0e0;">
+                        <td style="padding-left: 1rem; font-weight: 600;">
+                            Totals for {{ driver.name }}
+                        </td>
+                        <td class="text-center">{{ driver.get_max_score|floatformat:2 }}</td>
+                        <td class="text-center approved-column">
+                            {% if approved_driver %}
+                                <strong style="color: #28a745;">{{ approved_driver.raw_score|floatformat:2 }}</strong>
+                                <br><small>({{ approved_driver.weighted_percent|floatformat:2 }}%)</small>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-center pending-column">
+                            {% if pending_driver %}
+                                <strong style="color: #ff9800;">{{ pending_driver.raw_score|floatformat:2 }}</strong>
+                                <br><small>({{ pending_driver.weighted_percent|floatformat:2 }}%)</small>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-center">{{ driver.get_total_weight_percent|floatformat:2 }}%</td>
+                        <td class="text-center">
+                            {% if pending_driver %}
+                                {{ pending_driver.weighted_percent|floatformat:2 }}%
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if approved_driver and pending_driver %}
+                                {% if approved_driver.raw_score != pending_driver.raw_score %}
+                                    <span class="status-badge status-changed">CHANGED</span>
+                                {% else %}
+                                    <span class="status-badge status-pending">SAME</span>
+                                {% endif %}
+                            {% elif pending_driver %}
+                                <span class="status-badge status-pending">NEW</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endwith %}
+                    {% endwith %}
+                {% endfor %}
+                
+                {# Section Totals #}
+                {% with approved_section=approved_section_scores|get_item:section.id pending_section=section_scores|get_item:section.id %}
+                {% if approved_section or pending_section %}
+                <tr style="background-color: #d0d0d0; font-weight: 600;">
+                    <td style="padding-left: 1rem;">
+                        Totals for {{ section.name }}
+                    </td>
+                    <td class="text-center">{{ section.get_total_max_score|floatformat:2 }}</td>
+                    <td class="text-center approved-column">
+                        {% if approved_section %}
+                            <strong style="color: #28a745;">{{ approved_section.raw_score|floatformat:2 }}</strong>
+                            <br><small>({{ approved_section.weighted_percent|floatformat:2 }}%)</small>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="text-center pending-column">
+                        {% if pending_section %}
+                            <strong style="color: #ff9800;">{{ pending_section.raw_score|floatformat:2 }}</strong>
+                            <br><small>({{ pending_section.weighted_percent|floatformat:2 }}%)</small>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ section.get_total_weight_percent|floatformat:2 }}%</td>
+                    <td class="text-center">
+                        {% if pending_section %}
+                            {{ pending_section.weighted_percent|floatformat:2 }}%
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if approved_section and pending_section %}
+                            {% if approved_section.raw_score != pending_section.raw_score %}
+                                <span class="status-badge status-changed">CHANGED</span>
+                            {% else %}
+                                <span class="status-badge status-pending">SAME</span>
+                            {% endif %}
+                        {% elif pending_section %}
+                            <span class="status-badge status-pending">NEW</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endwith %}
+            </tbody>
+        </table>
+        {% endwith %}
+    {% endfor %}
+    
+    {# Overall Summary #}
+    <div style="margin-top: 2rem; padding: 1.5rem; background-color: #f0f8ff; border: 2px solid #0066cc; border-radius: 4px;">
+        <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1rem; color: #0066cc;">Overall Summary</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 0.5rem; font-weight: 600; width: 30%;">Metric</td>
+                <td style="padding: 0.5rem; text-align: center; background-color: #e8f5e9; border: 1px solid #28a745; font-weight: 600; width: 35%;">
+                    APPROVED (Current)
+                </td>
+                <td style="padding: 0.5rem; text-align: center; background-color: #fff3cd; border: 1px solid #ff9800; font-weight: 600; width: 35%;">
+                    PENDING (To Review)
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 0.5rem; font-weight: 600;">Total Weighted Score</td>
+                <td style="padding: 0.5rem; text-align: center; background-color: #e8f5e9; border: 1px solid #28a745;">
+                    {% if evaluation.approved_weighted_percent %}
+                        <strong style="color: #28a745; font-size: 1.1rem;">{{ evaluation.approved_weighted_percent|floatformat:2 }}%</strong>
+                    {% else %}
+                        <span style="color: #999;">-</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 0.5rem; text-align: center; background-color: #fff3cd; border: 1px solid #ff9800;">
+                    {% if pending_weighted_percent %}
+                        <strong style="color: #ff9800; font-size: 1.1rem;">{{ pending_weighted_percent|floatformat:2 }}%</strong>
+                    {% else %}
+                        <span style="color: #999;">-</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 0.5rem; font-weight: 600;">Final Grade</td>
+                <td style="padding: 0.5rem; text-align: center; background-color: #e8f5e9; border: 1px solid #28a745;">
+                    {% if evaluation.approved_grade %}
+                        <strong style="color: #28a745; font-size: 1.1rem;">{{ evaluation.approved_grade }}</strong>
+                    {% else %}
+                        <span style="color: #999;">-</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 0.5rem; text-align: center; background-color: #fff3cd; border: 1px solid #ff9800;">
+                    {% if pending_grade %}
+                        <strong style="color: #ff9800; font-size: 1.1rem;">{{ pending_grade }}</strong>
+                    {% else %}
+                        <span style="color: #999;">-</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% if score_difference is not None %}
+            <tr>
+                <td style="padding: 0.5rem; font-weight: 600;">Score Difference</td>
+                <td colspan="2" style="padding: 0.5rem; text-align: center;">
+                    <strong style="font-size: 1.1rem; color: {% if score_difference > 0 %}#28a745{% elif score_difference < 0 %}#dc3545{% else %}#666{% endif %};">
+                        {% if score_difference > 0 %}+{% endif %}{{ score_difference|floatformat:2 }}%
+                    </strong>
+                </td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+</div>

@@ -1,0 +1,1 @@
+{{ score_label }} pending checker review: {{ customer_name }} ({{ customer_code }})

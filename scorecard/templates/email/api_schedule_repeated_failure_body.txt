@@ -1,0 +1,16 @@
+Hello,
+
+The scheduled API import "{{ schedule_name }}" has failed repeatedly and needs urgent attention.
+
+Endpoint: {{ endpoint_name }}
+Frequency: {{ frequency_label }}
+Failure Count (last {{ failure_count }} tracked): {{ failure_count }}
+Last Run: {{ last_run_at|date:"Y-m-d H:i"|default:"-" }}
+
+Latest Error:
+{{ latest_error }}
+
+Open Automation:
+{{ action_url|default:"-" }}
+
+This email was sent because repeated failures need action.

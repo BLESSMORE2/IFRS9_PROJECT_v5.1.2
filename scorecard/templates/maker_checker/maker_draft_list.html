@@ -1,0 +1,329 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}My Drafts{% endblock %}
+{% block header_title %}My Drafts{% endblock %}
+
+{% block content %}
+    <style>
+        .page-header {
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .table-container {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .table-header-section {
+            padding: 1rem 1.5rem;
+            border-bottom: 2px solid #0066cc;
+        }
+        .table-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .search-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .search-input {
+            border: 1px solid #cbd2e1;
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            width: 250px;
+        }
+        .entries-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .entries-select {
+            border: 1px solid #cbd2e1;
+            padding: 0.4rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .data-table thead {
+            background: #e3f2fd;
+        }
+        .data-table thead th {
+            border: 1px solid #bbdefb;
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            color: #333;
+        }
+        .data-table tbody td {
+            border: 1px solid #e0e0e0;
+            padding: 0.5rem 0.75rem;
+            font-size: 12px;
+            color: #333;
+        }
+        .data-table tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .status-draft {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-in-progress {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .status-returned {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .completion-bar {
+            width: 100px;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .completion-fill {
+            height: 100%;
+            background-color: #28a745;
+            transition: width 0.3s ease;
+        }
+        .btn {
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0052a3;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #999;
+            font-style: italic;
+        }
+    </style>
+    
+    <div class="page-header">
+        <div class="page-title">My Drafts</div>
+    </div>
+    
+    <div class="table-container">
+        <div class="table-header-section">
+<h2 style="margin: 0; font-size: 1.1rem; color: #333; font-family: Calibri, sans-serif;">Draft / In Progress / Returned Basel II Scores</h2>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #666; font-family: Calibri, sans-serif;">
+Continue working on Basel II scores that haven't been submitted or need changes.
+            </p>
+        </div>
+        
+        <div class="table-controls">
+            <div class="search-control">
+                <input type="text" 
+                       id="search-input" 
+                       class="search-input" 
+                       placeholder="Search by customer, ID, or branch..." 
+                       value="{{ search_query }}"
+                       autocomplete="off">
+            </div>
+            <div class="entries-control">
+                <span>Show</span>
+                <select id="entries-per-page" class="entries-select">
+                    <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+                </select>
+                <span>entries</span>
+            </div>
+        </div>
+        
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th>Customer ID</th>
+                    <th>Branch</th>
+                    <th>Template</th>
+                    <th>Status</th>
+                    <th>Completion</th>
+                    <th>Last Updated</th>
+                    <th>Version</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                {% for evaluation in evaluations %}
+                <tr>
+                    <td>{{ evaluation.customer_name }}</td>
+                    <td>{{ evaluation.customer_id }}</td>
+                    <td>{{ evaluation.branch_name }}</td>
+                    <td>{{ evaluation.template.code }}</td>
+                    <td>
+                        <span class="status-badge 
+                            {% if evaluation.status == 'draft' %}status-draft
+                            {% elif evaluation.status == 'in_progress' %}status-in-progress
+                            {% elif evaluation.status == 'returned' %}status-returned
+                            {% endif %}">
+                            {{ evaluation.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {% with completion=evaluation.completion_percentage_cached %}
+                        <div class="completion-bar">
+                            <div class="completion-fill" style="width: {{ completion }}%"></div>
+                        </div>
+                        <span style="margin-left: 0.5rem; font-size: 0.75rem;">{{ completion }}%</span>
+                        {% endwith %}
+                    </td>
+                    <td>{{ evaluation.updated_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ evaluation.version }}</td>
+                    <td>
+                        <a href="{% url 'scorecard:maker_basel_scores_view' evaluation_id=evaluation.id %}" 
+                           class="btn btn-primary">View</a>
+                        <a href="{% url 'scorecard:basel_scores_edit' evaluation_id=evaluation.id %}" 
+                           class="btn btn-primary">Continue</a>
+                        {% if evaluation.status == 'returned' %}
+                        <a href="{% url 'scorecard:basel_scores_delete' evaluation_id=evaluation.id %}" 
+                           class="btn btn-danger" 
+onclick="return confirm('Are you sure you want to permanently delete this returned Basel II score? This action cannot be undone.');"
+                           style="background-color: #dc3545; color: white; margin-left: 0.25rem;">Delete</a>
+                        {% if evaluation.return_reason %}
+                        <span title="{{ evaluation.return_reason }}" style="color: #dc3545; cursor: help; margin-left: 0.25rem;">Warning</span>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+<td colspan="9" class="empty-state">No draft Basel II scores found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <div style="padding: 1rem 1.5rem; border-top: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 0.85rem; color: #666;">
+                {% if page_obj.paginator.count %}Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} entries{% else %}Showing 0 to 0 of 0 entries{% endif %}
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                {% if evaluations.has_previous %}
+                <a href="?page={{ evaluations.previous_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" 
+                   class="btn btn-secondary">Previous</a>
+                {% else %}
+                <a href="#" class="btn btn-secondary" style="pointer-events: none; opacity: 0.6;">Previous</a>
+                {% endif %}
+                {% if evaluations.has_next %}
+                <a href="?page={{ evaluations.next_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" 
+                   class="btn btn-secondary">Next</a>
+                {% else %}
+                <a href="#" class="btn btn-secondary" style="pointer-events: none; opacity: 0.6;">Next</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('search-input');
+            const entriesSelect = document.getElementById('entries-per-page');
+            let searchTimeout = null;
+
+            function navigate(updateCallback) {
+                const url = new URL(window.location.href);
+                updateCallback(url);
+                url.searchParams.delete('page');
+                window.location.href = url.toString();
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    const value = this.value;
+                    if (searchTimeout) {
+                        clearTimeout(searchTimeout);
+                    }
+                    searchTimeout = setTimeout(function() {
+                        navigate(function(url) {
+                            if (value.trim()) {
+                                url.searchParams.set('search', value.trim());
+                            } else {
+                                url.searchParams.delete('search');
+                            }
+                        });
+                    }, 300);
+                });
+
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        navigate(function(url) {
+                            if (searchInput.value.trim()) {
+                                url.searchParams.set('search', searchInput.value.trim());
+                            } else {
+                                url.searchParams.delete('search');
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (entriesSelect) {
+                entriesSelect.addEventListener('change', function() {
+                    navigate(function(url) {
+                        url.searchParams.set('page_size', entriesSelect.value);
+                    });
+                });
+            }
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% if autofill_metadata %}
+<div style="margin: 1rem 0 1.5rem; padding: 1rem; background: #f6fbff; border: 1px solid #c9e0f3; border-radius: 8px; font-family: Calibri, sans-serif;">
+    <div style="font-size: 1rem; font-weight: 700; color: #154c79; margin-bottom: 0.75rem;">
+        Auto-Fill Summary
+    </div>
+
+    {% if autofill_metadata.applied_labels %}
+    <div style="margin-bottom: 0.5rem; color: #17643a;">
+        <strong>Auto-selected and kept:</strong> {{ autofill_metadata.applied_labels|join:", " }}.
+    </div>
+    {% endif %}
+
+    {% if autofill_metadata.overridden_labels %}
+    <div style="margin-bottom: 0.5rem; color: #9a6200;">
+        <strong>Changed after auto-fill:</strong> {{ autofill_metadata.overridden_labels|join:", " }}.
+    </div>
+    {% endif %}
+
+    {% if autofill_metadata.current_missing_required_labels %}
+    <div style="margin-bottom: 0.5rem; color: #8a3b12;">
+        <strong>Still requiring user input at capture time:</strong> {{ autofill_metadata.current_missing_required_labels|join:", " }}.
+    </div>
+    {% elif autofill_metadata.missing_required_labels %}
+    <div style="margin-bottom: 0.5rem; color: #8a3b12;">
+        <strong>Initially required manual input:</strong> {{ autofill_metadata.missing_required_labels|join:", " }}.
+    </div>
+    {% endif %}
+
+    {% if autofill_metadata.customer_name or autofill_metadata.branch_name %}
+    <div style="margin-top: 0.75rem; font-size: 0.9rem; color: #4b5d6b;">
+        {% if autofill_metadata.customer_name %}<strong>Customer:</strong> {{ autofill_metadata.customer_name }}.{% endif %}
+        {% if autofill_metadata.branch_name %} <strong>Branch:</strong> {{ autofill_metadata.branch_name }}.{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}

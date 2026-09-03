@@ -1,0 +1,9 @@
+<html><body style="font-family:Segoe UI, Arial, sans-serif; color:#17324d; line-height:1.5;">
+<h2>{{ workflow_label }} Submitted for Review</h2>
+<p>A {{ workflow_label|lower }} has been submitted for your review.</p>
+<table cellpadding="8" cellspacing="0" style="border-collapse:collapse;">
+  <tr><td style="font-weight:600;">Template</td><td>{{ template_code }} - {{ template_name }}</td></tr>
+  <tr><td style="font-weight:600;">Submitted By</td><td>{{ actor_name }}</td></tr>
+</table>
+{% if action_url %}<p style="margin-top:18px;"><a href="{{ action_url }}" style="display:inline-block; padding:10px 16px; background:#0b63ce; color:#fff; text-decoration:none; border-radius:8px;">Open Review</a></p>{% endif %}
+</body></html>

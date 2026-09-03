@@ -1,0 +1,23 @@
+<html>
+<body style="font-family:Segoe UI, Arial, sans-serif; color:#17324d; line-height:1.5;">
+  <h2 style="margin-bottom:12px;">Repeated Schedule Failure</h2>
+  <p>The scheduled API import <strong>{{ schedule_name }}</strong> has failed repeatedly and needs urgent attention.</p>
+
+  <table cellpadding="8" cellspacing="0" style="border-collapse:collapse; width:100%; max-width:760px;">
+    <tr><td style="font-weight:600; width:180px;">Endpoint</td><td>{{ endpoint_name }}</td></tr>
+    <tr><td style="font-weight:600;">Frequency</td><td>{{ frequency_label }}</td></tr>
+    <tr><td style="font-weight:600;">Failure Count</td><td>{{ failure_count }}</td></tr>
+    <tr><td style="font-weight:600;">Last Run</td><td>{{ last_run_at|date:"Y-m-d H:i"|default:"-" }}</td></tr>
+  </table>
+
+  <p style="margin-top:16px;"><strong>Latest Error</strong><br>{{ latest_error }}</p>
+
+  {% if action_url %}
+  <p style="margin-top:20px;">
+    <a href="{{ action_url }}" style="display:inline-block; padding:10px 16px; background:#0b63ce; color:#ffffff; text-decoration:none; border-radius:8px;">Open Automation</a>
+  </p>
+  {% endif %}
+
+  <p style="margin-top:18px; color:#5f7388;">This email was sent because repeated failures need action.</p>
+</body>
+</html>

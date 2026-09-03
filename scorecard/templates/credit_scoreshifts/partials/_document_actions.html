@@ -1,0 +1,23 @@
+{% if documents %}
+<div class="document-display-section">
+    {% for doc in documents %}
+        <div class="document-item">
+            <span style="font-size: 1.1rem;">📎</span>
+            <div style="flex: 1;">
+                <div style="font-weight: 600; color: #1f3b64;">{{ doc.file_name }}</div>
+                <span class="document-meta">
+                    Uploaded {{ doc.uploaded_at|date:"Y-m-d H:i" }}{% if doc.uploaded_by %} by {{ doc.uploaded_by.email }}{% endif %}
+                </span>
+            </div>
+            <div style="display: flex; gap: 0.45rem; flex-wrap: wrap;">
+                <a href="{{ doc.file.url }}" target="_blank" rel="noopener" class="btn-download">View</a>
+                <a href="{{ doc.file.url }}" download="{{ doc.file_name }}" class="btn-download">Download</a>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% else %}
+<div style="color: #999; font-style: italic; font-size: 0.85rem; margin-top: 0.25rem;">
+    No documents uploaded for this option.
+</div>
+{% endif %}

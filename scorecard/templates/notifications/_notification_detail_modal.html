@@ -1,0 +1,132 @@
+<style>
+    .notification-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.95rem;
+    }
+    .notification-detail-card {
+        border: 1px solid #dbe7f4;
+        border-radius: 14px;
+        padding: 0.95rem 1rem;
+        background: #fbfdff;
+    }
+    .notification-detail-card.full-width {
+        grid-column: 1 / -1;
+    }
+    .notification-detail-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6b829a;
+        margin-bottom: 0.45rem;
+        font-weight: 700;
+    }
+    .notification-detail-value {
+        color: #153b61;
+        font-weight: 600;
+        word-break: break-word;
+        line-height: 1.55;
+    }
+    .notification-detail-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+    .notification-detail-title-text {
+        color: #163b62;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+    .detail-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+    .detail-badge-seen { background: #e9f8ef; color: #0f7b4a; }
+    .detail-badge-unread { background: #fff2e2; color: #ad6a10; }
+    .detail-badge-info { background: #e8f1fb; color: #215b8c; }
+    .detail-badge-action { background: #eef6e8; color: #4d7c0f; }
+    .detail-badge-warning { background: #fff3df; color: #a66a11; }
+    .detail-badge-critical { background: #ffe7e7; color: #b42318; }
+    .notification-detail-actions {
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+    .notification-detail-action-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.65rem 0.95rem;
+        border-radius: 8px;
+        border: 1px solid #0f5fa8;
+        color: #0f5fa8;
+        text-decoration: none;
+        font-weight: 700;
+        background: #ffffff;
+    }
+    @media (max-width: 720px) {
+        .notification-detail-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="notification-detail-title-row">
+    <div class="notification-detail-title-text">{{ notification.title }}</div>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <span class="detail-badge {% if notification.is_read %}detail-badge-seen{% else %}detail-badge-unread{% endif %}">
+            {{ status_label }}
+        </span>
+        <span class="detail-badge detail-badge-{{ notification.level }}">{{ notification.get_level_display }}</span>
+    </div>
+</div>
+
+<div class="notification-detail-grid">
+    <div class="notification-detail-card">
+        <div class="notification-detail-label">Module</div>
+        <div class="notification-detail-value">{{ module_label }}</div>
+    </div>
+    <div class="notification-detail-card">
+        <div class="notification-detail-label">Reference</div>
+        <div class="notification-detail-value">{{ reference_label }}</div>
+    </div>
+    <div class="notification-detail-card">
+        <div class="notification-detail-label">Priority</div>
+        <div class="notification-detail-value">{{ notification.get_level_display }}</div>
+    </div>
+    <div class="notification-detail-card">
+        <div class="notification-detail-label">Receipt Date</div>
+        <div class="notification-detail-value">{{ notification.created_at|date:"d/m/Y H:i" }}</div>
+    </div>
+    <div class="notification-detail-card">
+        <div class="notification-detail-label">Seen Date</div>
+        <div class="notification-detail-value">{% if notification.read_at %}{{ notification.read_at|date:"d/m/Y H:i" }}{% else %}-{% endif %}</div>
+    </div>
+    <div class="notification-detail-card">
+        <div class="notification-detail-label">From</div>
+        <div class="notification-detail-value">{{ actor_label }}</div>
+    </div>
+    <div class="notification-detail-card full-width">
+        <div class="notification-detail-label">Message</div>
+        <div class="notification-detail-value">{{ notification.message }}</div>
+    </div>
+</div>
+
+<div class="notification-detail-actions">
+    {% if notification.action_url %}
+        <a href="{% url 'scorecard:notification_mark_read' notification.id %}?next={{ notification.action_url|urlencode }}" class="notification-detail-action-link">
+            {{ notification.action_label|default:"Open" }}
+        </a>
+    {% endif %}
+    {% if not notification.is_read %}
+        <a href="{% url 'scorecard:notification_mark_read' notification.id %}" class="notification-detail-action-link">Mark Read</a>
+    {% endif %}
+</div>

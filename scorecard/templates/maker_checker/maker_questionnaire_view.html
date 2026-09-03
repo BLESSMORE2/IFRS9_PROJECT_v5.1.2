@@ -1,0 +1,54 @@
+{% extends "credit_scoreshifts/base.html" %}
+{% load dict_extras %}
+
+{% block title %}View Basel II Score (Maker) - {{ evaluation.customer_name }}{% endblock %}
+
+{% block content %}
+<div class="actions" style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-bottom: 1.5rem;">
+    {% if evaluation.status == 'draft' or evaluation.status == 'in_progress' or evaluation.status == 'returned' %}
+    <a href="{% url 'scorecard:maker_draft_list' %}" class="btn btn-secondary" style="padding: 0.6rem 1.5rem; border: none; border-radius: 4px; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s ease; text-decoration: none; display: inline-block; font-family: Calibri, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #6c757d; color: white;">
+        Back to My Drafts
+    </a>
+    {% else %}
+    <a href="{% url 'scorecard:maker_submitted_list' %}" class="btn btn-secondary" style="padding: 0.6rem 1.5rem; border: none; border-radius: 4px; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s ease; text-decoration: none; display: inline-block; font-family: Calibri, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #6c757d; color: white;">
+        Back to My Submissions
+    </a>
+    {% endif %}
+    
+</div>
+
+{% if evaluation.status == 'submitted' %}
+<div style="background-color: #fff3cd; border: 2px solid #ff9800; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem; font-family: Calibri, sans-serif;">
+    <strong style="color: #856404; font-size: 1rem;">&#9203; Pending Review:</strong>
+    <span style="color: #856404;">This Basel II score has been submitted and is awaiting checker approval. The scores below reflect your <strong>NEWLY SUBMITTED</strong> values (pending approval).</span>
+    {% if evaluation.approved_weighted_percent %}
+    <div style="margin-top: 0.75rem; padding: 0.75rem; background-color: #fff; border-left: 3px solid #0066cc; border-radius: 3px;">
+        <strong style="color: #0066cc;">Last Approved Score:</strong>
+        <span style="color: #0066cc; font-weight: 600;">{{ evaluation.approved_weighted_percent|floatformat:2 }}%</span>
+        <span style="color: #666; font-size: 0.9rem;">(Grade: {{ evaluation.approved_grade|default:"-" }})</span>
+    </div>
+    {% endif %}
+</div>
+{% elif evaluation.status == 'returned' %}
+<div style="background-color: #fff3cd; border: 2px solid #ff9800; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem; font-family: Calibri, sans-serif;">
+    <strong style="color: #856404; font-size: 1rem;">&#9888; Returned for Changes:</strong>
+    <span style="color: #856404;">This Basel II score was returned by the checker. Please review the feedback below and make necessary changes.</span>
+    {% if evaluation.return_reason %}
+    <div style="margin-top: 0.75rem; padding: 0.75rem; background-color: #fff; border-left: 3px solid #ff9800; border-radius: 3px;">
+        <strong>Return Reason:</strong> {{ evaluation.return_reason }}
+        {% if evaluation.returned_by %}
+        <br><small style="color: #666; margin-top: 0.5rem; display: block;">Returned by: {{ evaluation.returned_by.email }} on {{ evaluation.returned_at|date:"Y-m-d H:i"|default:"-" }}</small>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% elif evaluation.status == 'draft' or evaluation.status == 'in_progress' %}
+<div style="background-color: #d1ecf1; border: 2px solid #0c5460; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem; font-family: Calibri, sans-serif;">
+    <strong style="color: #0c5460; font-size: 1rem;">Draft/In Progress:</strong>
+    <span style="color: #0c5460;">This Basel II score is still being worked on. The scores below reflect the current draft state.</span>
+</div>
+{% endif %}
+
+
+{% include "maker_checker/_maker_questionnaire_content.html" %}
+{% endblock %}

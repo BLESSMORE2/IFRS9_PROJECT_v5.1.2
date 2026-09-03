@@ -1,0 +1,478 @@
+﻿{% extends "credit_scoreshifts/base.html" %}
+{% load humanize dict_extras %}
+
+{% block title %}IFRS9 ECL Summary Report{% endblock %}
+
+{% block content %}
+<style>
+    .summary-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .summary-hero {
+        background: linear-gradient(135deg, #0f3e72 0%, #0b2d52 100%);
+        border-radius: 14px;
+        padding: 0.8rem 1rem 0.9rem;
+        color: #fff;
+        box-shadow: 0 18px 40px rgba(8, 37, 66, 0.16);
+    }
+    .summary-kicker {
+        display: inline-block;
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.72);
+        margin-bottom: 0.18rem;
+    }
+    .summary-title {
+        margin: 0 0 0.18rem;
+        font-size: 1.08rem;
+        font-weight: 700;
+    }
+    .summary-copy {
+        margin: 0;
+        font-size: 0.77rem;
+        line-height: 1.45;
+        color: rgba(255,255,255,0.84);
+    }
+    .summary-tabs-shell {
+        background: #fff;
+        border: 1px solid #dfe9f4;
+        border-radius: 14px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+        padding: 0.45rem 0.55rem;
+    }
+    .summary-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+    }
+    .summary-tab {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        border: 1px solid #d5e3f2;
+        background: #fff;
+        color: #175494;
+        text-decoration: none;
+        font-size: 0.76rem;
+        font-weight: 700;
+        transition: all 0.2s ease;
+    }
+    .summary-tab:hover {
+        text-decoration: none;
+        color: #0f3d78;
+        border-color: #aac7e8;
+        background: #f3f8ff;
+    }
+    .summary-tab.active {
+        color: #fff;
+        border-color: #175494;
+        background: linear-gradient(135deg, #175494 0%, #1b79c2 100%);
+        box-shadow: 0 8px 18px rgba(23, 84, 148, 0.18);
+    }
+    .summary-banner {
+        border-radius: 12px;
+        padding: 0.7rem 0.9rem;
+        font-size: 0.78rem;
+        line-height: 1.45;
+    }
+    .summary-banner.error {
+        background: #fff3f2;
+        border: 1px solid #fecdca;
+        color: #912018;
+    }
+    .summary-filter-card,
+    .summary-panel {
+        background: #fff;
+        border: 1px solid #e2ebf5;
+        border-radius: 14px;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+    .summary-filter-body,
+    .summary-panel-body {
+        padding: 0.9rem 1rem;
+    }
+    .summary-filter-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+        gap: 0.8rem;
+        align-items: end;
+    }
+    .summary-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+    .summary-field-label {
+        font-size: 0.67rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b;
+    }
+    .summary-select {
+        min-height: 38px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        padding: 0.45rem 0.65rem;
+        font-size: 0.84rem;
+        color: #0f172a;
+        background: #fff;
+    }
+    .summary-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .summary-panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+        flex-wrap: wrap;
+    }
+    .summary-panel-title {
+        margin: 0;
+        font-size: 0.96rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .summary-export-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .summary-btn,
+    .summary-btn-outline {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 0.9rem;
+        border-radius: 999px;
+        font-size: 0.77rem;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    .summary-btn {
+        border: 1px solid #175494;
+        background: linear-gradient(135deg, #175494 0%, #1b79c2 100%);
+        color: #fff;
+    }
+    .summary-btn:hover {
+        color: #fff;
+        text-decoration: none;
+        opacity: 0.95;
+    }
+    .summary-btn-outline {
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        color: #35506f;
+    }
+    .summary-btn-outline:hover {
+        text-decoration: none;
+        color: #16324f;
+        background: #f8fbff;
+    }
+    .summary-stats {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 0.55rem;
+    }
+    .summary-stat {
+        border: 1px solid #d8e4f1;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        padding: 0.7rem 0.75rem;
+    }
+    .summary-stat-label {
+        display: block;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 0.14rem;
+    }
+    .summary-stat strong {
+        color: #0f172a;
+        font-size: 0.82rem;
+    }
+    .summary-table-wrap {
+        overflow: auto;
+        border: 1px solid #e2ebf5;
+        border-radius: 12px;
+        background: #fff;
+    }
+    .summary-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1120px;
+    }
+    .summary-table th,
+    .summary-table td {
+        padding: 0.55rem 0.65rem;
+        border-bottom: 1px solid #edf2f7;
+        border-right: 1px solid #edf2f7;
+        font-size: 0.74rem;
+    }
+    .summary-table th {
+        background: #0e4377;
+        color: #fff;
+        font-weight: 700;
+        text-align: left;
+        white-space: nowrap;
+    }
+    .summary-table td {
+        white-space: nowrap;
+        vertical-align: top;
+    }
+    .summary-table tr:nth-child(even) td {
+        background: #f8fbff;
+    }
+    .summary-table tfoot td {
+        background: #e8f6ef !important;
+        font-weight: 700;
+    }
+    .summary-num {
+        text-align: right;
+    }
+    .summary-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 2.4rem 1.2rem;
+        text-align: center;
+        color: #64748b;
+    }
+    .summary-empty-icon {
+        width: 74px;
+        height: 74px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #e8f1fb;
+        color: #6b8fb3;
+        font-size: 1.6rem;
+        font-weight: 700;
+    }
+    @media (max-width: 1120px) {
+        .summary-stats {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+    @media (max-width: 840px) {
+        .summary-filter-row {
+            grid-template-columns: 1fr;
+        }
+        .summary-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+</style>
+
+<div class="summary-layout">
+    <section class="summary-hero">
+        <span class="summary-kicker">IFRS9 Results</span>
+        <h1 class="summary-title">ECL Summary Report</h1>
+        <p class="summary-copy">Review grouped IFRS9 ECL totals for the selected reporting date. The scorecard automatically picks the latest run key available for that date within the active branch scope.</p>
+    </section>
+
+    <div class="summary-tabs-shell">
+        <div class="summary-tabs">
+            <a href="{% url 'scorecard:ifrs9_results_home' %}" class="summary-tab{% if results_page_key == 'home' %} active{% endif %}">Overview</a>
+            <a href="{% url 'scorecard:ifrs9_results_extract' %}" class="summary-tab{% if results_page_key == 'extract' %} active{% endif %}">Results Extract</a>
+            <a href="{% url 'scorecard:ifrs9_results_ecl_summary' %}" class="summary-tab{% if results_page_key == 'summary' %} active{% endif %}">ECL Summary Report</a>
+        </div>
+    </div>
+
+    {% if not results_module_available %}
+    <div class="summary-banner error">
+        {{ results_module_error }}
+    </div>
+    {% else %}
+    <div class="summary-filter-card">
+        <div class="summary-filter-body">
+            <form method="get" action="{% url 'scorecard:ifrs9_results_ecl_summary' %}">
+                <div class="summary-filter-row">
+                    <div class="summary-field">
+                        <label for="summary-reporting-date" class="summary-field-label">Reporting Date</label>
+                        <select id="summary-reporting-date" name="reporting_date" class="summary-select">
+                            <option value="">-- Select Date --</option>
+                            {% for available_date in results_available_dates %}
+                            <option value="{{ available_date|date:'Y-m-d' }}"{% if results_selected_date_value == available_date|date:'Y-m-d' %} selected{% endif %}>{{ available_date|date:"Y-m-d" }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="summary-field">
+                        <label for="summary-group-by" class="summary-field-label">Group By</label>
+                        <select id="summary-group-by" name="group_by_field" class="summary-select">
+                            {% for field_value, field_label in ecl_summary_group_by_options %}
+                            <option value="{{ field_value }}"{% if ecl_summary_group_by_field == field_value %} selected{% endif %}>{{ field_label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="summary-actions">
+                        <button type="submit" class="summary-btn">Apply</button>
+                        <a href="{% url 'scorecard:ifrs9_results_ecl_summary' %}" class="summary-btn-outline">Reset</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if ecl_summary_rows %}
+    <div class="summary-stats">
+        <div class="summary-stat">
+            <span class="summary-stat-label">Reporting Date</span>
+            <strong>{{ results_selected_date_value }}</strong>
+        </div>
+        <div class="summary-stat">
+            <span class="summary-stat-label">Latest Run Key</span>
+            <strong>{{ results_latest_run_key }}</strong>
+        </div>
+        <div class="summary-stat">
+            <span class="summary-stat-label">Branch Scope</span>
+            <strong>{{ results_branch_scope_label }}</strong>
+        </div>
+        <div class="summary-stat">
+            <span class="summary-stat-label">Grouped By</span>
+            <strong>{{ ecl_summary_group_by_labels|get_item:ecl_summary_group_by_field }}</strong>
+        </div>
+        <div class="summary-stat">
+            <span class="summary-stat-label">Reporting ECL{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</span>
+            <strong>{{ ecl_summary_grand_totals.n_reporting_ecl_rcy|floatformat:2|intcomma }}</strong>
+        </div>
+        <div class="summary-stat">
+            <span class="summary-stat-label">Total EAD{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</span>
+            <strong>{{ ecl_summary_grand_totals.n_exposure_at_default_rcy|floatformat:2|intcomma }}</strong>
+        </div>
+        <div class="summary-stat">
+            <span class="summary-stat-label">Contracts</span>
+            <strong>{{ ecl_summary_grand_totals.n_account_number|intcomma }}</strong>
+        </div>
+    </div>
+
+    <section class="summary-panel">
+        <div class="summary-panel-body">
+            <div class="summary-panel-head">
+                <h2 class="summary-panel-title">Summary Totals</h2>
+                <div class="summary-export-actions">
+                    <a href="{% url 'scorecard:ifrs9_results_ecl_summary_download_excel' %}?reporting_date={{ results_selected_date_value }}&group_by_field={{ ecl_summary_group_by_field }}" class="summary-btn-outline" data-no-nav-loader="1" download>Download Excel</a>
+                    <a href="{% url 'scorecard:ifrs9_results_ecl_summary_download_pdf' %}?reporting_date={{ results_selected_date_value }}&group_by_field={{ ecl_summary_group_by_field }}" class="summary-btn-outline" data-no-nav-loader="1" download>Download PDF</a>
+                </div>
+            </div>
+            <div class="summary-table-wrap">
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            {% for field in ecl_summary_group_by_fields %}
+                            <th>{{ ecl_summary_group_by_labels|get_item:field }}</th>
+                            {% endfor %}
+                            <th>Total Exposure{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</th>
+                            <th>Total EAD{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</th>
+                            <th>Collateral Amount{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</th>
+                            <th>Reporting ECL{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</th>
+                            <th>Weighted Reporting ECL{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</th>
+                            <th>ECL / EAD Ratio</th>
+                            <th>ECL / Exposure Ratio</th>
+                            <th>Contracts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in ecl_summary_rows %}
+                        <tr>
+                            {% for field in ecl_summary_group_by_fields %}
+                            <td>{{ row|get_item:field }}</td>
+                            {% endfor %}
+                            <td class="summary-num">{{ row.n_principal_balance_rcy|floatformat:2|intcomma }}</td>
+                            <td class="summary-num">{{ row.n_exposure_at_default_rcy|floatformat:2|intcomma }}</td>
+                            <td class="summary-num">{{ row.n_collateral_considered|floatformat:2|intcomma }}</td>
+                            <td class="summary-num">{{ row.n_reporting_ecl_rcy|floatformat:2|intcomma }}</td>
+                            <td class="summary-num">{{ row.n_weighted_reporting_ecl_rcy|floatformat:2|intcomma }}</td>
+                            <td class="summary-num">{{ row.ecl_ead_ratio|floatformat:2 }}%</td>
+                            <td class="summary-num">{{ row.ecl_principal_ratio|floatformat:2 }}%</td>
+                            <td class="summary-num">{{ row.n_account_number|intcomma }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="{{ ecl_summary_group_by_fields|length }}">Grand Total</td>
+                            <td class="summary-num">{{ ecl_summary_grand_totals.n_principal_balance_rcy|floatformat:2|intcomma }}</td>
+                            <td class="summary-num">{{ ecl_summary_grand_totals.n_exposure_at_default_rcy|floatformat:2|intcomma }}</td>
+                            <td class="summary-num">{{ ecl_summary_grand_totals.n_collateral_considered|floatformat:2|intcomma }}</td>
+                            <td class="summary-num">{{ ecl_summary_grand_totals.n_reporting_ecl_rcy|floatformat:2|intcomma }}</td>
+                            <td class="summary-num">{{ ecl_summary_grand_totals.n_weighted_reporting_ecl_rcy|floatformat:2|intcomma }}</td>
+                            <td class="summary-num">{{ ecl_summary_grand_totals.ecl_ead_ratio|floatformat:2 }}%</td>
+                            <td class="summary-num">{{ ecl_summary_grand_totals.ecl_principal_ratio|floatformat:2 }}%</td>
+                            <td class="summary-num">{{ ecl_summary_grand_totals.n_account_number|intcomma }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="summary-panel">
+        <div class="summary-panel-body">
+            <div class="summary-panel-head">
+                <h2 class="summary-panel-title">Percentage Split</h2>
+            </div>
+            <div class="summary-table-wrap">
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            {% for field in ecl_summary_group_by_fields %}
+                            <th>{{ ecl_summary_group_by_labels|get_item:field }}</th>
+                            {% endfor %}
+                            <th>% of Reporting ECL</th>
+                            <th>% of Contracts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in ecl_summary_percentages %}
+                        <tr>
+                            {% for field in ecl_summary_group_by_fields %}
+                            <td>{{ row|get_item:field }}</td>
+                            {% endfor %}
+                            <td class="summary-num">{{ row.percent_reporting_ecl_rcy|floatformat:2 }}%</td>
+                            <td class="summary-num">{{ row.percent_accounts|floatformat:2 }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="{{ ecl_summary_group_by_fields|length }}">Grand Total</td>
+                            <td class="summary-num">{% if ecl_summary_grand_totals.n_reporting_ecl_rcy %}100.00%{% else %}0.00%{% endif %}</td>
+                            <td class="summary-num">{% if ecl_summary_grand_totals.n_account_number %}100.00%{% else %}0.00%{% endif %}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </section>
+    {% else %}
+    <div class="summary-panel">
+        <div class="summary-empty">
+            <div class="summary-empty-icon">E</div>
+            <h3>No data available for this report</h3>
+            <p>Select a <strong>Reporting Date</strong> and apply the filter to load the latest-run ECL summary for the current branch scope.</p>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+

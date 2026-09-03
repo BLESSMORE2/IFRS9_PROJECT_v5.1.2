@@ -1,0 +1,432 @@
+{% extends "credit_scoreshifts/base.html" %}
+{% load dict_extras %}
+
+{% block title %}Compare IFRS9 Score Form Versions - {{ evaluation.customer_name }}{% endblock %}
+
+{% block content %}
+<style>
+    .version-selector {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        margin-bottom: 2rem;
+    }
+    .version-selector h3 {
+        margin-top: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .version-select-form {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+    .version-select-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    .version-select-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .version-select-group select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .compare-btn {
+        padding: 0.6rem 1.5rem;
+        background: #0066cc;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .compare-btn:hover {
+        background: #0052a3;
+    }
+    .comparison-summary {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .version-summary-box {
+        padding: 1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 4px;
+        background: #f9f9f9;
+    }
+    .version-summary-box.current {
+        border-color: #0b8457;
+        background: #e8f5e9;
+    }
+    .version-summary-box.approved {
+        border-color: #2e7d32;
+        background: #e8f5e9;
+        border-width: 3px;
+    }
+    .version-summary-box h4 {
+        margin-top: 0;
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .version-summary-box .version-info {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+    }
+    .version-summary-box .score {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #0066cc;
+        margin: 0.5rem 0;
+    }
+    .version-summary-box .grade {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #0b8457;
+    }
+    .difference-highlight {
+        background-color: #fff3cd;
+        border-left: 3px solid #ffc107;
+        padding: 0.3rem 0.5rem;
+        margin: 0.2rem 0;
+    }
+    .difference-highlight.removed {
+        background-color: #f8d7da;
+        border-left-color: #dc3545;
+    }
+    .difference-highlight.added {
+        background-color: #d4edda;
+        border-left-color: #28a745;
+    }
+    .comparison-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.5rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .comparison-table thead th {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        padding: 0.5rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    .comparison-table tbody td {
+        border: 1px solid #e0e0e0;
+        padding: 0.4rem 0.5rem;
+        font-size: 12px;
+        color: #333;
+    }
+    .comparison-table tbody td.text-center {
+        text-align: center;
+    }
+    .no-difference {
+        color: #999;
+        font-style: italic;
+    }
+    .section-header {
+        margin-top: 1.5rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.75rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+<h2 style="font-family: 'Calibri', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin-bottom: 1rem;">
+    Compare IFRS9 Score Form Versions
+</h2>
+
+<div style="margin-bottom: 1rem; padding: 0.75rem; background: #e3f2fd; border-radius: 4px; font-size: 0.9rem;">
+    <strong>Customer:</strong> {{ evaluation.customer_name }} ({{ evaluation.customer_id }}) | 
+    <strong>Branch:</strong> {{ evaluation.branch_name }} | 
+    <strong>Template:</strong> {{ template.code }}
+</div>
+
+<!-- Version Selector -->
+<div class="version-selector">
+    <h3>Select Versions to Compare</h3>
+    <form method="get" class="version-select-form">
+        <input type="hidden" name="evaluation_id" value="{{ evaluation.id }}">
+        <div class="version-select-group">
+            <label for="version1">Previous Version (Old):</label>
+            <select name="version1" id="version1">
+                <option value="">Current (Latest)</option>
+                {% for version in all_versions %}
+                    <option value="{{ version.id }}" {% if version1 and version1.id == version.id %}selected{% endif %}>
+                        Version {{ version.version_number }} ({{ version.total_weighted_percent|floatformat:2 }}% - {{ version.final_grade }}) - {{ version.created_at|date:"Y-m-d H:i" }}{% if version.is_approved %} ✓ Approved{% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="version-select-group">
+            <label for="version2">New Version (Current):</label>
+            <select name="version2" id="version2">
+                <option value="">Current (Latest)</option>
+                {% for version in all_versions %}
+                    <option value="{{ version.id }}" {% if version2 and version2.id == version.id %}selected{% endif %}>
+                        Version {{ version.version_number }} ({{ version.total_weighted_percent|floatformat:2 }}% - {{ version.final_grade }}) - {{ version.created_at|date:"Y-m-d H:i" }}{% if version.is_approved %} ✓ Approved{% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="compare-btn">Compare</button>
+        </div>
+    </form>
+</div>
+
+{% if comparison_data.version1 and comparison_data.version2 %}
+    <!-- Comparison Summary -->
+    <div class="comparison-summary">
+        <div class="version-summary-box {% if not comparison_data.version1.version %}current{% endif %}">
+            <h4>
+                {% if comparison_data.version1.version %}
+                    Previous Version (Version {{ comparison_data.version1.version.version_number }})
+                {% else %}
+                    Previous Version (Current)
+                {% endif %}
+            </h4>
+            {% if comparison_data.version1.version %}
+                <div class="version-info">
+                    Created: {{ comparison_data.version1.version.created_at|date:"Y-m-d H:i" }}<br>
+                    {% if comparison_data.version1.version.created_by %}
+                        By: {{ comparison_data.version1.version.created_by.email }}
+                    {% endif %}
+                </div>
+            {% endif %}
+            <div class="score">{{ comparison_data.version1.summary.total_weighted_percent|floatformat:2 }}%</div>
+            <div class="grade">{{ comparison_data.version1.summary.final_grade|default:"-" }}</div>
+        </div>
+        
+        <div class="version-summary-box {% if not comparison_data.version2.version %}current{% elif comparison_data.version2.version.is_approved %}approved{% endif %}">
+            <h4>
+                {% if comparison_data.version2.version %}
+                    New Version (Version {{ comparison_data.version2.version.version_number }})
+                    {% if comparison_data.version2.version.is_approved %}
+                        <span style="color: #2e7d32; font-weight: 600; font-size: 0.85rem;">✓ Approved</span>
+                    {% endif %}
+                {% else %}
+                    New Version (Current)
+                {% endif %}
+            </h4>
+            {% if comparison_data.version2.version %}
+                <div class="version-info">
+                    {% if comparison_data.version2.version.is_approved and comparison_data.version2.version.approved_at %}
+                        Approved: {{ comparison_data.version2.version.approved_at|date:"Y-m-d H:i" }}<br>
+                        {% if comparison_data.version2.version.approved_by %}
+                            By: {{ comparison_data.version2.version.approved_by.email }}<br>
+                        {% endif %}
+                    {% else %}
+                        Created: {{ comparison_data.version2.version.created_at|date:"Y-m-d H:i" }}<br>
+                        {% if comparison_data.version2.version.created_by %}
+                            By: {{ comparison_data.version2.version.created_by.email }}
+                        {% endif %}
+                    {% endif %}
+                </div>
+            {% endif %}
+            <div class="score">{{ comparison_data.version2.summary.total_weighted_percent|floatformat:2 }}%</div>
+            <div class="grade">{{ comparison_data.version2.summary.final_grade|default:"-" }}</div>
+        </div>
+    </div>
+
+    <!-- Summary Differences -->
+    {% if comparison_data.summary_differences %}
+    <div style="margin-bottom: 2rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+        <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: 600; color: #333;">Summary Changes:</h3>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th class="text-center">Previous Version</th>
+                    <th class="text-center">New Version</th>
+                    <th class="text-center">Difference</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Total Weighted Score</strong></td>
+                    <td class="text-center">{{ comparison_data.summary_differences.v1.total_weighted_percent|floatformat:2 }}%</td>
+                    <td class="text-center">{{ comparison_data.summary_differences.v2.total_weighted_percent|floatformat:2 }}%</td>
+                    <td class="text-center">
+                        {% if comparison_data.summary_differences.total_weighted_diff is not None %}
+                            {% if comparison_data.summary_differences.total_weighted_diff > 0 %}+{% endif %}{{ comparison_data.summary_differences.total_weighted_diff|floatformat:2 }}%
+                        {% else %}
+                            <span class="no-difference">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Final Grade</strong></td>
+                    <td class="text-center">{{ comparison_data.summary_differences.v1.final_grade|default:"-" }}</td>
+                    <td class="text-center">{{ comparison_data.summary_differences.v2.final_grade|default:"-" }}</td>
+                    <td class="text-center">
+                        {% if comparison_data.summary_differences.v1.final_grade != comparison_data.summary_differences.v2.final_grade %}
+                            <span style="color: #dc3545;">Changed</span>
+                        {% else %}
+                            <span class="no-difference">No change</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Hierarchical Comparison: Section → Driver → Attribute -->
+    {% if comparison_data.section_differences or comparison_data.driver_differences or comparison_data.attribute_differences %}
+    <div style="margin-bottom: 2rem;">
+        <h3 class="section-header">Detailed Changes (Section → Driver → Attribute)</h3>
+        
+        {% for section in sections %}
+            {% with section_diff=comparison_data.section_differences|get_item:section.id %}
+                {% if section_diff %}
+                    <!-- Section Header (no scores, just name) -->
+                    <div style="margin-top: 1.5rem; margin-bottom: 0.75rem; padding: 0.75rem; background: #e3f2fd; border-left: 4px solid #0066cc; border-radius: 4px;">
+                        <strong style="font-size: 1rem; color: #333;">{{ section.code }} - {{ section.name }}</strong>
+                    </div>
+                    
+                    <!-- Drivers in this Section -->
+                    {% for driver in drivers_by_section|get_item:section.id %}
+                        {% with driver_diff=comparison_data.driver_differences|get_item:driver.id %}
+                            {% if driver_diff %}
+                                <!-- Driver Header (no scores, just name) -->
+                                <div style="margin-left: 1.5rem; margin-bottom: 0.5rem; padding: 0.6rem; background: #f5f5f5; border-left: 3px solid #6c757d; border-radius: 4px;">
+                                    <strong style="font-size: 0.95rem; color: #333;">{{ driver.code }} - {{ driver.name }}</strong>
+                                    
+                                    <!-- Attributes in this Driver -->
+                                    {% for attribute in attributes_by_driver|get_item:driver.id %}
+                                        {% with attr_diff=comparison_data.attribute_differences|get_item:attribute.id %}
+                                            {% if attr_diff %}
+                                                <div style="margin-left: 1.5rem; margin-top: 0.75rem; margin-bottom: 0.75rem; padding: 0.75rem; background: white; border-left: 2px solid #999; border-radius: 4px;">
+                                                    <!-- Attribute Name (match view/edit/create format) -->
+                                                    <div style="font-size: 0.95rem; font-weight: 600; color: #333; margin-bottom: 0.5rem;">
+                                                        {% if attribute.group_label %}
+                                                            {{ attribute.group_label }}
+                                                        {% else %}
+                                                            {{ attribute.code }} - {{ attribute.label }}
+                                                        {% endif %}
+                                                    </div>
+                                                    
+                                                    <!-- Previous Version -->
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #666; margin-bottom: 0.25rem;">
+                                                        <div>
+                                                            <strong>Previous:</strong> 
+                                                            {% if attr_diff.v1 and attr_diff.v1.option %}
+                                                                {{ attr_diff.v1.option.label }} ({{ attr_diff.v1.allocated_score|floatformat:2 }})
+                                                            {% else %}
+                                                                No selection ({{ attr_diff.v1.allocated_score|floatformat:2 }})
+                                                            {% endif %}
+                                                        </div>
+                                                        <div style="text-align: right;">
+                                                            <strong>Previous:</strong> Raw {{ attr_diff.v1.allocated_score|floatformat:2 }} | Weighted {% if attr_diff.v1_weighted_score is not None %}{{ attr_diff.v1_weighted_score|floatformat:2 }}%{% else %}-{% endif %}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- New Version -->
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #666; margin-bottom: 0.5rem;">
+                                                        <div>
+                                                            <strong>New:</strong> 
+                                                            {% if attr_diff.v2 and attr_diff.v2.option %}
+                                                                {{ attr_diff.v2.option.label }} ({{ attr_diff.v2.allocated_score|floatformat:2 }})
+                                                            {% else %}
+                                                                No selection ({{ attr_diff.v2.allocated_score|floatformat:2 }})
+                                                            {% endif %}
+                                                        </div>
+                                                        <div style="text-align: right;">
+                                                            <strong>New:</strong> Raw {{ attr_diff.v2.allocated_score|floatformat:2 }} | Weighted {% if attr_diff.v2_weighted_score is not None %}{{ attr_diff.v2_weighted_score|floatformat:2 }}%{% else %}-{% endif %}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- Change -->
+                                                    <div style="display: flex; justify-content: flex-end; font-size: 0.9rem; font-weight: 600; color: #dc3545; margin-top: 0.25rem;">
+                                                        <strong>Change:</strong> {% if attr_diff.score_diff > 0 %}+{% endif %}{{ attr_diff.score_diff|floatformat:2 }} 
+                                                        (Weighted: {% if attr_diff.weighted_diff is not None %}{% if attr_diff.weighted_diff > 0 %}+{% endif %}{{ attr_diff.weighted_diff|floatformat:2 }}%{% else %}-{% endif %})
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        {% endfor %}
+        
+        {% if not comparison_data.section_differences and not comparison_data.driver_differences and not comparison_data.attribute_differences %}
+            <div style="margin-bottom: 2rem; padding: 1rem; background: #d4edda; border: 1px solid #28a745; border-radius: 4px; color: #155724;">
+                <strong>No changes detected</strong> - All sections, drivers, and attributes are identical between versions.
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+{% else %}
+    <div style="padding: 2rem; text-align: center; color: #666;">
+        <p>Please select two versions to compare from the dropdowns above.</p>
+    </div>
+{% endif %}
+
+<div class="actions">
+    <a href="{% url 'scorecard:ifrs9_scores_view_detail' evaluation_id=evaluation.id %}" class="btn btn-secondary">
+        Back to View
+    </a>
+    <a href="{% url 'scorecard:ifrs9_scores_submitted_list' %}" class="btn btn-secondary">
+        Back to List
+    </a>
+</div>
+{% endblock %}
+

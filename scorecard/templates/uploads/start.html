@@ -1,0 +1,439 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}{{ config.label }}{% endblock %}
+{% block header_title %}{{ config.label }}{% endblock %}
+
+{% block content %}
+<style>
+    .upload-shell {
+        --upload-primary: #0b63ce;
+        --upload-primary-dark: #094ea1;
+        --upload-ink: #122033;
+        --upload-muted: #61748b;
+        --upload-line: #d7e1ec;
+        --upload-soft: #f6f9fc;
+        --upload-soft-blue: linear-gradient(135deg, #f7fbff 0%, #eef5ff 100%);
+        --upload-danger-soft: #fff6f4;
+        --upload-danger-line: #f2c7bf;
+        --upload-shadow: 0 18px 45px rgba(15, 40, 75, 0.08);
+        --upload-radius: 18px;
+    }
+    .upload-shell {
+        color: var(--upload-ink);
+    }
+    .stepbar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-bottom: 1rem;
+    }
+    .stepbar-item {
+        background: #fff;
+        border: 1px solid var(--upload-line);
+        border-radius: 14px;
+        padding: 0.95rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        box-shadow: 0 8px 24px rgba(15, 40, 75, 0.04);
+    }
+    .stepbar-item.is-current {
+        background: var(--upload-soft-blue);
+        border-color: #b6d0ef;
+    }
+    .stepbar-number {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #e8f1fd;
+        color: var(--upload-primary-dark);
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+    .stepbar-item.is-current .stepbar-number {
+        background: var(--upload-primary);
+        color: #fff;
+    }
+    .stepbar-label {
+        font-size: 0.92rem;
+        line-height: 1.35;
+    }
+    .hero {
+        background: var(--upload-soft-blue);
+        border: 1px solid #dbe8f5;
+        border-radius: var(--upload-radius);
+        padding: 1.45rem 1.55rem;
+        box-shadow: var(--upload-shadow);
+        position: relative;
+        overflow: hidden;
+    }
+    .hero::after {
+        content: "";
+        position: absolute;
+        right: -40px;
+        top: -40px;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(11, 99, 206, 0.15), rgba(11, 99, 206, 0));
+    }
+    .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: rgba(11, 99, 206, 0.08);
+        color: var(--upload-primary-dark);
+        border-radius: 999px;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+    .hero h2 {
+        margin-top: 0.8rem;
+        font-size: 1.7rem;
+        line-height: 1.15;
+    }
+    .hero p {
+        margin-top: 0.75rem;
+        max-width: 760px;
+        color: var(--upload-muted);
+        line-height: 1.58;
+    }
+    .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.95fr);
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .card {
+        background: #fff;
+        border: 1px solid var(--upload-line);
+        border-radius: var(--upload-radius);
+        box-shadow: var(--upload-shadow);
+        padding: 1.4rem;
+    }
+    .card h3 {
+        margin-bottom: 0.35rem;
+        font-size: 1.1rem;
+    }
+    .muted {
+        color: var(--upload-muted);
+        font-size: 0.94rem;
+        line-height: 1.55;
+    }
+    .upload-dropzone {
+        margin-top: 1rem;
+        border: 1.5px dashed #b4cae3;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #fbfdff 0%, #f5f9fe 100%);
+        padding: 1.1rem;
+        transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    }
+    .upload-dropzone.is-selected {
+        border-color: var(--upload-primary);
+        background: #f1f7ff;
+    }
+    .upload-field-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.65rem;
+        font-weight: 700;
+    }
+    .file-input {
+        width: 100%;
+        padding: 0.9rem;
+        background: #fff;
+        border: 1px solid #c9d7e6;
+        border-radius: 12px;
+        font: inherit;
+    }
+    .selection-card {
+        display: none;
+        margin-top: 0.95rem;
+        border-radius: 14px;
+        border: 1px solid #c7daf2;
+        background: #ffffff;
+        padding: 0.95rem 1rem;
+    }
+    .selection-card.is-visible {
+        display: block;
+    }
+    .selection-card strong {
+        display: block;
+        font-size: 0.96rem;
+        margin-bottom: 0.25rem;
+    }
+    .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+    .meta-item {
+        background: var(--upload-soft);
+        border: 1px solid #e1e8f0;
+        border-radius: 14px;
+        padding: 0.9rem 1rem;
+    }
+    .meta-item span {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #6a7f97;
+        margin-bottom: 0.35rem;
+    }
+    .actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 1.25rem;
+    }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        border: none;
+        border-radius: 12px;
+        padding: 0.82rem 1.2rem;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    .btn:hover {
+        transform: translateY(-1px);
+    }
+    .btn-primary {
+        background: var(--upload-primary);
+        color: #fff;
+        box-shadow: 0 14px 24px rgba(11, 99, 206, 0.2);
+    }
+    .btn-primary:hover {
+        background: var(--upload-primary-dark);
+    }
+    .btn-secondary {
+        background: #e6edf5;
+        color: #203148;
+    }
+    .btn-danger {
+        background: #fff4f2;
+        color: #b42318;
+        border: 1px solid #f0c0b8;
+    }
+    .check-list {
+        display: grid;
+        gap: 0.85rem;
+        margin-top: 1rem;
+    }
+    .check-list-item {
+        display: flex;
+        gap: 0.7rem;
+        align-items: flex-start;
+    }
+    .check-icon {
+        width: 1.55rem;
+        height: 1.55rem;
+        border-radius: 999px;
+        background: #e9f3ff;
+        color: var(--upload-primary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.82rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+    .session-card {
+        border: 1px solid var(--upload-danger-line);
+        background: var(--upload-danger-soft);
+    }
+    .session-card h3 {
+        color: #8b2d21;
+    }
+    .session-note {
+        margin-top: 0.8rem;
+        padding: 0.8rem 0.9rem;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.7);
+        color: #7a4a43;
+        line-height: 1.5;
+        font-size: 0.9rem;
+    }
+    @media (max-width: 980px) {
+        .layout {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 720px) {
+        .stepbar {
+            grid-template-columns: 1fr;
+        }
+        .hero h2 {
+            font-size: 1.45rem;
+        }
+    }
+</style>
+
+<div class="upload-shell">
+    <div class="stepbar">
+        <div class="stepbar-item is-current">
+            <span class="stepbar-number">1</span>
+            <div class="stepbar-label"><strong>Upload</strong><br>Select the file to import</div>
+        </div>
+        <div class="stepbar-item">
+            <span class="stepbar-number">2</span>
+            <div class="stepbar-label"><strong>Map</strong><br>Align file headers with model fields</div>
+        </div>
+        <div class="stepbar-item">
+            <span class="stepbar-number">3</span>
+            <div class="stepbar-label"><strong>Preview</strong><br>Review cleaned rows before loading</div>
+        </div>
+    </div>
+
+    <section class="hero">
+        <span class="eyebrow">{{ config.short_label }} Import</span>
+        <h2>Upload the file and move straight into mapping.</h2>
+        <p>
+            This importer accepts Excel workbooks or CSV files. Once you continue, the upload draft will be refreshed with the file you selected and the next screen will prepare the mapping suggestions automatically.
+        </p>
+    </section>
+
+    <div class="layout">
+        <section class="card">
+            <h3>Step 1. Upload the file</h3>
+            <div class="muted">
+                Supported files: <strong>.xlsx</strong>, <strong>.xlsb</strong>, and <strong>.csv</strong>. The importer keeps only the model-ready fields and handles cleaning during preview.
+            </div>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="upload-dropzone" id="upload-dropzone">
+                    <label class="upload-field-label" for="source_file">Workbook or CSV</label>
+                    <input class="file-input" id="source_file" name="source_file" type="file" accept=".xlsx,.xlsb,.csv,text/csv" required>
+
+                    <div class="selection-card" id="selection-card">
+                        <strong id="selection-name">No file selected</strong>
+                        <div class="muted">This file will replace the saved upload draft once you continue.</div>
+                    </div>
+                </div>
+
+                <div class="meta-grid">
+                    <div class="meta-item">
+                        <span>Target</span>
+                        {{ config.table_name }}
+                    </div>
+                    <div class="meta-item">
+                        <span>Sheet handling</span>
+                        Automatic
+                    </div>
+                    <div class="meta-item">
+                        <span>Submission date</span>
+                        System-generated
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-primary" type="submit">Continue To Mapping</button>
+                    <a class="btn btn-secondary" href="{% url 'scorecard:upload_home' %}">Back</a>
+                </div>
+            </form>
+        </section>
+
+        <aside class="card">
+            <h3>What happens next</h3>
+            <div class="check-list">
+                <div class="check-list-item">
+                    <span class="check-icon">1</span>
+                    <div>
+                        <strong>Header scan</strong><br>
+                        <span class="muted">We read the file columns and pre-suggest model mappings.</span>
+                    </div>
+                </div>
+                <div class="check-list-item">
+                    <span class="check-icon">2</span>
+                    <div>
+                        <strong>Cleaning</strong><br>
+                        <span class="muted">Branch names are uppercased, numeric customer IDs lose leading zeroes, and invalid score values are flagged before import.</span>
+                    </div>
+                </div>
+                <div class="check-list-item">
+                    <span class="check-icon">3</span>
+                    <div>
+                        <strong>Review</strong><br>
+                        <span class="muted">You see valid rows and skipped rows before anything lands in the database.</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    {% if state.original_name %}
+        <section class="card session-card" id="saved-session-card">
+            <h3>Saved upload draft</h3>
+            <div class="muted">
+                There is a previously prepared file in this import session.
+            </div>
+            <div class="meta-grid">
+                <div class="meta-item">
+                    <span>Saved file</span>
+                    {{ state.original_name }}
+                </div>
+                <div class="meta-item">
+                    <span>Detected sheet</span>
+                    {{ state.sheet_name|default:"-" }}
+                </div>
+            </div>
+            <div class="session-note">
+                If you continue with a new file above, this saved draft will be replaced immediately. If you want to discard it now, use the clear action below.
+            </div>
+            <div class="actions">
+                <form method="post" action="{% url 'scorecard:upload_reset' upload_kind=upload_kind %}">
+                    {% csrf_token %}
+                    <button class="btn btn-danger" type="submit">Clear Saved Draft</button>
+                </form>
+            </div>
+        </section>
+    {% endif %}
+</div>
+
+<script>
+    (function () {
+        const input = document.getElementById("source_file");
+        const selectionCard = document.getElementById("selection-card");
+        const selectionName = document.getElementById("selection-name");
+        const dropzone = document.getElementById("upload-dropzone");
+        const savedSessionCard = document.getElementById("saved-session-card");
+
+        if (!input) {
+            return;
+        }
+
+        input.addEventListener("change", function () {
+            const hasFile = input.files && input.files.length > 0;
+            if (!hasFile) {
+                selectionCard.classList.remove("is-visible");
+                dropzone.classList.remove("is-selected");
+                if (savedSessionCard) {
+                    savedSessionCard.style.display = "";
+                }
+                return;
+            }
+
+            selectionName.textContent = input.files[0].name;
+            selectionCard.classList.add("is-visible");
+            dropzone.classList.add("is-selected");
+            if (savedSessionCard) {
+                savedSessionCard.style.display = "none";
+            }
+        });
+    })();
+</script>
+{% endblock %}

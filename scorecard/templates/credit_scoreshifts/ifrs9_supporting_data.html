@@ -1,0 +1,2042 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}IFRS9 Supporting Data{% endblock %}
+
+{% block content %}
+<style>
+    .support-workspace {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+    .support-hero {
+        background: linear-gradient(135deg, #0f3e72 0%, #0b2d52 100%);
+        border-radius: 14px;
+        padding: 0.7rem 0.95rem 0.8rem;
+        color: #fff;
+        box-shadow: 0 18px 40px rgba(8, 37, 66, 0.16);
+    }
+    .support-kicker {
+        display: inline-block;
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.72);
+        margin-bottom: 0.18rem;
+    }
+    .support-title {
+        margin: 0 0 0.16rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+    .support-copy {
+        margin: 0;
+        color: rgba(255,255,255,0.84);
+        font-size: 0.76rem;
+        max-width: 1080px;
+        line-height: 1.4;
+    }
+    .support-tabs-shell {
+        background: #fff;
+        border: 1px solid #dfe9f4;
+        border-radius: 14px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+        padding: 0.45rem 0.55rem;
+    }
+    .support-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+    }
+    .support-tab {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        min-height: 32px;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        border: 1px solid #d5e3f2;
+        background: #fff;
+        color: #175494;
+        text-decoration: none;
+        font-size: 0.76rem;
+        font-weight: 700;
+        transition: all 0.2s ease;
+    }
+    .support-tab:hover {
+        text-decoration: none;
+        color: #0f3d78;
+        border-color: #aac7e8;
+        background: #f3f8ff;
+    }
+    .support-tab.active {
+        color: #fff;
+        border-color: #175494;
+        background: linear-gradient(135deg, #175494 0%, #1b79c2 100%);
+        box-shadow: 0 8px 18px rgba(23, 84, 148, 0.18);
+    }
+    .support-tab-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        padding: 0.08rem 0.38rem;
+        border-radius: 999px;
+        background: #eef5fc;
+        color: #175494;
+        font-size: 0.68rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .support-tab.active .support-tab-badge {
+        background: rgba(255,255,255,0.18);
+        color: #fff;
+    }
+    .support-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.55rem;
+    }
+    .support-stat {
+        background: #fff;
+        border: 1px solid #e2ebf5;
+        border-radius: 12px;
+        padding: 0.52rem 0.7rem 0.58rem;
+        box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+    }
+    .support-stat-label {
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 0.14rem;
+    }
+    .support-stat-value {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.3;
+    }
+    .support-banner {
+        border-radius: 12px;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.78rem;
+        line-height: 1.45;
+    }
+    .support-banner.error {
+        background: #fff3f2;
+        border: 1px solid #fecdca;
+        color: #912018;
+    }
+    .support-banner.warning {
+        background: #fff8eb;
+        border: 1px solid #fedf89;
+        color: #9a6700;
+    }
+    .support-panel,
+    .support-table-wrap {
+        background: #fff;
+        border: 1px solid #e2ebf5;
+        border-radius: 14px;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+    .support-panel-header,
+    .support-table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.72rem 0.9rem;
+        border-bottom: 1px solid #edf2f7;
+        background: linear-gradient(180deg, #f9fbfd 0%, #f3f7fb 100%);
+    }
+    .support-panel-title,
+    .support-table-title {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .support-panel-note,
+    .support-table-note {
+        margin: 0.2rem 0 0;
+        font-size: 0.74rem;
+        color: #64748b;
+        line-height: 1.4;
+    }
+    .support-panel-body {
+        padding: 0.75rem 0.9rem 0.8rem;
+    }
+    .support-status-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .support-compact-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-top: 0.6rem;
+    }
+    .support-compact-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.28rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid #d8e4f1;
+        background: #f8fbff;
+        color: #35506f;
+        font-size: 0.69rem;
+        font-weight: 700;
+    }
+    .support-dashboard-shell {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr;
+        gap: 0.65rem;
+        margin-top: 0.65rem;
+    }
+    .support-dashboard-brief,
+    .support-dashboard-state {
+        border: 1px solid #dce8f5;
+        border-radius: 12px;
+        padding: 0.68rem 0.8rem;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+    .support-dashboard-label {
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 0.18rem;
+    }
+    .support-dashboard-text {
+        color: #334155;
+        font-size: 0.76rem;
+        line-height: 1.4;
+    }
+    .support-dashboard-state .support-status-value {
+        margin-bottom: 0.2rem;
+    }
+    .support-status-card {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        border: 1px solid #dce8f5;
+        border-radius: 14px;
+        padding: 1rem 1.05rem;
+    }
+    .support-status-label {
+        font-size: 0.73rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 0.35rem;
+    }
+    .support-status-value {
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.3rem;
+    }
+    .support-status-copy {
+        font-size: 0.81rem;
+        color: #64748b;
+        line-height: 1.5;
+    }
+    .support-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .support-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.22rem 0.5rem;
+        border-radius: 999px;
+        background: #eef5fc;
+        color: #17476f;
+        font-size: 0.68rem;
+        font-weight: 700;
+    }
+    .support-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 999px;
+        padding: 0.5rem 0.82rem;
+        font-size: 0.74rem;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        color: #fff;
+        background: linear-gradient(135deg, #175494 0%, #1c74b8 100%);
+    }
+    .support-button:hover {
+        color: #fff;
+        text-decoration: none;
+        filter: brightness(0.98);
+    }
+    .support-button.is-disabled,
+    .support-button[aria-disabled="true"] {
+        pointer-events: none;
+        opacity: 0.55;
+        box-shadow: none;
+        filter: none;
+    }
+    .support-button.secondary {
+        background: #eef4fb;
+        color: #214a75;
+        border: 1px solid #d5e3f3;
+    }
+    .support-button.secondary:hover {
+        color: #17324f;
+        background: #e4eef9;
+    }
+    .support-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+    }
+    .support-card {
+        background: #fff;
+        border: 1px solid #e2ebf5;
+        border-radius: 14px;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+    .support-card-header {
+        padding: 0.75rem 0.9rem 0.68rem;
+        border-bottom: 1px solid #edf2f7;
+        background: linear-gradient(180deg, #f9fbfd 0%, #f3f7fb 100%);
+    }
+    .support-card-title {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .support-card-note {
+        margin: 0.18rem 0 0;
+        font-size: 0.74rem;
+        color: #64748b;
+        line-height: 1.4;
+    }
+    .support-card-body {
+        padding: 0.75rem 0.9rem 0.82rem;
+    }
+    .support-card-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.65rem;
+    }
+    .support-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.9rem;
+    }
+    .support-form-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+    .support-form-field.full {
+        grid-column: 1 / -1;
+    }
+    .support-form-field label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #334155;
+    }
+    .support-form-errors {
+        margin-bottom: 0.75rem;
+        border: 1px solid #fecaca;
+        border-radius: 12px;
+        background: #fff1f2;
+        color: #b91c1c;
+        padding: 0.65rem 0.8rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+    .support-input,
+    .support-select {
+        width: 100%;
+        border: 1px solid #cfd8e3;
+        border-radius: 10px;
+        padding: 0.7rem 0.85rem;
+        font-size: 0.88rem;
+        color: #0f172a;
+        background: #fff;
+    }
+    .support-input:focus,
+    .support-select:focus {
+        outline: none;
+        border-color: #2f77c5;
+        box-shadow: 0 0 0 3px rgba(47, 119, 197, 0.12);
+    }
+    .schedule-builder {
+        margin-top: 0.8rem;
+        border: 1px solid #dbe7f4;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+    }
+    .schedule-builder-head,
+    .schedule-row {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.5fr) 46px;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    .schedule-builder-head {
+        background: #f2f7fd;
+        border-bottom: 1px solid #dbe7f4;
+        padding: 0.55rem 0.65rem;
+        color: #334155;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .schedule-row {
+        padding: 0.6rem 0.65rem;
+        border-bottom: 1px solid #edf2f7;
+    }
+    .schedule-row:last-child {
+        border-bottom: 0;
+    }
+    .schedule-row input {
+        width: 100%;
+        border: 1px solid #cfd8e3;
+        border-radius: 9px;
+        padding: 0.55rem 0.65rem;
+        font-size: 0.82rem;
+        color: #0f172a;
+        background: #fff;
+    }
+    .schedule-row input:focus {
+        outline: none;
+        border-color: #2f77c5;
+        box-shadow: 0 0 0 3px rgba(47, 119, 197, 0.12);
+    }
+    .schedule-row-errors {
+        grid-column: 1 / -1;
+        color: #b91c1c;
+        background: #fff1f2;
+        border: 1px solid #fecaca;
+        border-radius: 10px;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.74rem;
+        font-weight: 700;
+    }
+    .schedule-remove-row {
+        border: 0;
+        border-radius: 10px;
+        min-height: 34px;
+        color: #b91c1c;
+        background: #fee2e2;
+        font-weight: 800;
+        cursor: pointer;
+    }
+    .schedule-remove-row:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+    }
+    .schedule-builder-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.65rem;
+        border-top: 1px solid #edf2f7;
+        background: #fbfdff;
+    }
+    .schedule-builder-note {
+        color: #64748b;
+        font-size: 0.74rem;
+    }
+    .schedule-add-row {
+        border: 1px solid #bfdbfe;
+        border-radius: 999px;
+        padding: 0.52rem 0.8rem;
+        color: #075985;
+        background: #eff6ff;
+        font-size: 0.78rem;
+        font-weight: 800;
+        cursor: pointer;
+    }
+    .support-customer-search-input {
+        width: 100%;
+        border: 1px solid #cfd8e3;
+        border-radius: 10px;
+        padding: 0.7rem 0.85rem;
+        font-size: 0.88rem;
+        color: #0f172a;
+        background: #fff;
+    }
+    .support-customer-search-input:focus {
+        outline: none;
+        border-color: #2f77c5;
+        box-shadow: 0 0 0 3px rgba(47, 119, 197, 0.12);
+    }
+    .support-customer-search-input.is-invalid {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+    }
+    .support-customer-search-hidden {
+        display: none;
+    }
+    .support-help,
+    .support-errors {
+        font-size: 0.7rem;
+        line-height: 1.35;
+    }
+    .support-help {
+        color: #64748b;
+    }
+    .support-errors {
+        color: #b42318;
+    }
+    .support-meta-box {
+        margin-top: 0.55rem;
+        padding: 0.6rem 0.72rem;
+        border-radius: 12px;
+        background: #f8fbff;
+        border: 1px solid #dce7f4;
+        font-size: 0.73rem;
+        color: #35506f;
+        line-height: 1.4;
+    }
+    .support-table-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-top: 0.38rem;
+    }
+    .support-entries-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        color: #51627d;
+        font-size: 0.78rem;
+    }
+    .support-entries-select {
+        border: 1px solid #c8d7ea;
+        border-radius: 10px;
+        padding: 0.32rem 0.62rem;
+        background: #fff;
+        color: #12355b;
+        font: inherit;
+    }
+    .support-table-scroll {
+        overflow-x: auto;
+    }
+    .support-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.76rem;
+    }
+    .support-table th,
+    .support-table td {
+        padding: 0.5rem 0.62rem;
+        border-bottom: 1px solid #edf2f7;
+        text-align: left;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .support-table th {
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b;
+        background: #fbfdff;
+    }
+    .support-empty {
+        padding: 1.2rem 0.9rem;
+        color: #64748b;
+        font-size: 0.76rem;
+        text-align: center;
+    }
+    .support-empty-title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.25rem;
+    }
+    .support-empty-copy {
+        max-width: 560px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+    .support-highlight-number {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.16rem;
+    }
+    .support-highlight-copy {
+        font-size: 0.74rem;
+        color: #64748b;
+        line-height: 1.4;
+        margin-bottom: 0.55rem;
+    }
+    .support-two-col {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .support-actions-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        margin-top: 0.7rem;
+    }
+    .support-table-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+    }
+    .support-pagination {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.8rem;
+        margin-top: 0.95rem;
+        padding-top: 0.95rem;
+        border-top: 1px solid #e5edf7;
+    }
+    .support-pagination-copy {
+        color: #51627d;
+        font-size: 0.82rem;
+    }
+    .support-pagination-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .support-pagination-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        min-width: 92px;
+        padding: 0.42rem 0.82rem;
+        border-radius: 999px;
+        border: 1px solid #d7e3f1;
+        background: #f8fbff;
+        color: #1f4f7f;
+        text-decoration: none;
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+    .support-pagination-btn:hover {
+        text-decoration: none;
+        color: #173b60;
+        background: #eef5fc;
+    }
+    .support-inline-form {
+        margin: 0;
+    }
+    .support-link-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 0.36rem 0.62rem;
+        border-radius: 999px;
+        border: 1px solid #d7e3f1;
+        background: #f8fbff;
+        color: #1f4f7f;
+        text-decoration: none;
+        font-size: 0.68rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .support-link-button:hover {
+        text-decoration: none;
+        color: #173b60;
+        background: #eef5fc;
+    }
+    .support-link-button.danger {
+        border-color: #f1c5c5;
+        background: #fff5f5;
+        color: #b42318;
+    }
+    .support-link-button.danger:hover {
+        background: #feeceb;
+        color: #912018;
+    }
+    .support-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.48);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        z-index: 1100;
+    }
+    .support-modal.is-open {
+        display: flex;
+    }
+    .support-modal-dialog {
+        width: min(720px, 100%);
+        max-height: calc(100vh - 2rem);
+        overflow: auto;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 28px 60px rgba(15, 23, 42, 0.28);
+    }
+    .support-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.75rem 0.9rem;
+        border-bottom: 1px solid #e8eef6;
+        background: linear-gradient(180deg, #f9fbfd 0%, #f3f7fb 100%);
+    }
+    .support-modal-title {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .support-modal-close {
+        border: 0;
+        background: transparent;
+        color: #64748b;
+        font-size: 1.15rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0.15rem;
+    }
+    .support-modal-body {
+        padding: 0.8rem 0.9rem 0.9rem;
+    }
+    .support-modal-note {
+        font-size: 0.74rem;
+        color: #5b6b7f;
+        line-height: 1.4;
+        margin-bottom: 0.65rem;
+    }
+    .support-modal-errors {
+        display: none;
+        margin-bottom: 0.65rem;
+        padding: 0.55rem 0.68rem;
+        border-radius: 10px;
+        border: 1px solid #f1c5c5;
+        background: #fff5f5;
+        color: #b42318;
+        font-size: 0.72rem;
+        line-height: 1.4;
+    }
+    .support-modal-errors.is-visible {
+        display: block;
+    }
+    .support-edit-banner {
+        margin-top: 0.6rem;
+        padding: 0.55rem 0.7rem;
+        border-radius: 12px;
+        border: 1px solid #d9e6f4;
+        background: #f8fbff;
+        color: #35506f;
+        font-size: 0.72rem;
+        line-height: 1.4;
+    }
+    .support-column-list {
+        margin: 0.45rem 0 0;
+        padding-left: 1rem;
+        color: #35506f;
+        font-size: 0.72rem;
+        line-height: 1.45;
+    }
+    @media (max-width: 1180px) {
+        .support-stats,
+        .support-dashboard-shell,
+        .support-status-grid,
+        .support-grid,
+        .support-form-grid,
+        .support-two-col {
+            grid-template-columns: 1fr;
+        }
+        .schedule-builder-head {
+            display: none;
+        }
+        .schedule-row {
+            grid-template-columns: 1fr;
+        }
+        .schedule-remove-row {
+            width: 100%;
+        }
+        .schedule-builder-actions {
+            align-items: stretch;
+            flex-direction: column;
+        }
+    }
+</style>
+
+<div class="support-workspace">
+    <section class="support-hero">
+        <span class="support-kicker">Checker Workspace</span>
+        <h1 class="support-title">IFRS9 Supporting Data</h1>
+        <p class="support-copy">
+            Maintain branch-scoped collateral and payment schedule staging data inside one controlled workspace.
+            Every action is anchored to the active branch and the latest IFRS9 loan snapshot for that branch.
+        </p>
+    </section>
+
+    <section class="support-tabs-shell">
+        <div class="support-tabs">
+            <a href="{% url 'scorecard:ifrs9_supporting_data' %}" class="support-tab{% if active_tab == 'dashboard' %} active{% endif %}">
+                <span>Dashboard</span>
+            </a>
+            <a href="{% url 'scorecard:ifrs9_supporting_data_collateral' %}" class="support-tab{% if active_tab == 'collateral' %} active{% endif %}">
+                <span>Collateral</span>
+                <span class="support-tab-badge">{{ collateral_record_count }}</span>
+            </a>
+            <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules' %}" class="support-tab{% if active_tab == 'payment_schedules' %} active{% endif %}">
+                <span>Payment Schedules</span>
+                <span class="support-tab-badge">{{ payment_contract_count }}</span>
+            </a>
+        </div>
+    </section>
+
+    <section class="support-stats">
+        <div class="support-stat">
+            <div class="support-stat-label">Active Branch</div>
+            <div class="support-stat-value">{% if current_branch %}{{ current_branch.branch_name }}{% else %}Not set{% endif %}</div>
+        </div>
+        <div class="support-stat">
+            <div class="support-stat-label">Branch Code</div>
+            <div class="support-stat-value">{% if current_branch %}{{ current_branch.branch_code }}{% else %}-{% endif %}</div>
+        </div>
+        <div class="support-stat">
+            <div class="support-stat-label">Latest IFRS9 Date</div>
+            <div class="support-stat-value">{% if latest_reporting_date %}{{ latest_reporting_date|date:"Y-m-d" }}{% else %}Unavailable{% endif %}</div>
+        </div>
+        <div class="support-stat">
+            <div class="support-stat-label">Active Loans</div>
+            <div class="support-stat-value">{{ active_loan_count }}</div>
+        </div>
+    </section>
+
+    {% if workspace_error %}
+    <div class="support-banner error">
+        {{ workspace_error }}
+    </div>
+    {% endif %}
+
+    {% if supporting_data_diagnostics %}
+    <div class="support-banner warning">
+        {% for item in supporting_data_diagnostics %}
+        <div{% if not forloop.last %} style="margin-bottom: 0.45rem;"{% endif %}>{{ item }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <section class="support-panel">
+        <div class="support-panel-header">
+            <div>
+                <h2 class="support-panel-title">{{ page_title }}</h2>
+                <p class="support-panel-note">{{ page_note }}</p>
+            </div>
+            {% if active_tab == 'collateral' and not show_add_form %}
+            <div class="support-actions-row" style="margin-top: 0;">
+                <a href="{% url 'scorecard:ifrs9_supporting_data_collateral_add' %}?mode=form" class="support-button{% if not ifrs9_available or not active_loan_count %} is-disabled{% endif %}" {% if not ifrs9_available or not active_loan_count %}aria-disabled="true"{% endif %}>Fill Form</a>
+                <a href="{% url 'scorecard:ifrs9_supporting_data_collateral_add' %}?mode=upload" class="support-button secondary{% if not ifrs9_available or not active_loan_count %} is-disabled{% endif %}" {% if not ifrs9_available or not active_loan_count %}aria-disabled="true"{% endif %}>Load Excel</a>
+            </div>
+            {% elif active_tab == 'payment_schedules' and not show_add_form %}
+            <div class="support-actions-row" style="margin-top: 0;">
+                <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules_add' %}?mode=form" class="support-button{% if not ifrs9_available or not active_loan_count %} is-disabled{% endif %}" {% if not ifrs9_available or not active_loan_count %}aria-disabled="true"{% endif %}>Fill Form</a>
+                <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules_add' %}?mode=upload" class="support-button secondary{% if not ifrs9_available or not active_loan_count %} is-disabled{% endif %}" {% if not ifrs9_available or not active_loan_count %}aria-disabled="true"{% endif %}>Load Excel</a>
+            </div>
+            {% elif active_tab == 'collateral' and show_add_form %}
+            <a href="{% url 'scorecard:ifrs9_supporting_data_collateral' %}" class="support-button secondary">Back to List</a>
+            {% elif active_tab == 'payment_schedules' and show_add_form %}
+            <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules' %}" class="support-button secondary">Back to List</a>
+            {% endif %}
+        </div>
+        <div class="support-panel-body">
+            <div class="support-toolbar">
+                {% if active_tab == 'collateral' %}
+                <span class="support-pill">Capture date: {% if collateral_capture_date %}{{ collateral_capture_date|date:"Y-m-d" }}{% else %}Unavailable{% endif %}</span>
+                <span class="support-pill">IFRS9 perimeter date: {% if latest_reporting_date %}{{ latest_reporting_date|date:"Y-m-d" }}{% else %}Unavailable{% endif %}</span>
+                {% else %}
+                <span class="support-pill">Working date: {% if latest_reporting_date %}{{ latest_reporting_date|date:"Y-m-d" }}{% else %}Unavailable{% endif %}</span>
+                {% endif %}
+                <span class="support-pill">Branch perimeter: {% if current_branch %}{{ current_branch.branch_name }}{% else %}-{% endif %}</span>
+            </div>
+            {% if show_dashboard %}
+            <div class="support-dashboard-shell">
+                <div class="support-dashboard-brief">
+                    <div class="support-dashboard-label">Workspace Summary</div>
+                    <div class="support-dashboard-text">
+                        Use this workspace to maintain supporting records only for loans that belong to the active branch perimeter.
+                        Open a register when you need to work on rows in detail.
+                    </div>
+                </div>
+                <div class="support-dashboard-state">
+                    <div class="support-dashboard-label">Readiness</div>
+                    <div class="support-status-value">
+                        {% if ifrs9_available and latest_reporting_date and active_loan_count %}
+                        Ready for capture
+                        {% elif ifrs9_available and not latest_reporting_date %}
+                        Waiting for branch snapshot
+                        {% else %}
+                        Configuration required
+                        {% endif %}
+                    </div>
+                    <div class="support-status-copy">
+                        {% if ifrs9_available and latest_reporting_date and active_loan_count %}
+                        Active branch loans are available, so supporting data can be maintained immediately.
+                        {% elif ifrs9_available and not latest_reporting_date %}
+                        Load the current branch loan snapshot first to unlock collateral and schedule maintenance.
+                        {% else %}
+                        This workspace depends on the IFRS9 app and its staging tables being available in the current environment.
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            {% if editing_record %}
+            <div class="support-compact-meta">
+                <span class="support-compact-chip">Ready for capture</span>
+                <span class="support-compact-chip">Branch: {% if current_branch %}{{ current_branch.branch_name }}{% else %}-{% endif %}</span>
+                <span class="support-compact-chip">Reporting date: {% if latest_reporting_date %}{{ latest_reporting_date|date:"Y-m-d" }}{% else %}Unavailable{% endif %}</span>
+            </div>
+            {% else %}
+            <div class="support-status-grid" style="margin-top: 1rem;">
+                <div class="support-status-card">
+                    <div class="support-status-label">Workspace Readiness</div>
+                    <div class="support-status-value">
+                        {% if ifrs9_available and latest_reporting_date and active_loan_count %}
+                        Ready for capture
+                        {% elif ifrs9_available and not latest_reporting_date %}
+                        Waiting for branch snapshot
+                        {% else %}
+                        Configuration required
+                        {% endif %}
+                    </div>
+                <div class="support-status-copy">
+                    {% if ifrs9_available and latest_reporting_date and active_loan_count %}
+                        The current branch has an active IFRS9 loan perimeter, so users with permission can maintain collateral and payment schedules immediately.
+                        {% elif ifrs9_available and not latest_reporting_date %}
+                        No active branch snapshot was found in the IFRS9 staging area yet. Load branch loans first to unlock supporting data capture.
+                        {% else %}
+                        This workspace depends on the IFRS9 app and its staging tables being available in the connected environment.
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="support-status-card">
+                    <div class="support-status-label">Operational Scope</div>
+                    <div class="support-status-value">
+                        {% if current_branch %}{{ current_branch.branch_name }}{% else %}No branch selected{% endif %}
+                    </div>
+                    <div class="support-status-copy">
+                        {% if active_tab == 'collateral' %}
+                        New collateral records are scoped to the active branch/customer perimeter and saved with today's capture date.
+                        {% else %}
+                        Records created here are scoped to the active branch and aligned to the latest IFRS9 reporting date available for that branch.
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </section>
+
+    {% if show_add_form and active_tab == 'collateral' and not editing_record %}
+    <section class="support-tabs-shell">
+        <div class="support-tabs">
+            <a href="{% url 'scorecard:ifrs9_supporting_data_collateral_add' %}?mode=form" class="support-tab{% if capture_mode == 'form' %} active{% endif %}">Fill Form</a>
+            <a href="{% url 'scorecard:ifrs9_supporting_data_collateral_add' %}?mode=upload" class="support-tab{% if capture_mode == 'upload' %} active{% endif %}">Load Excel</a>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if show_add_form and active_tab == 'payment_schedules' and not editing_record %}
+    <section class="support-tabs-shell">
+        <div class="support-tabs">
+            <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules_add' %}?mode=form" class="support-tab{% if capture_mode == 'form' %} active{% endif %}">Fill Form</a>
+            <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules_add' %}?mode=upload" class="support-tab{% if capture_mode == 'upload' %} active{% endif %}">Load Excel</a>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if show_dashboard %}
+    <section class="support-grid">
+        {% for item in dashboard_highlights %}
+        <article class="support-card">
+            <div class="support-card-header">
+                <h3 class="support-card-title">{{ item.title }}</h3>
+                <p class="support-card-note">{{ item.copy }}</p>
+            </div>
+            <div class="support-card-body">
+                <div class="support-highlight-number">{{ item.value }}</div>
+                <div class="support-highlight-copy">{{ item.copy }}</div>
+                <div class="support-card-actions">
+                    <a href="{% url item.url %}" class="support-button secondary">{{ item.cta }}</a>
+                    {% if can_manage_supporting_data and item.title == 'Collateral Records' %}
+                    <a href="{% url 'scorecard:ifrs9_supporting_data_collateral_add' %}?mode=form" class="support-button{% if not ifrs9_available or not active_loan_count %} is-disabled{% endif %}" {% if not ifrs9_available or not active_loan_count %}aria-disabled="true"{% endif %}>Add Collateral</a>
+                    {% elif can_manage_supporting_data and item.title == 'Payment Schedule Rows' %}
+                    <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules_add' %}?mode=form" class="support-button{% if not ifrs9_available or not active_loan_count %} is-disabled{% endif %}" {% if not ifrs9_available or not active_loan_count %}aria-disabled="true"{% endif %}>Add Schedule</a>
+                    {% endif %}
+                </div>
+            </div>
+        </article>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if active_tab == 'collateral' and show_add_form and capture_mode == 'form' %}
+    <section class="support-card">
+        <div class="support-card-header">
+            <h3 class="support-card-title">{% if editing_record %}Edit Collateral Record{% else %}Add Collateral Record{% endif %}</h3>
+            <p class="support-card-note">
+                {% if editing_record %}
+                Update the selected customer-level collateral row in <strong>IFRS9.stg_collateral_data</strong> while keeping its original reporting date.
+                {% else %}
+                Create a customer-level collateral row in <strong>IFRS9.stg_collateral_data</strong> using the selected active customer. New rows save with today's capture date.
+                {% endif %}
+            </p>
+        </div>
+        <div class="support-card-body">
+            {% if editing_record %}
+            <div class="support-edit-banner">
+                Editing customer reference <strong>{{ editing_record.label }}</strong> for reporting date <strong>{{ editing_record.date|date:"Y-m-d" }}</strong>.
+            </div>
+            {% endif %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="support-form-grid">
+                    {% for field in collateral_form %}
+                    <div class="support-form-field {% if field.name == 'v_cust_ref_code' %}full{% endif %}">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="support-help">{{ field.help_text }}</div>{% endif %}
+                        {% if field.errors %}<div class="support-errors">{{ field.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="support-meta-box" id="collateral-loan-meta">
+                    Choose a customer to preview the linked contracts, product, branch, and currency information.
+                </div>
+                <div class="support-actions-row">
+                    <button type="submit" class="support-button" {% if not ifrs9_available or not active_loan_count %}disabled{% endif %}>{% if editing_record %}Save Changes{% else %}Save Collateral Record{% endif %}</button>
+                    <a href="{% url 'scorecard:ifrs9_supporting_data_collateral' %}" class="support-button secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if active_tab == 'collateral' and show_add_form and capture_mode == 'upload' %}
+    <section class="support-card">
+        <div class="support-card-header">
+            <h3 class="support-card-title">Upload Collateral File</h3>
+            <p class="support-card-note">
+                Load a branch-scoped Excel or CSV file into <strong>IFRS9.stg_collateral_data</strong>. Customer reference code must match the active branch customer perimeter.
+                Uploaded rows remain editable from the collateral register after import.
+            </p>
+        </div>
+        <div class="support-card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {% for field in collateral_upload_form %}
+                <div class="support-form-field full">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="support-help">{{ field.help_text }}</div>{% endif %}
+                    {% if field.errors %}<div class="support-errors">{{ field.errors|join:", " }}</div>{% endif %}
+                </div>
+                {% endfor %}
+                <div class="support-meta-box">
+                    Use one row per collateral record. Required columns are shown below. If <strong>reporting_date</strong> is left out, today's capture date will be used automatically.
+                    <ul class="support-column-list">
+                        {% for column in collateral_upload_columns %}
+                        <li>{{ column }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="support-actions-row">
+                    <a href="{% url 'scorecard:ifrs9_supporting_data_collateral_template' %}" class="support-button secondary">Download Template</a>
+                    <button type="submit" class="support-button" {% if not ifrs9_available or not active_loan_count %}disabled{% endif %}>Upload Collateral File</button>
+                    <a href="{% url 'scorecard:ifrs9_supporting_data_collateral' %}" class="support-button secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if active_tab == 'payment_schedules' and show_add_form and capture_mode == 'form' %}
+    <section class="support-card">
+        <div class="support-card-header">
+            <h3 class="support-card-title">{% if editing_record %}Edit Payment Schedule Row{% else %}Add Payment Schedule Row{% endif %}</h3>
+            <p class="support-card-note">
+                {% if editing_record %}
+                Update the selected loan-level payment schedule row in <strong>IFRS9.stg_payment_schedule</strong> while keeping its original reporting date.
+                {% else %}
+                Create or update a loan-level payment schedule row in <strong>IFRS9.stg_payment_schedule</strong> for the active branch snapshot.
+                {% endif %}
+            </p>
+        </div>
+        <div class="support-card-body">
+            {% if editing_record %}
+            <div class="support-edit-banner">
+                Editing loan <strong>{{ editing_record.label }}</strong> for reporting date <strong>{{ editing_record.date|date:"Y-m-d" }}</strong>.
+            </div>
+            {% endif %}
+            <form method="post">
+                {% csrf_token %}
+                {% if payment_form.non_field_errors %}
+                <div class="support-form-errors">{{ payment_form.non_field_errors|join:", " }}</div>
+                {% endif %}
+                {% if editing_record %}
+                <div class="support-form-grid">
+                    {% for field in payment_form %}
+                    <div class="support-form-field {% if field.name == 'v_loan_id' %}full{% endif %}">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="support-help">{{ field.help_text }}</div>{% endif %}
+                        {% if field.errors %}<div class="support-errors">{{ field.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="support-form-grid">
+                    <div class="support-form-field full">
+                        <label for="{{ payment_form.v_loan_id.id_for_label }}">{{ payment_form.v_loan_id.label }}</label>
+                        {{ payment_form.v_loan_id }}
+                        {% if payment_form.v_loan_id.errors %}<div class="support-errors">{{ payment_form.v_loan_id.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="support-form-field">
+                        <label for="{{ payment_form.v_ccy_code.id_for_label }}">{{ payment_form.v_ccy_code.label }}</label>
+                        {{ payment_form.v_ccy_code }}
+                        {% if payment_form.v_ccy_code.help_text %}<div class="support-help">{{ payment_form.v_ccy_code.help_text }}</div>{% endif %}
+                        {% if payment_form.v_ccy_code.errors %}<div class="support-errors">{{ payment_form.v_ccy_code.errors|join:", " }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="schedule-builder" id="payment-schedule-builder">
+                    <div class="schedule-builder-head">
+                        <span>Cash Flow Date *</span>
+                        <span>Total Cash Flow Amount *</span>
+                        <span></span>
+                    </div>
+                    <div id="payment-schedule-rows">
+                        {% for row in payment_schedule_rows %}
+                        <div class="schedule-row">
+                            <input type="date" name="schedule_d_cash_flow_date[]" value="{{ row.d_cash_flow_date }}" required aria-label="Cash Flow Date">
+                            <input type="number" step="0.000001" name="schedule_n_cash_flow_amount[]" value="{{ row.n_cash_flow_amount }}" required aria-label="Total Cash Flow Amount" placeholder="Required">
+                            <button type="button" class="schedule-remove-row" title="Remove row">&times;</button>
+                            {% if row.errors %}
+                            <div class="schedule-row-errors">{{ row.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="schedule-builder-actions">
+                        <div class="schedule-builder-note">Add as many cashflow dates as needed. Total cash flow is required for each row.</div>
+                        <button type="button" class="schedule-add-row" id="add-payment-schedule-row">+ Add another cashflow</button>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="support-meta-box" id="payment-loan-meta">
+                    Choose a loan to preview the linked customer, product, and branch currency.
+                </div>
+                <div class="support-actions-row">
+                    <button type="submit" class="support-button" {% if not ifrs9_available or not active_loan_count %}disabled{% endif %}>{% if editing_record %}Save Changes{% else %}Save Payment Schedule Rows{% endif %}</button>
+                    <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules' %}" class="support-button secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if active_tab == 'payment_schedules' and show_add_form and capture_mode == 'upload' %}
+    <section class="support-card">
+        <div class="support-card-header">
+            <h3 class="support-card-title">Upload Payment Schedule File</h3>
+            <p class="support-card-note">
+                Load a branch-scoped Excel or CSV file into <strong>IFRS9.stg_payment_schedule</strong>. Loan id values must match the active branch loan perimeter.
+                Uploaded rows remain editable from the payment schedule register after import.
+            </p>
+        </div>
+        <div class="support-card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {% for field in payment_upload_form %}
+                <div class="support-form-field full">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="support-help">{{ field.help_text }}</div>{% endif %}
+                    {% if field.errors %}<div class="support-errors">{{ field.errors|join:", " }}</div>{% endif %}
+                </div>
+                {% endfor %}
+                <div class="support-meta-box">
+                    Use one row per schedule entry. Required columns are shown below. If <strong>reporting_date</strong> is left out, the active branch reporting date will be used automatically.
+                    <ul class="support-column-list">
+                        {% for column in payment_upload_columns %}
+                        <li>{{ column }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="support-actions-row">
+                    <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules_template' %}" class="support-button secondary">Download Template</a>
+                    <button type="submit" class="support-button" {% if not ifrs9_available or not active_loan_count %}disabled{% endif %}>Upload Payment Schedule File</button>
+                    <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules' %}" class="support-button secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if active_tab == 'collateral' %}
+    <section class="support-table-wrap">
+            <div class="support-table-header">
+                <div>
+                    <h3 class="support-table-title">Collateral List</h3>
+                <div class="support-table-note">Customer-level collateral records for the active branch. Manually captured and uploaded rows can both be edited here.</div>
+                <div class="support-table-meta">
+                    <span class="support-pill">{{ collateral_record_count }} rows</span>
+                    <span class="support-pill">All dates</span>
+                    {% if collateral_page_obj %}
+                    <form method="get" class="support-entries-control">
+                        {% for key, value in list_query_pairs %}
+                        <input type="hidden" name="{{ key }}" value="{{ value }}">
+                        {% endfor %}
+                        <label for="collateralPageSize">Show</label>
+                        <select id="collateralPageSize" name="page_size" class="support-entries-select" onchange="this.form.submit()">
+                            {% for option in page_size_options %}
+                            <option value="{{ option }}" {% if page_size == option %}selected{% endif %}>{{ option }}</option>
+                            {% endfor %}
+                        </select>
+                        <span>entries</span>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <form method="get" class="support-filter-strip" style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(160px,260px) auto auto;gap:10px;align-items:end;padding:12px 18px;border-top:1px solid #d7e5f4;background:#f8fbff;">
+            <div>
+                <label for="collateralCustomerFilter" style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#49627f;margin-bottom:4px;">Customer</label>
+                <input id="collateralCustomerFilter" type="text" name="customer" value="{{ collateral_customer_filter }}" placeholder="Search customer ID or name" class="form-control form-control-sm" style="font-size:12px;height:34px;">
+            </div>
+            <div>
+                <label for="collateralTypeFilter" style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#49627f;margin-bottom:4px;">Collateral Type</label>
+                <select id="collateralTypeFilter" name="collateral_type" class="form-select form-select-sm" style="font-size:12px;height:34px;">
+                    <option value="">All types</option>
+                    {% for value, label in collateral_type_filter_choices %}
+                    {% if value %}
+                    <option value="{{ value }}" {% if collateral_type_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="support-button" style="min-height:34px;padding:7px 16px;font-size:12px;">Apply</button>
+            <a href="{% url 'scorecard:ifrs9_supporting_data_collateral' %}" class="support-button secondary" style="min-height:34px;padding:7px 16px;font-size:12px;text-align:center;">Reset</a>
+        </form>
+        {% if collateral_records %}
+        <div class="support-table-scroll">
+            <table class="support-table">
+                <thead>
+                    <tr>
+                        <th>Reporting Date</th>
+                        <th>Customer Ref</th>
+                        <th>Customer</th>
+                        <th>Linked Loan</th>
+                        <th>Collateral Type</th>
+                        <th>Collateral Value</th>
+                        <th>Currency</th>
+                        {% if can_manage_supporting_data %}<th>Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in collateral_records %}
+                    <tr>
+                        <td>{{ row.fic_mis_date|date:"Y-m-d" }}</td>
+                        <td>{{ row.customer_ref_code }}</td>
+                        <td>{{ row.customer_name|default:"-" }}</td>
+                        <td>{{ row.loan_id|default:"-" }}</td>
+                        <td>{{ row.collateral_type|default:"-" }}</td>
+                        <td>{{ row.collateral_value|default_if_none:"-" }}</td>
+                        <td>{{ row.currency_code|default:"-" }}</td>
+                        {% if can_manage_supporting_data %}
+                        <td>
+                            <div class="support-table-actions">
+                                <button
+                                    type="button"
+                                    class="support-link-button js-open-collateral-modal"
+                                    data-action="{% url 'scorecard:ifrs9_supporting_data_collateral_edit' row.id %}"
+                                    data-loan-id="{{ row.loan_id|default:'' }}"
+                                    data-collateral-value="{{ row.collateral_value|default_if_none:'' }}"
+                                    data-collateral-type="{{ row.collateral_type|default:'' }}"
+                                    data-currency-code="{{ row.currency_code|default:'' }}"
+                                    data-customer-ref="{{ row.customer_ref_code|default:'' }}"
+                                    data-reporting-date="{{ row.fic_mis_date|date:'Y-m-d' }}"
+                                >Edit</button>
+                                <form method="post" action="{% url 'scorecard:ifrs9_supporting_data_collateral_delete' row.id %}" class="support-inline-form" onsubmit="return confirm('Delete this collateral record?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="support-link-button danger">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if collateral_page_obj %}
+        <div class="support-pagination">
+            <div class="support-pagination-copy">
+                Showing {{ collateral_page_obj.start_index }} to {{ collateral_page_obj.end_index }} of {{ collateral_page_obj.paginator.count }} entries
+            </div>
+            <div class="support-pagination-links">
+                {% if collateral_page_obj.has_previous %}
+                <a href="?page={{ collateral_page_obj.previous_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="support-pagination-btn">Previous</a>
+                {% endif %}
+                {% if collateral_page_obj.has_next %}
+                <a href="?page={{ collateral_page_obj.next_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="support-pagination-btn">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="support-empty">
+            <div class="support-empty-title">No collateral records found</div>
+            <div class="support-empty-copy">Nothing has been captured for the current branch yet. When collateral is loaded, it will appear here regardless of reporting date, with the newest rows first.</div>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    {% if active_tab == 'payment_schedules' %}
+    <section class="support-table-wrap">
+        <div class="support-table-header">
+            <div>
+                <h3 class="support-table-title">Payment Schedule List</h3>
+                <div class="support-table-note">Loan-level payment schedule rows for the active branch. Manually captured and uploaded rows can both be edited here.</div>
+                <div class="support-table-meta">
+                    <span class="support-pill">{{ payment_contract_count }} loan{% if payment_contract_count != 1 %}s{% endif %}</span>
+                    <span class="support-pill">{{ payment_record_count }} cashflow row{% if payment_record_count != 1 %}s{% endif %}</span>
+                    <span class="support-pill">All dates</span>
+                    {% if payment_page_obj %}
+                    <form method="get" class="support-entries-control">
+                        {% for key, value in list_query_pairs %}
+                        <input type="hidden" name="{{ key }}" value="{{ value }}">
+                        {% endfor %}
+                        <label for="paymentPageSize">Show</label>
+                        <select id="paymentPageSize" name="page_size" class="support-entries-select" onchange="this.form.submit()">
+                            {% for option in page_size_options %}
+                            <option value="{{ option }}" {% if page_size == option %}selected{% endif %}>{{ option }}</option>
+                            {% endfor %}
+                        </select>
+                        <span>entries</span>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <form method="get" class="support-filter-strip" style="display:grid;grid-template-columns:minmax(220px,1fr) auto auto;gap:10px;align-items:end;padding:12px 18px;border-top:1px solid #d7e5f4;background:#f8fbff;">
+            <div>
+                <label for="paymentSearchFilter" style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#49627f;margin-bottom:4px;">Loan or Customer</label>
+                <input id="paymentSearchFilter" type="text" name="payment_search" value="{{ payment_search_filter }}" placeholder="Search loan ID, customer name, customer ref, or product" list="paymentSearchOptions" class="form-control form-control-sm" style="font-size:12px;height:34px;">
+                <datalist id="paymentSearchOptions">
+                    {% for option in payment_search_options %}
+                    <option value="{{ option.value }}">{% if option.label %}{{ option.label }}{% else %}{{ option.value }}{% endif %}</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+            <button type="submit" class="support-button" style="min-height:34px;padding:7px 16px;font-size:12px;">Search</button>
+            <a href="{% url 'scorecard:ifrs9_supporting_data_payment_schedules' %}" class="support-button secondary" style="min-height:34px;padding:7px 16px;font-size:12px;text-align:center;">Reset</a>
+        </form>
+        {% if payment_records %}
+        <div class="support-table-scroll">
+            <table class="support-table">
+                <thead>
+                    <tr>
+                        <th>Reporting Date</th>
+                        <th>Loan</th>
+                        <th>Customer</th>
+                        <th>Cash Flow Date</th>
+                        <th>Total Cash Flow</th>
+                        <th>Currency</th>
+                        {% if can_manage_supporting_data %}<th>Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in payment_records %}
+                    <tr>
+                        <td>{{ row.fic_mis_date|date:"Y-m-d" }}</td>
+                        <td>{{ row.loan_id }}</td>
+                        <td>{{ row.customer_name|default:"-" }}</td>
+                        <td>{{ row.cash_flow_date|date:"Y-m-d" }}</td>
+                        <td>{{ row.cash_flow_amount|default_if_none:"-" }}</td>
+                        <td>{{ row.currency_code|default:"-" }}</td>
+                        {% if can_manage_supporting_data %}
+                        <td>
+                            <div class="support-table-actions">
+                                <button
+                                    type="button"
+                                    class="support-link-button js-open-payment-modal"
+                                    data-action="{% url 'scorecard:ifrs9_supporting_data_payment_schedules_edit' row.id %}"
+                                    data-loan-id="{{ row.loan_id|default:'' }}"
+                                    data-cash-flow-date="{{ row.cash_flow_date|date:'Y-m-d' }}"
+                                    data-total-amount="{{ row.cash_flow_amount|default_if_none:'' }}"
+                                    data-currency-code="{{ row.currency_code|default:'' }}"
+                                    data-reporting-date="{{ row.fic_mis_date|date:'Y-m-d' }}"
+                                >Edit</button>
+                                <form method="post" action="{% url 'scorecard:ifrs9_supporting_data_payment_schedules_delete' row.id %}" class="support-inline-form" onsubmit="return confirm('Delete this payment schedule row?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="support-link-button danger">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if payment_page_obj %}
+        <div class="support-pagination">
+            <div class="support-pagination-copy">
+                Showing {{ payment_page_obj.start_index }} to {{ payment_page_obj.end_index }} of {{ payment_page_obj.paginator.count }} entries
+            </div>
+            <div class="support-pagination-links">
+                {% if payment_page_obj.has_previous %}
+                <a href="?page={{ payment_page_obj.previous_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="support-pagination-btn">Previous</a>
+                {% endif %}
+                {% if payment_page_obj.has_next %}
+                <a href="?page={{ payment_page_obj.next_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="support-pagination-btn">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="support-empty">
+            <div class="support-empty-title">No payment schedules found</div>
+            <div class="support-empty-copy">There are no payment schedule rows for the current branch yet. When schedules are loaded, they will appear here regardless of reporting date, with the newest rows first.</div>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    {% if active_tab == 'collateral' and can_manage_supporting_data and not show_add_form %}
+    <div class="support-modal" id="collateral-edit-modal" aria-hidden="true">
+        <div class="support-modal-dialog">
+            <div class="support-modal-header">
+                <div>
+                    <h3 class="support-modal-title">Edit Collateral Record</h3>
+                    <div class="support-modal-note" id="collateral-modal-context">Update the selected collateral row.</div>
+                </div>
+                <button type="button" class="support-modal-close" data-close-modal="collateral-edit-modal" aria-label="Close">&times;</button>
+            </div>
+            <div class="support-modal-body">
+                <div class="support-modal-errors" id="collateral-modal-errors"></div>
+                <form method="post" id="collateral-modal-form">
+                    {% csrf_token %}
+                    <div class="support-form-grid">
+                        {% for field in collateral_form %}
+                        <div class="support-form-field {% if field.name == 'v_cust_ref_code' %}full{% endif %}">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}<div class="support-help">{{ field.help_text }}</div>{% endif %}
+                            <div class="support-errors" data-field-errors="{{ field.name }}"></div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="support-meta-box" id="collateral-loan-meta">
+                        Choose a customer to preview the linked contracts, product, branch, and currency information.
+                    </div>
+                    <div class="support-actions-row">
+                        <button type="submit" class="support-button">Save Changes</button>
+                        <button type="button" class="support-button secondary" data-close-modal="collateral-edit-modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if active_tab == 'payment_schedules' and can_manage_supporting_data and not show_add_form %}
+    <div class="support-modal" id="payment-edit-modal" aria-hidden="true">
+        <div class="support-modal-dialog">
+            <div class="support-modal-header">
+                <div>
+                    <h3 class="support-modal-title">Edit Payment Schedule Row</h3>
+                    <div class="support-modal-note" id="payment-modal-context">Update the selected payment schedule row.</div>
+                </div>
+                <button type="button" class="support-modal-close" data-close-modal="payment-edit-modal" aria-label="Close">&times;</button>
+            </div>
+            <div class="support-modal-body">
+                <div class="support-modal-errors" id="payment-modal-errors"></div>
+                <form method="post" id="payment-modal-form">
+                    {% csrf_token %}
+                    <div class="support-form-grid">
+                        {% for field in payment_form %}
+                        <div class="support-form-field {% if field.name == 'v_loan_id' %}full{% endif %}">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}<div class="support-help">{{ field.help_text }}</div>{% endif %}
+                            <div class="support-errors" data-field-errors="{{ field.name }}"></div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="support-meta-box" id="payment-loan-meta">
+                        Choose a loan to preview the linked customer, product, and branch currency.
+                    </div>
+                    <div class="support-actions-row">
+                        <button type="submit" class="support-button">Save Changes</button>
+                        <button type="button" class="support-button secondary" data-close-modal="payment-edit-modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    (function () {
+        const loanMetadata = {{ loan_metadata_json|safe }};
+        const customerMetadata = {{ customer_metadata_json|safe }};
+
+        function enhanceCustomerSelect(selectId) {
+            const select = document.getElementById(selectId);
+            if (!select || select.dataset.searchEnhanced === 'true') {
+                return;
+            }
+
+            const datalist = document.createElement('datalist');
+            datalist.id = `${select.id}-search-options`;
+
+            Array.from(select.options).forEach((option) => {
+                if (!option.value) {
+                    return;
+                }
+                const suggestion = document.createElement('option');
+                suggestion.value = option.value;
+                suggestion.label = option.textContent.trim();
+                datalist.appendChild(suggestion);
+            });
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'support-customer-search-input';
+            input.setAttribute('list', datalist.id);
+            input.setAttribute('autocomplete', 'off');
+            input.placeholder = 'Type customer ID or choose from active customers';
+            input.required = select.required;
+            input.value = select.value || '';
+
+            select.required = false;
+            select.classList.add('support-customer-search-hidden');
+            select.dataset.searchEnhanced = 'true';
+
+            select.parentNode.insertBefore(input, select);
+            select.parentNode.insertBefore(datalist, select);
+
+            function setValidity(message) {
+                input.setCustomValidity(message || '');
+                input.classList.toggle('is-invalid', Boolean(message));
+            }
+
+            function syncSelectFromInput() {
+                const typedValue = input.value.trim();
+                const match = Array.from(select.options).find((option) => {
+                    const optionText = option.textContent.trim().toLowerCase();
+                    const optionValue = option.value.trim().toLowerCase();
+                    const typed = typedValue.toLowerCase();
+                    return optionValue === typed || optionText === typed;
+                });
+                const nextValue = match ? match.value : '';
+                if (select.value !== nextValue) {
+                    select.value = nextValue;
+                    select.dispatchEvent(new Event('change'));
+                }
+                if (!typedValue || nextValue) {
+                    setValidity('');
+                } else {
+                    setValidity('Choose a valid active customer from the suggestions.');
+                }
+            }
+
+            function syncInputFromSelect() {
+                if (select.value && input.value !== select.value) {
+                    input.value = select.value;
+                    setValidity('');
+                }
+            }
+
+            input.addEventListener('input', syncSelectFromInput);
+            input.addEventListener('change', syncSelectFromInput);
+            input.addEventListener('blur', syncSelectFromInput);
+            select.addEventListener('change', syncInputFromSelect);
+
+            const form = select.closest('form');
+            if (form) {
+                form.addEventListener('submit', function (event) {
+                    syncSelectFromInput();
+                    if (input.required && !select.value) {
+                        setValidity('Choose a valid active customer from the suggestions.');
+                        input.reportValidity();
+                        event.preventDefault();
+                    }
+                });
+            }
+        }
+
+        function enhanceLoanSelect(selectId) {
+            const select = document.getElementById(selectId);
+            if (!select || select.dataset.searchEnhanced === 'true') {
+                return;
+            }
+
+            const datalist = document.createElement('datalist');
+            datalist.id = `${select.id}-search-options`;
+
+            Array.from(select.options).forEach((option) => {
+                if (!option.value) {
+                    return;
+                }
+                const suggestion = document.createElement('option');
+                suggestion.value = option.textContent.trim();
+                suggestion.label = option.value;
+                datalist.appendChild(suggestion);
+            });
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'support-customer-search-input';
+            input.setAttribute('list', datalist.id);
+            input.setAttribute('autocomplete', 'off');
+            input.placeholder = 'Type loan ID, customer name, or product';
+            input.required = select.required;
+
+            select.required = false;
+            select.classList.add('support-customer-search-hidden');
+            select.dataset.searchEnhanced = 'true';
+
+            select.parentNode.insertBefore(input, select);
+            select.parentNode.insertBefore(datalist, select);
+
+            function selectedLabel() {
+                const option = Array.from(select.options).find((item) => item.value === select.value);
+                return option && option.value ? option.textContent.trim() : '';
+            }
+
+            function setValidity(message) {
+                input.setCustomValidity(message || '');
+                input.classList.toggle('is-invalid', Boolean(message));
+            }
+
+            function findMatch(typedValue) {
+                const typed = typedValue.trim().toLowerCase();
+                if (!typed) {
+                    return null;
+                }
+
+                const options = Array.from(select.options).filter((option) => option.value);
+                const exact = options.find((option) => {
+                    const optionText = option.textContent.trim().toLowerCase();
+                    const optionValue = option.value.trim().toLowerCase();
+                    return optionValue === typed || optionText === typed;
+                });
+                if (exact) {
+                    return exact;
+                }
+
+                const partialMatches = options.filter((option) => {
+                    const optionText = option.textContent.trim().toLowerCase();
+                    const optionValue = option.value.trim().toLowerCase();
+                    return optionValue.includes(typed) || optionText.includes(typed);
+                });
+                return partialMatches.length === 1 ? partialMatches[0] : null;
+            }
+
+            function syncSelectFromInput() {
+                const typedValue = input.value.trim();
+                const match = findMatch(typedValue);
+                const nextValue = match ? match.value : '';
+                if (select.value !== nextValue) {
+                    select.value = nextValue;
+                    select.dispatchEvent(new Event('change'));
+                }
+                if (!typedValue || nextValue) {
+                    setValidity('');
+                    if (match && input.value !== match.textContent.trim()) {
+                        input.value = match.textContent.trim();
+                    }
+                } else {
+                    setValidity('Choose a valid active loan from the suggestions.');
+                }
+            }
+
+            function syncInputFromSelect() {
+                const label = selectedLabel();
+                if (label && input.value !== label) {
+                    input.value = label;
+                    setValidity('');
+                }
+            }
+
+            input.value = selectedLabel();
+            input.addEventListener('input', function () {
+                const match = findMatch(input.value);
+                if (match && select.value !== match.value) {
+                    select.value = match.value;
+                    select.dispatchEvent(new Event('change'));
+                    setValidity('');
+                } else if (!input.value.trim()) {
+                    select.value = '';
+                    select.dispatchEvent(new Event('change'));
+                    setValidity('');
+                }
+            });
+            input.addEventListener('change', syncSelectFromInput);
+            input.addEventListener('blur', syncSelectFromInput);
+            select.addEventListener('change', syncInputFromSelect);
+
+            const form = select.closest('form');
+            if (form) {
+                form.addEventListener('submit', function (event) {
+                    syncSelectFromInput();
+                    if (input.required && !select.value) {
+                        setValidity('Choose a valid active loan from the suggestions.');
+                        input.reportValidity();
+                        event.preventDefault();
+                    }
+                });
+            }
+        }
+
+        function bindLoanPreview(selectId, targetId, ccyId) {
+            const select = document.getElementById(selectId);
+            const target = document.getElementById(targetId);
+            const ccy = document.getElementById(ccyId);
+            if (!select || !target) {
+                return;
+            }
+
+            function renderLoanMeta() {
+                const selectedValue = select.value;
+                const meta = loanMetadata[selectedValue];
+                if (!meta) {
+                    target.textContent = 'Choose a loan to preview the linked customer, product, and branch information.';
+                    return;
+                }
+
+                if (ccy && !ccy.value && meta.currency_code) {
+                    ccy.value = meta.currency_code;
+                }
+
+                const details = [
+                    meta.customer_name ? `Customer: ${meta.customer_name}` : 'Customer: -',
+                    meta.customer_ref_code ? `Customer Ref: ${meta.customer_ref_code}` : 'Customer Ref: -',
+                    meta.product_name ? `Product: ${meta.product_name}` : 'Product: -',
+                    meta.currency_code ? `Currency: ${meta.currency_code}` : 'Currency: -',
+                    meta.branch_name ? `Branch: ${meta.branch_name}` : 'Branch: -'
+                ];
+                target.textContent = details.join(' | ');
+            }
+
+            select.addEventListener('change', renderLoanMeta);
+            renderLoanMeta();
+        }
+
+        function bindCustomerPreview(selectId, targetId, ccyId) {
+            const select = document.getElementById(selectId);
+            const target = document.getElementById(targetId);
+            const ccy = document.getElementById(ccyId);
+            if (!select || !target) {
+                return;
+            }
+
+            function renderCustomerMeta() {
+                const selectedValue = select.value;
+                const meta = customerMetadata[selectedValue];
+                if (!meta) {
+                    target.textContent = 'Choose a customer to preview the linked contracts, products, branch, and currency information.';
+                    return;
+                }
+
+                if (ccy && !ccy.value && meta.currency_code) {
+                    ccy.value = meta.currency_code;
+                }
+
+                const details = [
+                    meta.customer_name ? `Customer: ${meta.customer_name}` : 'Customer: -',
+                    meta.customer_ref_code ? `Customer ID: ${meta.customer_ref_code}` : 'Customer ID: -',
+                    meta.loan_count ? `Contracts: ${meta.loan_count}` : 'Contracts: -',
+                    meta.loan_ids ? `Contract IDs: ${meta.loan_ids}` : 'Contract IDs: -',
+                    meta.product_names ? `Products: ${meta.product_names}` : 'Products: -',
+                    meta.currency_code ? `Currency: ${meta.currency_code}` : 'Currency: -',
+                    meta.branch_name ? `Branch: ${meta.branch_name}` : 'Branch: -'
+                ];
+                target.textContent = details.join(' | ');
+            }
+
+            select.addEventListener('change', renderCustomerMeta);
+            renderCustomerMeta();
+        }
+
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (!modal) {
+                return;
+            }
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (!modal) {
+                return;
+            }
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        function clearModalErrors(form, summaryId) {
+            if (!form) {
+                return;
+            }
+            const summary = document.getElementById(summaryId);
+            if (summary) {
+                summary.textContent = '';
+                summary.classList.remove('is-visible');
+            }
+            form.querySelectorAll('[data-field-errors]').forEach((node) => {
+                node.textContent = '';
+            });
+        }
+
+        function showModalErrors(form, summaryId, payload) {
+            clearModalErrors(form, summaryId);
+            const summary = document.getElementById(summaryId);
+            const messages = [];
+
+            if (payload.non_field_errors && payload.non_field_errors.length) {
+                messages.push(...payload.non_field_errors);
+            }
+
+            if (payload.field_errors) {
+                Object.entries(payload.field_errors).forEach(([fieldName, errors]) => {
+                    const node = form.querySelector(`[data-field-errors="${fieldName}"]`);
+                    if (node) {
+                        node.textContent = errors.join(', ');
+                    }
+                    messages.push(...errors);
+                });
+            }
+
+            if (summary && messages.length) {
+                summary.innerHTML = messages.map((message) => `<div>${message}</div>`).join('');
+                summary.classList.add('is-visible');
+            }
+        }
+
+        async function submitModalForm(form, summaryId) {
+            clearModalErrors(form, summaryId);
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalLabel = submitButton ? submitButton.textContent : '';
+
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Saving...';
+            }
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: new FormData(form)
+                });
+                const payload = await response.json();
+
+                if (response.ok && payload.success) {
+                    window.location.reload();
+                    return;
+                }
+
+                showModalErrors(form, summaryId, payload);
+            } catch (error) {
+                showModalErrors(form, summaryId, {
+                    non_field_errors: ['The record could not be saved right now. Please try again.'],
+                    field_errors: {}
+                });
+            } finally {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalLabel;
+                }
+            }
+        }
+
+        function setFieldValue(id, value) {
+            const field = document.getElementById(id);
+            if (field) {
+                field.value = value || '';
+            }
+        }
+
+        function bindCollateralEditModal() {
+            const modalId = 'collateral-edit-modal';
+            const form = document.getElementById('collateral-modal-form');
+            const context = document.getElementById('collateral-modal-context');
+            if (!form) {
+                return;
+            }
+
+            document.querySelectorAll('.js-open-collateral-modal').forEach((button) => {
+                button.addEventListener('click', function () {
+                    form.action = button.dataset.action;
+                    setFieldValue('id_collateral-v_cust_ref_code', button.dataset.customerRef);
+                    setFieldValue('id_collateral-collateral_value', button.dataset.collateralValue);
+                    setFieldValue('id_collateral-collateral_type', button.dataset.collateralType);
+                    setFieldValue('id_collateral-v_ccy_code', button.dataset.currencyCode);
+                    if (context) {
+                        context.textContent = `Editing customer ${button.dataset.customerRef || '-'} for reporting date ${button.dataset.reportingDate || '-'}.`;
+                    }
+                    clearModalErrors(form, 'collateral-modal-errors');
+                    const customerField = document.getElementById('id_collateral-v_cust_ref_code');
+                    if (customerField) {
+                        customerField.dispatchEvent(new Event('change'));
+                    }
+                    openModal(modalId);
+                });
+            });
+
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                submitModalForm(form, 'collateral-modal-errors');
+            });
+        }
+
+        function bindPaymentEditModal() {
+            const modalId = 'payment-edit-modal';
+            const form = document.getElementById('payment-modal-form');
+            const context = document.getElementById('payment-modal-context');
+            if (!form) {
+                return;
+            }
+
+            document.querySelectorAll('.js-open-payment-modal').forEach((button) => {
+                button.addEventListener('click', function () {
+                    form.action = button.dataset.action;
+                    setFieldValue('id_payment-v_loan_id', button.dataset.loanId);
+                    setFieldValue('id_payment-d_cash_flow_date', button.dataset.cashFlowDate);
+                    setFieldValue('id_payment-n_cash_flow_amount', button.dataset.totalAmount);
+                    setFieldValue('id_payment-v_ccy_code', button.dataset.currencyCode);
+                    if (context) {
+                        context.textContent = `Editing loan ${button.dataset.loanId || '-'} for reporting date ${button.dataset.reportingDate || '-'}.`;
+                    }
+                    clearModalErrors(form, 'payment-modal-errors');
+                    const loanField = document.getElementById('id_payment-v_loan_id');
+                    if (loanField) {
+                        loanField.dispatchEvent(new Event('change'));
+                    }
+                    openModal(modalId);
+                });
+            });
+
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                submitModalForm(form, 'payment-modal-errors');
+            });
+        }
+
+        function bindPaymentScheduleBuilder() {
+            const container = document.getElementById('payment-schedule-rows');
+            const addButton = document.getElementById('add-payment-schedule-row');
+            if (!container || !addButton) {
+                return;
+            }
+
+            function createRow() {
+                const row = document.createElement('div');
+                row.className = 'schedule-row';
+                row.innerHTML = `
+                    <input type="date" name="schedule_d_cash_flow_date[]" required aria-label="Cash Flow Date">
+                    <input type="number" step="0.000001" name="schedule_n_cash_flow_amount[]" required aria-label="Total Cash Flow Amount" placeholder="Required">
+                    <button type="button" class="schedule-remove-row" title="Remove row">&times;</button>
+                `;
+                return row;
+            }
+
+            function refreshRemoveButtons() {
+                const rows = Array.from(container.querySelectorAll('.schedule-row'));
+                rows.forEach((row) => {
+                    const button = row.querySelector('.schedule-remove-row');
+                    if (button) {
+                        button.disabled = rows.length <= 1;
+                    }
+                });
+            }
+
+            container.addEventListener('click', function (event) {
+                const button = event.target.closest('.schedule-remove-row');
+                if (!button || button.disabled) {
+                    return;
+                }
+                const row = button.closest('.schedule-row');
+                if (row) {
+                    row.remove();
+                    refreshRemoveButtons();
+                }
+            });
+
+            addButton.addEventListener('click', function () {
+                const row = createRow();
+                container.appendChild(row);
+                refreshRemoveButtons();
+                const firstInput = row.querySelector('input');
+                if (firstInput) {
+                    firstInput.focus();
+                }
+            });
+
+            refreshRemoveButtons();
+        }
+
+        document.querySelectorAll('[data-close-modal]').forEach((button) => {
+            button.addEventListener('click', function () {
+                closeModal(button.getAttribute('data-close-modal'));
+            });
+        });
+
+        document.querySelectorAll('.support-modal').forEach((modal) => {
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) {
+                    closeModal(modal.id);
+                }
+            });
+        });
+
+        enhanceCustomerSelect('id_collateral-v_cust_ref_code');
+        enhanceLoanSelect('id_payment-v_loan_id');
+        bindCustomerPreview('id_collateral-v_cust_ref_code', 'collateral-loan-meta', 'id_collateral-v_ccy_code');
+        bindLoanPreview('id_payment-v_loan_id', 'payment-loan-meta', 'id_payment-v_ccy_code');
+        bindPaymentScheduleBuilder();
+        bindCollateralEditModal();
+        bindPaymentEditModal();
+    })();
+</script>
+{% endblock %}

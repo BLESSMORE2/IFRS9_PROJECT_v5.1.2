@@ -1,0 +1,213 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}{% if is_new %}New Grade Band{% else %}Edit Grade Band{% endif %} - {{ template.code }}{% endblock %}
+{% block header_title %}{% if is_new %}Create Grade Band{% else %}Edit Grade Band{% endif %}: {{ template.code }}{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .template-info-box {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .template-info-box strong {
+        font-weight: 600;
+        color: #333;
+        margin-right: 0.5rem;
+    }
+    .template-info-box div {
+        font-size: 0.9rem;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .form-section {
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        transition: border-color 0.2s ease;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus,
+    select:focus {
+        outline: none;
+        border-color: #0066cc;
+        box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    }
+    .help-text {
+        color: #666;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+    }
+    .error {
+        background: #ffe9e9;
+        color: #b00020;
+        border-radius: 4px;
+        padding: 0.5rem 0.75rem;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+<div class="template-info-box">
+    <div>
+        <strong>Template:</strong> {{ template.code }} - {{ template.name }}
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="form-section">
+        <div class="meta-grid">
+            <div>
+                <label for="{{ form.grade_code.id_for_label }}">
+                    Grade Code
+                    {% if form.grade_code.help_text %}
+                        <small class="help-text">({{ form.grade_code.help_text }})</small>
+                    {% endif %}
+                </label>
+                {{ form.grade_code }}
+                {% if form.grade_code.errors %}
+                    <div class="error">{{ form.grade_code.errors|striptags }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.display_order.id_for_label }}">
+                    Display Order
+                    {% if form.display_order.help_text %}
+                        <small class="help-text">({{ form.display_order.help_text }})</small>
+                    {% endif %}
+                </label>
+                {{ form.display_order }}
+                {% if form.display_order.errors %}
+                    <div class="error">{{ form.display_order.errors|striptags }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="margin-top: 1rem;">
+            <label for="{{ form.description.id_for_label }}">
+                Description
+                {% if form.description.help_text %}
+                    <small class="help-text">({{ form.description.help_text }})</small>
+                {% endif %}
+            </label>
+            {{ form.description }}
+            {% if form.description.errors %}
+                <div class="error">{{ form.description.errors|striptags }}</div>
+            {% endif %}
+        </div>
+
+        <div class="meta-grid" style="margin-top: 1rem;">
+            <div>
+                <label for="{{ form.min_percent.id_for_label }}">
+                    Minimum Percentage (%)
+                    {% if form.min_percent.help_text %}
+                        <small class="help-text">({{ form.min_percent.help_text }})</small>
+                    {% endif %}
+                </label>
+                {{ form.min_percent }}
+                {% if form.min_percent.errors %}
+                    <div class="error">{{ form.min_percent.errors|striptags }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.max_percent.id_for_label }}">
+                    Maximum Percentage (%)
+                    {% if form.max_percent.help_text %}
+                        <small class="help-text">({{ form.max_percent.help_text }})</small>
+                    {% endif %}
+                </label>
+                {{ form.max_percent }}
+                {% if form.max_percent.errors %}
+                    <div class="error">{{ form.max_percent.errors|striptags }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="error" style="margin-top: 1rem;">
+            {{ form.non_field_errors|striptags }}
+        </div>
+    {% endif %}
+
+    <div class="actions">
+        <a href="{% url 'scorecard:grade_band_list' template_id=template.id %}" class="btn btn-secondary">
+            Cancel
+        </a>
+        <button type="submit" class="btn btn-primary">{% if is_new %}Create{% else %}Save Changes{% endif %}</button>
+    </div>
+</form>
+{% endblock %}

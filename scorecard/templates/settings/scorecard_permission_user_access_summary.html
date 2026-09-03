@@ -1,0 +1,273 @@
+{% extends 'settings/scorecard_settings_base.html' %}
+
+{% block settings_title %}User Access Summary{% endblock %}
+{% block settings_subtitle %}See the exact scorecard roles, modules, and effective permissions this user currently has.{% endblock %}
+
+{% block settings_content %}
+<div class="settings-surface p-3 mb-3">
+  <div class="summary-topbar">
+    <div>
+      <div class="summary-eyebrow">User Access</div>
+      <h2 class="summary-title">{{ user_obj.name }} {{ user_obj.surname }}</h2>
+      <p class="summary-copy mb-0">This page shows the user’s effective scorecard access in plain language so permission review is easier.</p>
+    </div>
+    <div class="summary-actions">
+      <a href="{% url 'scorecard:settings_user_role_assignment' user_obj.id %}" class="summary-primary-btn">Manage Access</a>
+      <a href="{% url 'scorecard:settings_user_roles' %}" class="summary-secondary-btn">Back to Users</a>
+    </div>
+  </div>
+
+  <div class="summary-metrics">
+    <div class="summary-metric-card">
+      <div class="summary-metric-label">Assigned Roles</div>
+      <div class="summary-metric-value">{{ assigned_roles|length }}</div>
+    </div>
+    <div class="summary-metric-card">
+      <div class="summary-metric-label">Visible Modules</div>
+      <div class="summary-metric-value">{{ module_access|length }}</div>
+    </div>
+    <div class="summary-metric-card">
+      <div class="summary-metric-label">Effective Permissions</div>
+      <div class="summary-metric-value">{{ total_effective_permissions }}</div>
+    </div>
+    <div class="summary-metric-card">
+      <div class="summary-metric-label">Branch Scope</div>
+      <div class="summary-metric-value">{{ branch_scope_label }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="summary-layout">
+  <div class="settings-surface p-3">
+    <div class="summary-eyebrow">Assigned Roles</div>
+    <h3 class="summary-section-title">Current scorecard roles</h3>
+    <div class="summary-role-grid">
+      {% for role in assigned_roles %}
+      <article class="summary-role-card">
+        <div class="summary-role-head">
+          <strong>{{ role.label }}</strong>
+          <span class="summary-badge summary-badge-{{ role.badge_style }}">{{ role.level_label }}</span>
+        </div>
+        <p class="summary-copy">{{ role.description }}</p>
+        <div class="summary-chip-list">
+          {% for badge in role.access_badges %}
+          <span class="summary-chip">{{ badge }}</span>
+          {% endfor %}
+        </div>
+      </article>
+      {% empty %}
+      <div class="summary-empty-state">No scorecard roles are assigned.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="settings-surface p-3">
+    <div class="summary-eyebrow">Visible Workspaces</div>
+    <h3 class="summary-section-title">Modules this user can open</h3>
+    <div class="summary-module-grid">
+      {% for module in module_access %}
+      <article class="summary-module-card">
+        <div class="summary-role-head">
+          <strong>{{ module.label }}</strong>
+          <span class="summary-badge summary-badge-{{ module.access_style }}">{{ module.access_label }}</span>
+        </div>
+        <p class="summary-copy">{{ module.notes }}</p>
+        {% if module.role_labels %}
+        <div class="summary-copy"><strong>Roles:</strong> {{ module.role_labels|join:', ' }}</div>
+        {% endif %}
+        {% if module.actions %}
+        <div class="summary-chip-list">
+          {% for action in module.actions %}
+          <span class="summary-chip">{{ action }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </article>
+      {% empty %}
+      <div class="summary-empty-state">No scorecard modules are visible.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="settings-surface p-3 mb-3">
+  <div class="summary-eyebrow">Branch Access</div>
+  <h3 class="summary-section-title">Branches this user can access</h3>
+  <p class="summary-copy">{{ branch_scope_copy }}</p>
+  <div class="summary-chip-list">
+    {% for branch in assigned_branches %}
+    <span class="summary-chip">{{ branch.branch_name }} ({{ branch.branch_code }})</span>
+    {% empty %}
+    <span class="summary-chip">No branches assigned</span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="settings-surface p-3">
+  <div class="summary-eyebrow">Effective Permissions</div>
+  <h3 class="summary-section-title">Plain-English permission list</h3>
+  <div class="summary-permission-groups">
+    {% for group in grouped_permissions %}
+    <section class="summary-permission-group">
+      <div class="summary-permission-title">{{ group.module_label }}</div>
+      <div class="summary-permission-list">
+        {% for permission in group.permissions %}
+        <div class="summary-permission-card">
+          <div class="summary-role-head">
+            <strong>{{ permission.label }}</strong>
+            <span class="summary-badge summary-badge-{{ permission.badge_key }}">{{ permission.badge_label }}</span>
+          </div>
+          <div class="summary-copy">{{ permission.description }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+  .summary-topbar,
+  .summary-role-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .summary-actions {
+    display: flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+  }
+  .summary-eyebrow,
+  .summary-metric-label {
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #0f766e;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+  .summary-title,
+  .summary-section-title,
+  .summary-permission-title {
+    color: #0f172a;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+  .summary-title { font-size: 0.94rem; margin: 0 0 0.2rem; }
+  .summary-section-title { font-size: 0.82rem; margin: 0 0 0.35rem; }
+  .summary-copy {
+    color: #64748b;
+    font-size: 0.69rem;
+    line-height: 1.45;
+    margin: 0;
+  }
+  .summary-primary-btn,
+  .summary-secondary-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.48rem 0.72rem;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+  .summary-primary-btn {
+    color: #fff;
+    background: linear-gradient(135deg, #00c6a7 0%, #175494 100%);
+  }
+  .summary-secondary-btn {
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+  }
+  .summary-metrics,
+  .summary-layout {
+    display: grid;
+    gap: 0.85rem;
+  }
+  .summary-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 0.9rem;
+  }
+  .summary-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 1rem;
+  }
+  .summary-metric-card,
+  .summary-role-card,
+  .summary-module-card,
+  .summary-permission-card {
+    padding: 0.8rem 0.85rem;
+    border-radius: 14px;
+    background: #f8fafc;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+  }
+  .summary-metric-value {
+    color: #0f172a;
+    font-size: 1rem;
+    font-weight: 800;
+  }
+  .summary-role-grid,
+  .summary-module-grid,
+  .summary-permission-list,
+  .summary-permission-groups {
+    display: grid;
+    gap: 0.7rem;
+  }
+  .summary-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.45rem;
+  }
+  .summary-chip,
+  .summary-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22rem 0.48rem;
+    border-radius: 999px;
+    font-size: 0.58rem;
+    font-weight: 700;
+  }
+  .summary-chip,
+  .summary-badge-view {
+    background: rgba(23, 84, 148, 0.08);
+    color: #175494;
+  }
+  .summary-badge-work,
+  .summary-badge-assign {
+    background: rgba(14, 116, 144, 0.11);
+    color: #0f766e;
+  }
+  .summary-badge-approve {
+    background: rgba(217, 119, 6, 0.12);
+    color: #b45309;
+  }
+  .summary-badge-admin {
+    background: rgba(127, 29, 29, 0.1);
+    color: #991b1b;
+  }
+  .summary-empty-state {
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    color: #64748b;
+    font-size: 0.72rem;
+    text-align: center;
+  }
+  @media (max-width: 991px) {
+    .summary-metrics,
+    .summary-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}

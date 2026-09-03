@@ -1,0 +1,522 @@
+{% extends 'settings/scorecard_settings_base.html' %}
+
+{% block settings_title %}Assign User Roles{% endblock %}
+{% block settings_subtitle %}Manage scorecard permission roles for one user at a time, while keeping the rest of the user’s platform roles untouched.{% endblock %}
+
+{% block settings_content %}
+<div class="settings-surface p-3 mb-3">
+  <div class="assignment-topbar">
+    <div>
+      <div class="assignment-eyebrow">Role Assignment</div>
+      <h2 class="assignment-title">{{ user_obj.name }} {{ user_obj.surname }}</h2>
+      <p class="assignment-copy mb-0">Each role below already explains what it can do. We keep the wording plain so permission assignment is easy to understand.</p>
+    </div>
+    <div class="assignment-actions">
+      <a href="{% url 'scorecard:settings_user_access_summary' user_obj.id %}" class="assignment-secondary-btn">Access Summary</a>
+      <a href="{% url 'scorecard:settings_user_roles' %}" class="assignment-back-btn">Back to Users</a>
+    </div>
+  </div>
+
+  <div class="assignment-summary-grid">
+    <div class="assignment-user-card">
+      <div class="assignment-user-avatar">{{ user_obj.name|default:'U'|slice:':1' }}{{ user_obj.surname|default:''|slice:':1' }}</div>
+      <div>
+        <div class="assignment-user-name">{{ user_obj.name }} {{ user_obj.surname }}</div>
+        <div class="assignment-user-meta">{{ user_obj.email }}</div>
+        <div class="assignment-user-meta">{{ user_obj.department|default:'No department assigned' }}</div>
+      </div>
+    </div>
+    <div class="assignment-metric-card">
+      <div class="assignment-metric-label">Assigned Scorecard Roles</div>
+      <div class="assignment-metric-value">{{ selected_user_role_ids|length }}</div>
+    </div>
+    <div class="assignment-metric-card">
+      <div class="assignment-metric-label">Effective Permissions</div>
+      <div class="assignment-metric-value">{{ total_effective_permissions }}</div>
+    </div>
+    <div class="assignment-metric-card">
+      <div class="assignment-metric-label">Branch Scope</div>
+      <div class="assignment-metric-value">{{ branch_scope_label }}</div>
+    </div>
+  </div>
+</div>
+
+<form method="post" class="assignment-layout">
+  {% csrf_token %}
+  <div class="settings-surface p-3">
+    <div class="assignment-section-head">
+      <div>
+        <div class="assignment-eyebrow">Permissions</div>
+        <h3 class="assignment-section-title">Choose roles for {{ user_obj.name }}</h3>
+        <p class="assignment-copy mb-0">The badges show whether a role is view-only, working access, approval access, or full admin.</p>
+      </div>
+      {% if request.user.is_superuser or perms.scorecard.assign_scorecard_permissions %}
+      <button type="submit" class="assignment-save-btn">Save Access</button>
+      {% endif %}
+    </div>
+
+    {% if grouped_roles %}
+    <div class="assignment-role-groups">
+      {% for group in grouped_roles %}
+      <section class="assignment-role-group">
+        <div class="assignment-group-title">{{ group.module_label }}</div>
+        <div class="assignment-group-copy">{{ group.roles|length }} role{{ group.roles|length|pluralize }} available in this area</div>
+        <div class="assignment-role-grid">
+          {% for role in group.roles %}
+          <label class="assignment-role-card {% if role.id in selected_user_role_ids %}is-selected{% endif %}">
+            <input type="checkbox" name="role_ids" value="{{ role.id }}" {% if role.id in selected_user_role_ids %}checked{% endif %} {% if not request.user.is_superuser and not perms.scorecard.assign_scorecard_permissions %}disabled{% endif %}>
+            <span class="assignment-role-body">
+              <span class="assignment-role-head">
+                <span class="assignment-role-name">{{ role.label }}</span>
+                <span class="assignment-role-badge assignment-role-badge-{{ role.badge_style }}">{{ role.level_label }}</span>
+              </span>
+              <span class="assignment-role-copy">{{ role.description }}</span>
+              <span class="assignment-role-meta">{{ role.permission_count }} permission{{ role.permission_count|pluralize }} | {{ role.member_count }} member{{ role.member_count|pluralize }}</span>
+              <span class="assignment-role-inline-badges">
+                {% for badge in role.access_badges %}
+                <span class="assignment-inline-badge">{{ badge }}</span>
+                {% endfor %}
+              </span>
+              {% if role.action_summary %}
+              <span class="assignment-role-actions">
+                {% for action in role.action_summary %}
+                <span class="assignment-action-chip">{{ action }}</span>
+                {% endfor %}
+              </span>
+              {% endif %}
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </section>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="assignment-empty-state">No scorecard roles are available yet.</div>
+    {% endif %}
+
+    <section class="assignment-branch-section" data-assignment-branch-picker>
+      <div class="assignment-section-head">
+        <div>
+          <div class="assignment-eyebrow">Branch Access</div>
+          <h3 class="assignment-section-title">Choose branches this user can access</h3>
+          <p class="assignment-copy mb-0">Only the branches ticked here will be visible to this user. If none are ticked, the user will see no branch-based scorecard information.</p>
+        </div>
+        {% if available_branches %}
+        <div class="assignment-branch-toolbar">
+          <span class="assignment-branch-count" data-assignment-branch-count>{{ selected_branch_ids|length }}/{{ available_branches|length }} selected</span>
+          {% if request.user.is_superuser or perms.scorecard.assign_scorecard_permissions %}
+          <div class="assignment-branch-actions">
+            <button type="button" class="assignment-branch-action" data-assignment-branch-action="all">Select All</button>
+            <button type="button" class="assignment-branch-action is-secondary" data-assignment-branch-action="none">Clear</button>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      {% if available_branches %}
+      <div class="assignment-branch-grid">
+        {% for branch in available_branches %}
+        <label class="assignment-branch-card {% if branch.id in selected_branch_ids %}is-selected{% endif %}">
+          <input type="checkbox" name="branch_ids" value="{{ branch.id }}" {% if branch.id in selected_branch_ids %}checked{% endif %} {% if not request.user.is_superuser and not perms.scorecard.assign_scorecard_permissions %}disabled{% endif %}>
+          <span class="assignment-role-body">
+            <span class="assignment-role-head">
+              <span class="assignment-role-name">{{ branch.branch_name }}</span>
+              <span class="assignment-inline-badge">{{ branch.branch_code }}</span>
+            </span>
+            <span class="assignment-role-copy">{{ branch.bank_name }}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="assignment-empty-state">No branches are available in the branch master yet.</div>
+      {% endif %}
+    </section>
+
+    {% if not request.user.is_superuser and not perms.scorecard.assign_scorecard_permissions %}
+    <div class="assignment-readonly-note">You can review scorecard role and branch assignments here, but only users with permission-management access can save changes.</div>
+    {% endif %}
+  </div>
+
+  <div class="assignment-side-stack">
+    <div class="settings-surface p-3">
+      <div class="assignment-eyebrow">Current Access</div>
+      <h3 class="assignment-section-title">Assigned scorecard roles</h3>
+      <div class="assignment-chip-list">
+        {% for role in selected_roles %}
+        <span class="assignment-chip assignment-chip-{{ role.badge_style }}">{{ role.label }}</span>
+        {% empty %}
+        <span class="assignment-chip is-muted">No scorecard roles assigned</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="settings-surface p-3">
+      <div class="assignment-eyebrow">Visible Modules</div>
+      <h3 class="assignment-section-title">What this user can open</h3>
+      <div class="assignment-module-list">
+        {% for module in module_access %}
+        <div class="assignment-module-card">
+          <div class="assignment-module-head">
+            <strong>{{ module.label }}</strong>
+            <span class="assignment-role-badge assignment-role-badge-{{ module.access_style }}">{{ module.access_label }}</span>
+          </div>
+          {% if module.role_labels %}
+          <div class="assignment-module-copy">Roles: {{ module.role_labels|join:', ' }}</div>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div class="assignment-empty-state">No scorecard modules are visible yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="settings-surface p-3">
+      <div class="assignment-eyebrow">Branch Scope</div>
+      <h3 class="assignment-section-title">Allowed branches</h3>
+      <p class="assignment-copy">{{ branch_scope_copy }}</p>
+      <div class="assignment-chip-list">
+        {% for branch in assigned_branches %}
+        <span class="assignment-chip assignment-chip-work">{{ branch.branch_name }} ({{ branch.branch_code }})</span>
+        {% empty %}
+        <span class="assignment-chip is-muted">No branches assigned</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</form>
+
+<style>
+  .assignment-topbar,
+  .assignment-section-head,
+  .assignment-role-head,
+  .assignment-module-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .assignment-actions {
+    display: flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+  }
+  .assignment-eyebrow,
+  .assignment-metric-label {
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #0f766e;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+  .assignment-title,
+  .assignment-section-title,
+  .assignment-group-title {
+    color: #0f172a;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+  .assignment-title { font-size: 0.94rem; margin: 0 0 0.2rem; }
+  .assignment-section-title { font-size: 0.8rem; margin: 0 0 0.35rem; }
+  .assignment-copy,
+  .assignment-user-meta,
+  .assignment-group-copy,
+  .assignment-role-meta,
+  .assignment-role-copy,
+  .assignment-module-copy {
+    color: #64748b;
+    font-size: 0.68rem;
+    line-height: 1.45;
+  }
+  .assignment-back-btn,
+  .assignment-secondary-btn,
+  .assignment-save-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+  .assignment-back-btn,
+  .assignment-secondary-btn {
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+  }
+  .assignment-save-btn {
+    color: #fff;
+    border: none;
+    background: linear-gradient(135deg, #00c6a7 0%, #175494 100%);
+  }
+  .assignment-summary-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 170px));
+    gap: 0.75rem;
+    margin-top: 0.9rem;
+  }
+  .assignment-user-card,
+  .assignment-metric-card,
+  .assignment-role-group,
+  .assignment-module-card,
+  .assignment-branch-card {
+    border-radius: 14px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: #f8fafc;
+  }
+  .assignment-user-card {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.85rem;
+  }
+  .assignment-user-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #175494 0%, #00c6a7 100%);
+    color: #fff;
+    font-weight: 800;
+  }
+  .assignment-user-name {
+    color: #0f172a;
+    font-size: 0.76rem;
+    font-weight: 800;
+    margin-bottom: 0.12rem;
+  }
+  .assignment-metric-card {
+    padding: 0.82rem 0.88rem;
+  }
+  .assignment-metric-value {
+    color: #0f172a;
+    font-size: 0.98rem;
+    font-weight: 800;
+  }
+  .assignment-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.85fr);
+    gap: 1rem;
+    align-items: start;
+  }
+  .assignment-side-stack,
+  .assignment-role-groups,
+  .assignment-module-list {
+    display: grid;
+    gap: 0.85rem;
+  }
+  .assignment-role-group,
+  .assignment-module-card {
+    padding: 0.85rem;
+  }
+  .assignment-role-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.7rem;
+    margin-top: 0.7rem;
+  }
+  .assignment-role-card,
+  .assignment-branch-card {
+    display: flex;
+    gap: 0.65rem;
+    align-items: flex-start;
+    padding: 0.74rem;
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  .assignment-role-card.is-selected,
+  .assignment-branch-card.is-selected {
+    border-color: rgba(23, 84, 148, 0.2);
+    box-shadow: 0 8px 22px rgba(23, 84, 148, 0.08);
+    background: linear-gradient(180deg, #ffffff 0%, #f6fbff 100%);
+  }
+  .assignment-branch-section {
+    margin-top: 0.95rem;
+    padding-top: 0.95rem;
+    border-top: 1px solid #e5edf6;
+  }
+  .assignment-branch-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.45rem;
+  }
+  .assignment-branch-count {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 0.65rem;
+    border-radius: 999px;
+    background: #e8f8f4;
+    color: #08705f;
+    font-size: 0.62rem;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .assignment-branch-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+  .assignment-branch-action {
+    min-height: 30px;
+    padding: 0 0.7rem;
+    border: 0;
+    border-radius: 999px;
+    background: #175494;
+    color: #fff;
+    font-size: 0.62rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(23, 84, 148, 0.14);
+  }
+  .assignment-branch-action.is-secondary {
+    background: #e8f0f8;
+    color: #315f99;
+    box-shadow: none;
+  }
+  .assignment-branch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.7rem;
+    margin-top: 0.7rem;
+  }
+  .assignment-role-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.24rem;
+  }
+  .assignment-role-name {
+    color: #0f172a;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .assignment-role-inline-badges,
+  .assignment-role-actions,
+  .assignment-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .assignment-chip,
+  .assignment-inline-badge,
+  .assignment-action-chip,
+  .assignment-role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.24rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.58rem;
+    font-weight: 700;
+  }
+  .assignment-inline-badge,
+  .assignment-role-badge-view,
+  .assignment-chip-view {
+    background: rgba(23, 84, 148, 0.08);
+    color: #175494;
+  }
+  .assignment-role-badge-work,
+  .assignment-chip-work {
+    background: rgba(14, 116, 144, 0.11);
+    color: #0f766e;
+  }
+  .assignment-role-badge-approve,
+  .assignment-chip-approve {
+    background: rgba(217, 119, 6, 0.12);
+    color: #b45309;
+  }
+  .assignment-role-badge-admin,
+  .assignment-chip-admin {
+    background: rgba(127, 29, 29, 0.1);
+    color: #991b1b;
+  }
+  .assignment-action-chip {
+    background: rgba(15, 23, 42, 0.05);
+    color: #475569;
+  }
+  .assignment-chip.is-muted {
+    background: rgba(100, 116, 139, 0.12);
+    color: #64748b;
+  }
+  .assignment-readonly-note,
+  .assignment-empty-state {
+    margin-top: 0.85rem;
+    padding: 0.8rem;
+    border-radius: 12px;
+    font-size: 0.68rem;
+    line-height: 1.45;
+  }
+  .assignment-readonly-note {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+  }
+  .assignment-empty-state {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    color: #64748b;
+    text-align: center;
+  }
+  @media (max-width: 991px) {
+    .assignment-summary-grid,
+    .assignment-layout {
+      grid-template-columns: 1fr;
+    }
+    .assignment-branch-toolbar {
+      align-items: flex-start;
+    }
+  }
+</style>
+<script>
+  (function () {
+    function updatePicker(picker) {
+      if (!picker) return;
+      var inputs = picker.querySelectorAll('.assignment-branch-card input[type="checkbox"]');
+      var checked = Array.prototype.filter.call(inputs, function (input) { return input.checked; }).length;
+      var counter = picker.querySelector('[data-assignment-branch-count]');
+      if (counter) {
+        counter.textContent = checked + '/' + inputs.length + ' selected';
+      }
+      inputs.forEach(function (input) {
+        var card = input.closest('.assignment-branch-card');
+        if (card) {
+          card.classList.toggle('is-selected', input.checked);
+        }
+      });
+    }
+
+    document.querySelectorAll('[data-assignment-branch-picker]').forEach(function (picker) {
+      updatePicker(picker);
+      picker.querySelectorAll('.assignment-branch-card input[type="checkbox"]').forEach(function (input) {
+        input.addEventListener('change', function () {
+          updatePicker(picker);
+        });
+      });
+    });
+
+    document.querySelectorAll('[data-assignment-branch-action]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var picker = button.closest('[data-assignment-branch-picker]');
+        if (!picker) return;
+        var shouldCheck = button.getAttribute('data-assignment-branch-action') === 'all';
+        picker.querySelectorAll('.assignment-branch-card input[type="checkbox"]:not(:disabled)').forEach(function (input) {
+          input.checked = shouldCheck;
+        });
+        updatePicker(picker);
+      });
+    });
+  })();
+</script>
+{% endblock %}

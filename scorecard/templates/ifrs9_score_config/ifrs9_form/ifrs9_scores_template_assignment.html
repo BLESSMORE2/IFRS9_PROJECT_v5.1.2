@@ -1,0 +1,315 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}{% if is_change %}Change IFRS9 Template{% else %}Assign IFRS9 Template{% endif %}{% endblock %}
+{% block header_title %}{% if is_change %}Change IFRS9 Template{% else %}Assign IFRS9 Template{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+    .assignment-shell {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: grid;
+        gap: 1.5rem;
+    }
+    .assignment-hero,
+    .assignment-card {
+        background: linear-gradient(180deg, #ffffff 0%, #f7fbfa 100%);
+        border: 1px solid #d7e7e2;
+        border-radius: 18px;
+        box-shadow: 0 16px 36px rgba(12, 62, 49, 0.08);
+    }
+    .assignment-hero {
+        padding: 1.75rem 1.9rem;
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 1.25rem;
+        align-items: start;
+    }
+    .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.35rem 0.8rem;
+        border-radius: 999px;
+        background: #e9f7f2;
+        color: #0c7c59;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .assignment-title {
+        margin: 0.85rem 0 0.5rem;
+        font-size: 2rem;
+        line-height: 1.15;
+        color: #102542;
+        font-weight: 700;
+    }
+    .assignment-copy {
+        margin: 0;
+        color: #4f657d;
+        font-size: 0.98rem;
+        line-height: 1.7;
+        max-width: 54rem;
+    }
+    .summary-panel {
+        background: #10352f;
+        color: #f5fbfa;
+        border-radius: 16px;
+        padding: 1.2rem 1.25rem;
+        display: grid;
+        gap: 0.95rem;
+    }
+    .summary-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(245, 251, 250, 0.72);
+    }
+    .summary-value {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #ffffff;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+    }
+    .summary-item {
+        padding: 0.9rem;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .assignment-card {
+        padding: 1.6rem 1.7rem;
+    }
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    .card-title {
+        margin: 0;
+        color: #102542;
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+    .card-copy {
+        margin: 0.35rem 0 0;
+        color: #5b7289;
+        font-size: 0.94rem;
+        line-height: 1.6;
+    }
+    .notice {
+        padding: 0.9rem 1rem;
+        border-radius: 14px;
+        background: #fff8e8;
+        border: 1px solid #f3d28f;
+        color: #805b12;
+        font-size: 0.93rem;
+        line-height: 1.6;
+        margin-bottom: 1.15rem;
+    }
+    .template-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .template-option {
+        position: relative;
+    }
+    .template-option input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .template-tile {
+        height: 100%;
+        display: grid;
+        gap: 0.75rem;
+        padding: 1.2rem;
+        border-radius: 16px;
+        border: 1px solid #d7e2ef;
+        background: #ffffff;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        cursor: pointer;
+    }
+    .template-option input:checked + .template-tile {
+        border-color: #0c9b74;
+        box-shadow: 0 18px 30px rgba(12, 155, 116, 0.14);
+        transform: translateY(-2px);
+    }
+    .template-code {
+        display: inline-flex;
+        width: fit-content;
+        padding: 0.35rem 0.65rem;
+        border-radius: 999px;
+        background: #e8f7f2;
+        color: #0d7c5b;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+    }
+    .template-name {
+        margin: 0;
+        color: #102542;
+        font-size: 1.03rem;
+        font-weight: 700;
+    }
+    .template-description {
+        margin: 0;
+        color: #61748d;
+        font-size: 0.92rem;
+        line-height: 1.6;
+        min-height: 3.2rem;
+    }
+    .template-meta {
+        font-size: 0.85rem;
+        color: #74859b;
+    }
+    .actions {
+        margin-top: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.9rem;
+        flex-wrap: wrap;
+    }
+    .btn-row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    .btn-main,
+    .btn-secondary {
+        border: 0;
+        border-radius: 12px;
+        padding: 0.85rem 1.2rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    .btn-main {
+        background: linear-gradient(135deg, #0c9b74 0%, #087356 100%);
+        color: #ffffff;
+        box-shadow: 0 12px 24px rgba(12, 155, 116, 0.22);
+    }
+    .btn-secondary {
+        background: #eef3f8;
+        color: #29466b;
+    }
+    @media (max-width: 900px) {
+        .assignment-hero {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="assignment-shell">
+    <section class="assignment-hero">
+        <div>
+            <span class="eyebrow">IFRS9 Workflow</span>
+            <h1 class="assignment-title">
+                {% if is_change %}Change the template for this score form{% else %}Assign a template before editing{% endif %}
+            </h1>
+            <p class="assignment-copy">
+                {% if is_change %}
+                    Changing the IFRS9 template resets the template-driven answers, scores, and version snapshots so the score form can be rebuilt cleanly against the new structure.
+                {% else %}
+                    This imported IFRS9 score form does not have a template yet. Choose the template you want to use, then we will open the normal editing screen with the customer details already carried in.
+                {% endif %}
+            </p>
+        </div>
+        <aside class="summary-panel">
+            <div>
+                <div class="summary-label">Customer</div>
+                <div class="summary-value">{{ evaluation.customer_name }}</div>
+            </div>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="summary-label">Customer ID</div>
+                    <div class="summary-value">{{ evaluation.customer_id }}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Branch</div>
+                    <div class="summary-value">{{ evaluation.branch_name }}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Current Status</div>
+                    <div class="summary-value">{{ evaluation.get_status_display }}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Current Template</div>
+                    <div class="summary-value">
+                        {% if current_template %}
+                            {{ current_template.code }}
+                        {% else %}
+                            Not assigned
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </section>
+
+    <section class="assignment-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Available IFRS9 templates</h2>
+                <p class="card-copy">Choose one active template. We will keep the customer and branch details, then reopen the record as a draft against the selected template.</p>
+            </div>
+        </div>
+
+        {% if is_change %}
+            <div class="notice">
+                The current score form already has a template. Switching templates clears template-specific answers and scores to avoid mixing different IFRS9 structures in one record.
+            </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="template-grid">
+                {% for template in templates %}
+                    <label class="template-option">
+                        <input type="radio" name="template_id" value="{{ template.id }}" {% if current_template and current_template.id == template.id %}checked{% endif %} {% if not current_template and forloop.first %}checked{% endif %}>
+                        <span class="template-tile">
+                            <span class="template-code">{{ template.code }}</span>
+                            <h3 class="template-name">{{ template.name }}</h3>
+                            <p class="template-description">{{ template.description|default:"No description has been added for this template yet." }}</p>
+                            <div class="template-meta">
+                                Updated {{ template.updated_at|date:"M d, Y" }}
+                            </div>
+                        </span>
+                    </label>
+                {% empty %}
+                    <div class="notice">
+                        There are no active IFRS9 templates yet. Activate or create one first, then come back to assign it here.
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="actions">
+                <div class="card-copy">
+                    After you save this step, we will take you straight to the IFRS9 edit screen.
+                </div>
+                <div class="btn-row">
+                    <a href="{% url back_url_name %}" class="btn-secondary">Back To List</a>
+                    {% if templates %}
+                        <button type="submit" class="btn-main">
+                            {% if is_change %}Apply Template Change{% else %}Assign Template And Continue{% endif %}
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

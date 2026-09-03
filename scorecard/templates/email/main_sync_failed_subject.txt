@@ -1,0 +1,1 @@
+Main customer sync failed: {{ sync_run.reporting_date|date:"Y-m-d" }}

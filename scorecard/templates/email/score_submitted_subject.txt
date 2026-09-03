@@ -1,0 +1,1 @@
+{{ score_label }} submitted for review: {{ customer_name }} ({{ customer_code }})

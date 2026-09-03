@@ -1,0 +1,66 @@
+DJANGO API SCHEDULER SETUP
+
+This project uses the Django-native scheduler service for API automation.
+
+Working command
+python manage.py run_api_scheduler_service
+
+What it does
+- keeps running in its own terminal
+- checks saved API schedules every 30 seconds
+- runs any schedule that is due
+- updates Last Run, Status, and scheduler results on the Automation page
+
+How to use it
+1. Start Django normally if needed:
+   python manage.py runserver
+
+2. In another terminal, using the same working Python environment, start the scheduler service:
+   python manage.py run_api_scheduler_service
+
+3. Create or edit a schedule from:
+   API > Automation
+
+4. Set:
+   - Endpoint
+   - Frequency
+   - Run Time
+   - Reporting date mode if needed
+   - Active = checked
+
+5. Leave the scheduler terminal running.
+
+Test command
+To check due schedules once and exit:
+python manage.py run_api_scheduler_service --run-once
+
+Expected terminal output
+- "Starting Django API scheduler service. Check interval: 30 seconds."
+- "No due API schedules."
+- when a schedule is due:
+  "Found 1 due schedule(s) at YYYY-MM-DD HH:MM:SS."
+  "<schedule name>: fetched=..., created=..., updated=..., unchanged=..., skipped=..., duration=..."
+
+Verified working example
+- Schedule name: cooperate endpoint
+- Endpoint: corporate
+- Frequency: Daily
+- Result seen:
+  fetched=339
+  created=286
+  updated=0
+  unchanged=0
+  skipped=53
+  duration=5s
+- Automation page updated to:
+  Status = Success
+  Last Run = populated
+
+Important note
+- Start the scheduler using the same Python environment that successfully runs the Django app.
+- A broken or old virtual environment path may prevent the scheduler from starting.
+
+Related files
+- scorecard/management/commands/run_api_scheduler_service.py
+- scorecard/functions_view/api.py
+- scorecard/templates/api/scheduler.html

@@ -1,0 +1,171 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Edit Option Score{% endblock %}
+{% block header_title %}Edit Allocated Score{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .info-box {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .info-item {
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .info-item:last-child {
+        margin-bottom: 0;
+    }
+    .info-item strong {
+        font-weight: 600;
+        color: #333;
+        margin-right: 0.5rem;
+    }
+    .form-section {
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    label strong {
+        font-weight: 600;
+    }
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        transition: border-color 0.2s ease;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus,
+    select:focus {
+        outline: none;
+        border-color: #0066cc;
+        box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    }
+    .help-text {
+        color: #666;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+        font-weight: normal;
+    }
+    .error {
+        background: #ffe9e9;
+        color: #b00020;
+        border-radius: 4px;
+        padding: 0.5rem 0.75rem;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+<div class="info-box">
+    <div class="info-item">
+        <strong>Template:</strong> {{ template.code }} - {{ template.name }}
+    </div>
+    <div class="info-item">
+        <strong>Attribute:</strong> {{ option.attribute.label }}
+    </div>
+    <div class="info-item">
+        <strong>Option:</strong> {{ option.label }}
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="form-section">
+        <div style="margin-bottom: 1rem;">
+            <label for="{{ form.allocated_score.id_for_label }}">
+                <strong>Allocated Score</strong>
+                <small class="help-text">(The score assigned when this option is selected)</small>
+            </label>
+            {{ form.allocated_score }}
+            {% if form.allocated_score.errors %}
+                <div class="error">{{ form.allocated_score.errors|striptags }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="error" style="margin-top: 1rem;">
+            {{ form.non_field_errors|striptags }}
+        </div>
+    {% endif %}
+
+    <div class="actions">
+        <a href="{% url 'scorecard:basel_template_detail' template_id=template.id %}" class="btn btn-secondary">
+            Cancel
+        </a>
+        <button type="submit" class="btn btn-primary">Save Score</button>
+    </div>
+</form>
+{% endblock %}

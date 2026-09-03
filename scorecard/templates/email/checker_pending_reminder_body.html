@@ -1,0 +1,20 @@
+<html>
+<body style="font-family:Segoe UI, Arial, sans-serif; color:#17324d; line-height:1.5;">
+  <h2 style="margin-bottom:12px;">Pending Checker Review Reminder</h2>
+  <p>{{ score_label }} for <strong>{{ customer_name }} ({{ customer_code }})</strong> has been waiting for checker review longer than expected.</p>
+
+  <table cellpadding="8" cellspacing="0" style="border-collapse:collapse; width:100%; max-width:760px;">
+    <tr><td style="font-weight:600; width:180px;">Branch</td><td>{{ branch_name }}</td></tr>
+    <tr><td style="font-weight:600;">Submitted By</td><td>{{ actor_name }}</td></tr>
+    <tr><td style="font-weight:600;">Pending Since</td><td>{{ pending_since|date:"Y-m-d H:i"|default:"-" }}</td></tr>
+  </table>
+
+  {% if action_url %}
+  <p style="margin-top:20px;">
+    <a href="{{ action_url }}" style="display:inline-block; padding:10px 16px; background:#0b63ce; color:#ffffff; text-decoration:none; border-radius:8px;">Open Review</a>
+  </p>
+  {% endif %}
+
+  <p style="margin-top:18px; color:#5f7388;">This email was sent because the event needs attention.</p>
+</body>
+</html>

@@ -1,0 +1,11 @@
+Hello,
+
+Your {{ score_label|lower }} has been approved.
+
+Customer: {{ customer_name }} ({{ customer_code }})
+Branch: {{ branch_name }}
+Approved By: {{ actor_name }}
+Final Grade: {{ grade }}
+
+Open Approved Score:
+{{ action_url|default:"-" }}

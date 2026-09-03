@@ -1,0 +1,1 @@
+Repeated schedule failure: {{ schedule_name }}

@@ -1,0 +1,431 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Scorecard Documents{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #0066cc;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .filters-section {
+        background-color: #f9f9f9;
+        padding: 1.5rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        margin-bottom: 1.5rem;
+    }
+    .filters-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+    }
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #333;
+        margin-bottom: 0.5rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .filter-group select,
+    .filter-group input {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .filter-group select:focus,
+    .filter-group input:focus {
+        outline: none;
+        border-color: #0066cc;
+        box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    }
+    .filter-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .entries-control {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .entries-select {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+    .summary-box {
+        background-color: #f0f8ff;
+        padding: 1rem;
+        border: 1px solid #0066cc;
+        border-radius: 4px;
+        margin-bottom: 1.5rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .summary-box strong {
+        color: #0066cc;
+        font-weight: 600;
+    }
+    .documents-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .documents-table thead th {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    .documents-table thead th.text-center {
+        text-align: center;
+    }
+    .documents-table tbody td {
+        border: 1px solid #e0e0e0;
+        padding: 0.5rem 0.75rem;
+        font-size: 12px;
+        color: #333;
+    }
+    .documents-table tbody tr:hover {
+        background-color: #f5f5f5;
+    }
+    .document-link {
+        color: #0066cc;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .document-link:hover {
+        text-decoration: underline;
+    }
+    .btn-download-small,
+    .btn-delete-small {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 78px;
+        min-height: 32px;
+        padding: 0.32rem 0.72rem;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1;
+        transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+        box-shadow: none;
+    }
+    .btn-download-small {
+        background-color: #0b69c7;
+        border: 1px solid #0b69c7;
+        color: white;
+        text-decoration: none;
+    }
+    .btn-download-small:hover {
+        background-color: #0958a7;
+        border-color: #0958a7;
+        color: white;
+        text-decoration: none;
+    }
+    .btn-delete-small {
+        background-color: #ef4444;
+        border: 1px solid #ef4444;
+        color: white;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .btn-delete-small:hover {
+        background-color: #dc2626;
+        border-color: #dc2626;
+        color: white;
+        text-decoration: none;
+    }
+    .action-stack {
+        display: inline-flex;
+        gap: 0.4rem;
+        flex-wrap: nowrap;
+        justify-content: center;
+        align-items: center;
+    }
+    .action-stack form {
+        margin: 0;
+    }
+    .action-cell {
+        white-space: nowrap;
+    }
+    @media (max-width: 900px) {
+        .action-stack {
+            flex-wrap: wrap;
+        }
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #999;
+        font-style: italic;
+    }
+    .pagination-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .pagination-info {
+        color: #4b5563;
+        font-size: 0.9rem;
+    }
+    .pagination-links {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .pagination-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 0.8rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #1f2937;
+        background: #fff;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    .pagination-link:hover {
+        text-decoration: none;
+        border-color: #0066cc;
+        color: #0066cc;
+    }
+    .pagination-link.active {
+        background: #0066cc;
+        border-color: #0066cc;
+        color: #fff;
+    }
+    .category-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background-color: #e3f2fd;
+        color: #0066cc;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+</style>
+
+<div class="page-header">
+    <h1 class="page-title">Scorecard Documents</h1>
+    {% if can_manage_documents %}<a href="{% url 'scorecard:scorecard_document_upload' %}" class="btn btn-primary">Upload Document</a>{% endif %}
+</div>
+
+<!-- Filters Section -->
+<div class="filters-section">
+    <h2 class="filters-title">Filter Documents</h2>
+    <form method="get" action="{% url 'scorecard:scorecard_document_list' %}">
+        <div class="filters-grid">
+            <div class="filter-group">
+                <label for="search">Search</label>
+                <input type="text" 
+                       id="search" 
+                       name="search" 
+                       value="{{ filters.search }}"
+                       placeholder="Search by title, description...">
+            </div>
+            <div class="filter-group">
+                <label for="category">Category</label>
+                <input type="text" 
+                       id="category" 
+                       name="category" 
+                       value="{{ filters.category }}"
+                       placeholder="Enter category">
+            </div>
+        </div>
+        <div class="filter-actions">
+            <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                <a href="{% url 'scorecard:scorecard_document_list' %}" class="btn btn-secondary">Clear Filters</a>
+            </div>
+            <div class="entries-control">
+                <span>Show</span>
+                <select id="page_size" name="page_size" class="entries-select" onchange="this.form.submit()">
+                    <option value="25" {% if page_size == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+                </select>
+                <span>entries</span>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Summary Box -->
+<div class="summary-box">
+    <strong>Total Documents Found:</strong> {{ total_count }}
+    {% if filters.category or filters.search %}
+        <span style="margin-left: 1rem; color: #666;">
+            (Filtered)
+        </span>
+    {% endif %}
+</div>
+
+<!-- Documents Table -->
+{% if documents %}
+    <table class="documents-table">
+        <thead>
+            <tr>
+                <th style="width: 5%;">#</th>
+                <th style="width: 25%;">Title</th>
+                <th style="width: 15%;">Category</th>
+                <th style="width: 20%;">Description</th>
+                <th style="width: 10%;">File Name</th>
+                <th style="width: 10%;">Uploaded By</th>
+                <th style="width: 10%;" class="text-center">Upload Date</th>
+                <th style="width: 14%;" class="text-center">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for doc in documents %}
+                <tr>
+                    <td>{{ page_start|add:forloop.counter }}</td>
+                    <td>
+                        <a href="{% url 'scorecard:scorecard_document_detail' doc.id %}" class="document-link" title="{{ doc.title }}">
+                            {{ doc.title|truncatechars:40 }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if doc.category %}
+                            <span class="category-badge">{{ doc.category }}</span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ doc.description|truncatechars:40|default:"-" }}</td>
+                    <td>{{ doc.file_name|truncatechars:30 }}</td>
+                    <td>
+                        {% if doc.uploaded_by %}
+                            {{ doc.uploaded_by.email|truncatechars:25 }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {{ doc.uploaded_at|date:"M d, Y" }}<br>
+                        <small style="color: #666;">{{ doc.uploaded_at|date:"H:i" }}</small>
+                    </td>
+                    <td class="text-center action-cell">
+                        <div class="action-stack">
+                            <a href="{% url 'scorecard:scorecard_document_download' doc.id %}" 
+                               class="btn-download-small"
+                               title="Download {{ doc.file_name }}">
+                                Download
+                            </a>
+                            {% if can_manage_documents %}
+                            <form method="post" action="{% url 'scorecard:scorecard_document_delete' doc.id %}" onsubmit="return confirm('Delete this document?');" style="margin:0;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-delete-small" title="Delete {{ doc.file_name }}">Delete</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination-bar">
+        <div class="pagination-info">
+            Showing {{ page_start|add:1 }} to {{ page_end }} of {{ total_count }} documents
+        </div>
+        <div class="pagination-links">
+            {% if page_obj.has_previous %}
+                <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}" class="pagination-link">Previous</a>
+            {% endif %}
+            {% for page_number in page_obj.paginator.page_range %}
+                {% if page_number == page_obj.number %}
+                    <span class="pagination-link active">{{ page_number }}</span>
+                {% elif page_number >= page_obj.number|add:-2 and page_number <= page_obj.number|add:2 %}
+                    <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_number }}" class="pagination-link">{{ page_number }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+                <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}" class="pagination-link">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+{% else %}
+    <div class="empty-state">
+        <p>No documents found{% if filters.category or filters.search %} matching the selected filters{% endif %}.</p>
+        {% if filters.category or filters.search %}
+            <a href="{% url 'scorecard:scorecard_document_list' %}" class="btn btn-primary" style="margin-top: 1rem;">Clear Filters</a>
+        {% elif can_manage_documents %}
+            <a href="{% url 'scorecard:scorecard_document_upload' %}" class="btn btn-primary" style="margin-top: 1rem;">Upload First Document</a>
+        {% endif %}
+    </div>
+{% endif %}
+{% endblock %}

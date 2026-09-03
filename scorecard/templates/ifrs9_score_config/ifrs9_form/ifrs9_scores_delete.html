@@ -1,0 +1,167 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Delete IFRS9 Score Form - {{ evaluation.customer_name }}{% endblock %}
+{% block header_title %}Delete IFRS9 Score Form{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .alert-box {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .alert-warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        color: #856404;
+    }
+    .alert-box strong {
+        font-weight: 600;
+    }
+    .ifrs9_scores-details-box {
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+        background-color: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .ifrs9_scores-details-item {
+        margin-bottom: 0.75rem;
+        font-size: 0.9rem;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .ifrs9_scores-details-item:last-child {
+        margin-bottom: 0;
+    }
+    .ifrs9_scores-details-item strong {
+        font-weight: 600;
+        color: #333;
+        margin-right: 0.5rem;
+    }
+    .ifrs9_scores-details-label {
+        display: inline-block;
+        min-width: 140px;
+        color: #666;
+    }
+    .ifrs9_scores-details-value {
+        color: #333;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-danger {
+        background: #dc3545;
+        color: white;
+    }
+    .btn-danger:hover {
+        background: #c82333;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+    <div class="alert-box alert-warning">
+        <strong>⚠️ Warning:</strong> Are you sure you want to delete this returned IFRS9 score form? This will permanently delete this evaluation and all its data. This action cannot be undone.
+        {% if evaluation.status == 'returned' %}
+        <br><br><strong>Note:</strong> This IFRS9 score form was returned for changes. Deleting it will permanently remove it from the system. You will not be able to see it again.
+        {% endif %}
+    </div>
+
+<div class="ifrs9_scores-details-box">
+    <div class="ifrs9_scores-details-item">
+        <strong class="ifrs9_scores-details-label">Template:</strong>
+        <span class="ifrs9_scores-details-value">{{ evaluation.template.code }} - {{ evaluation.template.name }}</span>
+    </div>
+    <div class="ifrs9_scores-details-item">
+        <strong class="ifrs9_scores-details-label">Branch:</strong>
+        <span class="ifrs9_scores-details-value">{{ evaluation.branch_name }}</span>
+    </div>
+    <div class="ifrs9_scores-details-item">
+        <strong class="ifrs9_scores-details-label">Customer Name:</strong>
+        <span class="ifrs9_scores-details-value">{{ evaluation.customer_name }}</span>
+    </div>
+    <div class="ifrs9_scores-details-item">
+        <strong class="ifrs9_scores-details-label">Customer ID:</strong>
+        <span class="ifrs9_scores-details-value">{{ evaluation.customer_id }}</span>
+    </div>
+    <div class="ifrs9_scores-details-item">
+        <strong class="ifrs9_scores-details-label">Weighted Score:</strong>
+        <span class="ifrs9_scores-details-value">{{ evaluation.total_weighted_percent|floatformat:2 }}%</span>
+    </div>
+    <div class="ifrs9_scores-details-item">
+        <strong class="ifrs9_scores-details-label">Status:</strong>
+        <span class="ifrs9_scores-details-value">{{ evaluation.get_status_display }}</span>
+    </div>
+    {% if evaluation.status == 'returned' and evaluation.return_reason %}
+    <div class="ifrs9_scores-details-item">
+        <strong class="ifrs9_scores-details-label">Return Reason:</strong>
+        <span class="ifrs9_scores-details-value" style="color: #ff9800;">{{ evaluation.return_reason }}</span>
+    </div>
+    {% endif %}
+    <div class="ifrs9_scores-details-item">
+        <strong class="ifrs9_scores-details-label">Created:</strong>
+        <span class="ifrs9_scores-details-value">{{ evaluation.created_at|date:"Y-m-d H:i" }}</span>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="actions">
+        {% if evaluation.status == 'returned' %}
+        <a href="{% url 'scorecard:maker_ifrs9_scores_draft_list' %}" class="btn btn-secondary">
+            Cancel
+        </a>
+        {% else %}
+        <a href="{% url 'scorecard:ifrs9_scores_submitted_list' %}" class="btn btn-secondary">
+            Cancel
+        </a>
+        {% endif %}
+        <button type="submit" class="btn btn-danger">Delete Permanently</button>
+    </div>
+</form>
+{% endblock %}

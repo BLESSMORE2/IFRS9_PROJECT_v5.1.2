@@ -1,0 +1,496 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Historical Scores{% endblock %}
+
+{% block content %}
+<style>
+    .history-workspace {
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+    }
+    .history-hero {
+        background: linear-gradient(135deg, #0f3e72 0%, #0a6ea8 100%);
+        border-radius: 16px;
+        padding: 1rem 1.15rem;
+        color: #fff;
+        box-shadow: 0 18px 44px rgba(15, 62, 114, 0.18);
+    }
+    .history-kicker {
+        display: inline-block;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.76);
+        margin-bottom: 0.25rem;
+    }
+    .history-title {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 800;
+    }
+    .history-copy {
+        margin: 0.32rem 0 0;
+        max-width: 980px;
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 0.82rem;
+        line-height: 1.5;
+    }
+    .history-scope {
+        margin-top: 0.55rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        padding: 0.35rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+    .history-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.7rem;
+    }
+    .history-stat {
+        background: #fff;
+        border: 1px solid #dce8f4;
+        border-radius: 14px;
+        padding: 0.78rem 0.9rem;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+    }
+    .history-stat-label {
+        color: #64748b;
+        font-size: 0.66rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .history-stat-value {
+        margin-top: 0.2rem;
+        color: #0b2d52;
+        font-size: 1.3rem;
+        font-weight: 850;
+    }
+    .history-panel {
+        background: #fff;
+        border: 1px solid #dce8f4;
+        border-radius: 10px;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+    .history-panel-body {
+        padding: 1rem;
+        background: #f8fbff;
+        border-bottom: 2px solid #0067d7;
+    }
+    .history-filter-grid {
+        display: grid;
+        grid-template-columns: minmax(220px, 1.2fr) minmax(160px, 0.9fr) minmax(170px, 1fr) minmax(170px, 0.9fr) 90px auto;
+        gap: 0.65rem;
+        align-items: end;
+    }
+    .history-action-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-top: 0.8rem;
+        flex-wrap: wrap;
+    }
+    .history-action-group {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+    }
+    .history-field label {
+        display: block;
+        color: #52667f;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 0.28rem;
+    }
+    .history-input,
+    .history-select {
+        width: 100%;
+        min-height: 39px;
+        border: 1px solid #cbdcf0;
+        border-radius: 10px;
+        padding: 0.48rem 0.6rem;
+        color: #0f172a;
+        background: #fff;
+        font-size: 0.82rem;
+    }
+    .history-btn {
+        min-height: 39px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        padding: 0.48rem 0.8rem;
+        font-weight: 800;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .history-btn.primary {
+        background: #0b72d9;
+        color: #fff;
+    }
+    .history-btn.secondary {
+        background: #eef5fc;
+        border-color: #cbdcf0;
+        color: #164a7c;
+    }
+    .history-btn.success {
+        background: #fff;
+        border-color: #0067d7;
+        color: #0067d7;
+    }
+    .history-btn.danger {
+        background: #dc3545;
+        color: #fff;
+        box-shadow: 0 8px 18px rgba(220, 53, 69, 0.18);
+    }
+    .history-btn.warning {
+        background: #f59e0b;
+        color: #fff;
+        box-shadow: 0 8px 18px rgba(245, 158, 11, 0.18);
+    }
+    .history-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+    .history-export {
+        position: relative;
+        display: inline-flex;
+    }
+    .history-export-menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 0.35rem);
+        left: 0;
+        min-width: 150px;
+        background: #fff;
+        border: 1px solid #dce8f4;
+        border-radius: 10px;
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+        overflow: hidden;
+        z-index: 30;
+    }
+    .history-delete-form {
+        margin: 0;
+    }
+    .history-refresh-form {
+        display: flex;
+        align-items: end;
+        gap: 0.55rem;
+        flex-wrap: wrap;
+        margin: 0;
+    }
+    .history-refresh-field label {
+        display: block;
+        color: #52667f;
+        font-size: 0.66rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 0.24rem;
+    }
+    .history-refresh-date {
+        width: 165px;
+        min-width: 165px;
+    }
+    .history-export-menu.show {
+        display: block;
+    }
+    .history-export-menu a {
+        display: block;
+        padding: 0.68rem 0.85rem;
+        color: #0b2d52;
+        text-decoration: none;
+        font-weight: 800;
+        font-size: 0.82rem;
+    }
+    .history-export-menu a:hover {
+        background: #edf5ff;
+    }
+    .history-table-wrap {
+        overflow-x: auto;
+    }
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 980px;
+    }
+    .history-table th {
+        background: #dfeffb;
+        color: #0f2f4f;
+        text-align: left;
+        padding: 0.72rem 0.75rem;
+        border: 1px solid #b8dcfb;
+        font-size: 0.72rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .history-table td {
+        padding: 0.7rem 0.75rem;
+        border: 1px solid #e3e8ef;
+        font-size: 0.8rem;
+        color: #0f172a;
+        vertical-align: middle;
+    }
+    .history-table tbody tr:hover {
+        background: #f8fbff;
+    }
+    .history-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        padding: 0.25rem 0.55rem;
+        background: #edf5ff;
+        color: #0b4e8f;
+        font-weight: 800;
+    }
+    .history-empty {
+        padding: 2rem 1rem;
+        text-align: center;
+        color: #64748b;
+    }
+    .history-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.7rem;
+        padding: 0.8rem 1rem;
+        border-top: 1px solid #e3e8ef;
+        background: #fbfdff;
+        font-size: 0.78rem;
+        color: #52667f;
+    }
+    .history-page-actions {
+        display: flex;
+        gap: 0.45rem;
+    }
+    @media (max-width: 1100px) {
+        .history-summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .history-filter-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+    @media (max-width: 680px) {
+        .history-summary-grid,
+        .history-filter-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="history-workspace">
+    <section class="history-hero">
+        <span class="history-kicker">Scorecard History</span>
+        <h1 class="history-title">Historical Scores</h1>
+        <p class="history-copy">
+            Review scheduled Basel II and IFRS9 score snapshots from <strong>SCORECARD_HISTORICAL_SCORES</strong>.
+            The list follows your active branch selection: one branch shows that branch only, while All Assigned Branches combines your assigned branch scope.
+        </p>
+        <div class="history-scope">
+            <span>Branch Scope:</span>
+            <strong>{{ branch_scope_label|default:"No branch selected" }}</strong>
+        </div>
+    </section>
+
+    <section class="history-summary-grid">
+        <div class="history-stat">
+            <div class="history-stat-label">Rows Found</div>
+            <div class="history-stat-value">{{ summary.total_rows }}</div>
+        </div>
+        <div class="history-stat">
+            <div class="history-stat-label">Customers</div>
+            <div class="history-stat-value">{{ summary.total_customers }}</div>
+        </div>
+        <div class="history-stat">
+            <div class="history-stat-label">Latest Date Rows</div>
+            <div class="history-stat-value">{{ summary.latest_count }}</div>
+        </div>
+        <div class="history-stat">
+            <div class="history-stat-label">Avg Basel II</div>
+            <div class="history-stat-value">{% if summary.avg_basel_score is not None %}{{ summary.avg_basel_score|floatformat:2 }}%{% else %}-{% endif %}</div>
+        </div>
+        <div class="history-stat">
+            <div class="history-stat-label">Avg IFRS9</div>
+            <div class="history-stat-value">{% if summary.avg_ifrs9_score is not None %}{{ summary.avg_ifrs9_score|floatformat:2 }}%{% else %}-{% endif %}</div>
+        </div>
+    </section>
+
+    <section class="history-panel">
+        <div class="history-panel-body">
+            <form id="history-filter-form" method="get" class="history-filter-grid">
+                <div class="history-field">
+                    <label for="history-search">Search</label>
+                    <input id="history-search" class="history-input" type="text" name="search" value="{{ filters.search }}" placeholder="Customer code, name, branch, or grade">
+                </div>
+                <div class="history-field">
+                    <label for="history-reporting-date">Reporting Date</label>
+                    <select id="history-reporting-date" class="history-select" name="reporting_date">
+                        <option value="">All dates</option>
+                        {% for reporting_date in reporting_dates %}
+                            <option value="{{ reporting_date|date:'Y-m-d' }}" {% if filters.reporting_date == reporting_date|date:'Y-m-d' %}selected{% endif %}>{{ reporting_date|date:"Y-m-d" }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="history-field">
+                    <label for="history-branch">Branch</label>
+                    <select id="history-branch" class="history-select" name="branch">
+                        <option value="">All visible branches</option>
+                        {% for branch_name in branch_options %}
+                            <option value="{{ branch_name }}" {% if filters.branch == branch_name %}selected{% endif %}>{{ branch_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="history-field">
+                    <label for="history-exposure-source">Exposure Source</label>
+                    <select id="history-exposure-source" class="history-select" name="exposure_source">
+                        <option value="" {% if not filters.exposure_source %}selected{% endif %}>All historical rows</option>
+                        <option value="loan" {% if filters.exposure_source == "loan" %}selected{% endif %}>Active loans</option>
+                        <option value="overdraft" {% if filters.exposure_source == "overdraft" %}selected{% endif %}>Active overdrafts</option>
+                        <option value="loan_or_overdraft" {% if filters.exposure_source == "loan_or_overdraft" %}selected{% endif %}>Active loan or overdraft</option>
+                        <option value="loan_only" {% if filters.exposure_source == "loan_only" %}selected{% endif %}>Loan only</option>
+                        <option value="overdraft_only" {% if filters.exposure_source == "overdraft_only" %}selected{% endif %}>Overdraft only</option>
+                    </select>
+                </div>
+                <div class="history-field">
+                    <label for="history-page-size">Show</label>
+                    <select id="history-page-size" class="history-select" name="page_size">
+                        <option value="25" {% if filters.page_size == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if filters.page_size == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+                <button type="submit" class="history-btn primary">Apply Filters</button>
+            </form>
+            <div class="history-action-row">
+                <div class="history-action-group">
+                    {% url 'scorecard:historical_scores_download' as history_download_url %}
+                    <div class="history-export">
+                        <button type="button" id="history-export-btn" class="history-btn success">Export Data</button>
+                        <div id="history-export-menu" class="history-export-menu" aria-label="Historical score export formats">
+                            <a href="{{ history_download_url }}{% if query_string %}?{{ query_string }}&format=excel{% else %}?format=excel{% endif %}">Excel</a>
+                            <a href="{{ history_download_url }}{% if query_string %}?{{ query_string }}&format=csv{% else %}?format=csv{% endif %}">CSV</a>
+                        </div>
+                    </div>
+                    <a href="{% url 'scorecard:historical_scores_list' %}" class="history-btn secondary">Clear</a>
+                </div>
+                {% if can_refresh_historical_scores %}
+                    <form method="post" action="{% url 'scorecard:historical_scores_refresh' %}" class="history-refresh-form" onsubmit="return confirm('Refresh historical scores for this reporting date and branch scope? Existing rows for that date in scope will be rebuilt.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="search" value="{{ filters.search }}">
+                        <input type="hidden" name="branch" value="{{ filters.branch }}">
+                        <input type="hidden" name="exposure_source" value="{{ filters.exposure_source }}">
+                        <input type="hidden" name="page_size" value="{{ filters.page_size }}">
+                        <div class="history-refresh-field">
+                            <label for="history-refresh-date">Refresh date</label>
+                            <input id="history-refresh-date" class="history-input history-refresh-date" type="date" name="refresh_reporting_date" value="{{ filters.reporting_date }}" required>
+                        </div>
+                        <button type="submit" class="history-btn warning">Refresh Selected Date</button>
+                    </form>
+                {% endif %}
+                {% if can_delete_historical_scores %}
+                    <form method="post" action="{% url 'scorecard:historical_scores_bulk_delete' %}" class="history-delete-form" onsubmit="return confirm('Delete all historical score rows matching the current filters? This cannot be undone.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="search" value="{{ filters.search }}">
+                        <input type="hidden" name="reporting_date" value="{{ filters.reporting_date }}">
+                        <input type="hidden" name="branch" value="{{ filters.branch }}">
+                        <input type="hidden" name="exposure_source" value="{{ filters.exposure_source }}">
+                        <input type="hidden" name="page_size" value="{{ filters.page_size }}">
+                        <button type="submit" class="history-btn danger">Delete Filtered Records</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="history-table-wrap">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Reporting Date</th>
+                        <th>Branch</th>
+                        <th>Customer Code</th>
+                        <th>Customer Name</th>
+                        <th>Basel II Score</th>
+                        <th>Basel II Grade</th>
+                        <th>Basel Override Grade</th>
+                        <th>IFRS9 Score</th>
+                        <th>Captured</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for score in scores %}
+                    <tr>
+                        <td>{{ score.reporting_date|date:"Y-m-d" }}</td>
+                        <td>{{ score.branch_name }}</td>
+                        <td><span class="history-pill">{{ score.customer_id }}</span></td>
+                        <td>{{ score.customer_name }}</td>
+                        <td>{% if score.basel_ii_score is not None %}{{ score.basel_ii_score|floatformat:2 }}%{% else %}-{% endif %}</td>
+                        <td>{% if score.basel_ii_grade %}<span class="history-pill">{{ score.basel_ii_grade }}</span>{% else %}-{% endif %}</td>
+                        <td>{% if score.basel_override_grade %}<span class="history-pill">{{ score.basel_override_grade }}</span>{% else %}-{% endif %}</td>
+                        <td>{% if score.ifrs_9_score is not None %}{{ score.ifrs_9_score|floatformat:2 }}%{% else %}-{% endif %}</td>
+                        <td>{{ score.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="history-empty">No historical score snapshots found for the selected branch scope and filters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="history-pagination">
+            <div>
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} records
+            </div>
+            <div class="history-page-actions">
+                {% if page_obj.has_previous %}
+                    <a class="history-btn secondary" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>
+                {% else %}
+                    <span class="history-btn secondary" style="opacity:0.45; pointer-events:none;">Previous</span>
+                {% endif %}
+                {% if page_obj.has_next %}
+                    <a class="history-btn secondary" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>
+                {% else %}
+                    <span class="history-btn secondary" style="opacity:0.45; pointer-events:none;">Next</span>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const exportButton = document.getElementById("history-export-btn");
+        const exportMenu = document.getElementById("history-export-menu");
+        if (!exportButton || !exportMenu) {
+            return;
+        }
+
+        exportButton.addEventListener("click", function (event) {
+            event.stopPropagation();
+            exportMenu.classList.toggle("show");
+        });
+
+        document.addEventListener("click", function () {
+            exportMenu.classList.remove("show");
+        });
+    });
+</script>
+{% endblock %}

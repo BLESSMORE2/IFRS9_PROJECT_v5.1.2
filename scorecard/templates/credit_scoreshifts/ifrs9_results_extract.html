@@ -1,0 +1,452 @@
+{% extends "credit_scoreshifts/base.html" %}
+{% load humanize dict_extras %}
+
+{% block title %}IFRS9 Results Extract{% endblock %}
+
+{% block content %}
+<style>
+    .results-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .results-hero {
+        background: linear-gradient(135deg, #0f3e72 0%, #0b2d52 100%);
+        border-radius: 14px;
+        padding: 0.8rem 1rem 0.9rem;
+        color: #fff;
+        box-shadow: 0 18px 40px rgba(8, 37, 66, 0.16);
+    }
+    .results-kicker {
+        display: inline-block;
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.72);
+        margin-bottom: 0.18rem;
+    }
+    .results-title {
+        margin: 0 0 0.18rem;
+        font-size: 1.08rem;
+        font-weight: 700;
+    }
+    .results-copy {
+        margin: 0;
+        font-size: 0.77rem;
+        line-height: 1.45;
+        color: rgba(255,255,255,0.84);
+    }
+    .results-tabs-shell {
+        background: #fff;
+        border: 1px solid #dfe9f4;
+        border-radius: 14px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+        padding: 0.45rem 0.55rem;
+    }
+    .results-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+    }
+    .results-tab {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        border: 1px solid #d5e3f2;
+        background: #fff;
+        color: #175494;
+        text-decoration: none;
+        font-size: 0.76rem;
+        font-weight: 700;
+        transition: all 0.2s ease;
+    }
+    .results-tab:hover {
+        text-decoration: none;
+        color: #0f3d78;
+        border-color: #aac7e8;
+        background: #f3f8ff;
+    }
+    .results-tab.active {
+        color: #fff;
+        border-color: #175494;
+        background: linear-gradient(135deg, #175494 0%, #1b79c2 100%);
+        box-shadow: 0 8px 18px rgba(23, 84, 148, 0.18);
+    }
+    .results-banner {
+        border-radius: 12px;
+        padding: 0.7rem 0.9rem;
+        font-size: 0.78rem;
+        line-height: 1.45;
+    }
+    .results-banner.error {
+        background: #fff3f2;
+        border: 1px solid #fecdca;
+        color: #912018;
+    }
+    .results-shell {
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+        gap: 0.75rem;
+    }
+    .results-filter-card,
+    .results-main-card {
+        background: #fff;
+        border: 1px solid #e2ebf5;
+        border-radius: 14px;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+    .results-filter-header,
+    .results-main-header {
+        padding: 0.75rem 0.9rem;
+        border-bottom: 1px solid #edf2f7;
+        background: linear-gradient(180deg, #f9fbfd 0%, #f3f7fb 100%);
+    }
+    .results-filter-title,
+    .results-main-title {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .results-filter-body,
+    .results-main-body {
+        padding: 0.9rem;
+    }
+    .results-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin-bottom: 0.85rem;
+    }
+    .results-field-label {
+        font-size: 0.67rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b;
+    }
+    .results-select {
+        min-height: 38px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        padding: 0.45rem 0.65rem;
+        font-size: 0.84rem;
+        color: #0f172a;
+        background: #fff;
+    }
+    .results-help {
+        font-size: 0.72rem;
+        line-height: 1.45;
+        color: #64748b;
+    }
+    .results-filter-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .results-btn,
+    .results-btn-outline {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 0.9rem;
+        border-radius: 999px;
+        font-size: 0.77rem;
+        font-weight: 700;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .results-btn {
+        border: 1px solid #175494;
+        background: linear-gradient(135deg, #175494 0%, #1b79c2 100%);
+        color: #fff;
+    }
+    .results-btn:hover {
+        color: #fff;
+        text-decoration: none;
+        opacity: 0.95;
+    }
+    .results-btn-outline {
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        color: #35506f;
+    }
+    .results-btn-outline:hover {
+        text-decoration: none;
+        color: #16324f;
+        background: #f8fbff;
+    }
+    .results-summary-strip {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.55rem;
+        margin-top: 0.8rem;
+    }
+    .results-summary-chip {
+        border: 1px solid #d8e4f1;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        padding: 0.65rem 0.72rem;
+    }
+    .results-summary-label {
+        display: block;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 0.12rem;
+    }
+    .results-summary-chip strong {
+        color: #0f172a;
+        font-size: 0.82rem;
+    }
+    .results-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+    }
+    .results-toolbar-copy {
+        font-size: 0.74rem;
+        color: #64748b;
+        line-height: 1.45;
+    }
+    .results-table-shell {
+        border: 1px solid #e2ebf5;
+        border-radius: 12px;
+        overflow: auto;
+        background: #fff;
+    }
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 980px;
+    }
+    .results-table th,
+    .results-table td {
+        padding: 0.55rem 0.65rem;
+        border-bottom: 1px solid #edf2f7;
+        border-right: 1px solid #edf2f7;
+        font-size: 0.74rem;
+        text-align: left;
+        vertical-align: top;
+        white-space: nowrap;
+    }
+    .results-table th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #0e4377;
+        color: #fff;
+        font-weight: 700;
+    }
+    .results-table tr:nth-child(even) td {
+        background: #f8fbff;
+    }
+    .results-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 2.4rem 1.2rem;
+        text-align: center;
+        color: #64748b;
+    }
+    .results-empty-icon {
+        width: 74px;
+        height: 74px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #e8f1fb;
+        color: #6b8fb3;
+        font-size: 1.6rem;
+        font-weight: 700;
+    }
+    .results-pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+        margin-top: 0.85rem;
+    }
+    .results-pagination-link,
+    .results-pagination-current {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 0 0.8rem;
+        border-radius: 999px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    .results-pagination-link {
+        border: 1px solid #d7e3f1;
+        color: #175494;
+        background: #fff;
+    }
+    .results-pagination-link:hover {
+        text-decoration: none;
+        color: #0f3d78;
+        background: #f3f8ff;
+    }
+    .results-pagination-current {
+        background: #eff6ff;
+        color: #175494;
+        border: 1px solid #dbeafe;
+    }
+    @media (max-width: 1080px) {
+        .results-shell {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 860px) {
+        .results-summary-strip {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+</style>
+
+<div class="results-layout">
+    <section class="results-hero">
+        <span class="results-kicker">IFRS9 Results</span>
+        <h1 class="results-title">Results Extract</h1>
+        <p class="results-copy">Review branch-scoped IFRS9 extract rows from <code>fct_reporting_table</code>. Pick a reporting date only; the scorecard automatically uses the latest available run key for that date.</p>
+    </section>
+
+    <div class="results-tabs-shell">
+        <div class="results-tabs">
+            <a href="{% url 'scorecard:ifrs9_results_home' %}" class="results-tab{% if results_page_key == 'home' %} active{% endif %}">Overview</a>
+            <a href="{% url 'scorecard:ifrs9_results_extract' %}" class="results-tab{% if results_page_key == 'extract' %} active{% endif %}">Results Extract</a>
+            <a href="{% url 'scorecard:ifrs9_results_ecl_summary' %}" class="results-tab{% if results_page_key == 'summary' %} active{% endif %}">ECL Summary Report</a>
+        </div>
+    </div>
+
+    {% if not results_module_available %}
+    <div class="results-banner error">
+        {{ results_module_error }}
+    </div>
+    {% else %}
+    <div class="results-shell">
+        <aside class="results-filter-card">
+            <div class="results-filter-header">
+                <h2 class="results-filter-title">Filters</h2>
+            </div>
+            <div class="results-filter-body">
+                <form method="get" action="{% url 'scorecard:ifrs9_results_extract' %}">
+                    <div class="results-field">
+                        <label for="results-reporting-date" class="results-field-label">Reporting Date</label>
+                        <select id="results-reporting-date" name="reporting_date" class="results-select">
+                            <option value="">-- Select Date --</option>
+                            {% for available_date in results_available_dates %}
+                            <option value="{{ available_date|date:'Y-m-d' }}"{% if results_selected_date_value == available_date|date:'Y-m-d' %} selected{% endif %}>{{ available_date|date:"Y-m-d" }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <p class="results-help">
+                        The scorecard always uses the <strong>latest run key</strong> for the chosen reporting date inside the current branch scope.
+                    </p>
+                    <div class="results-filter-actions">
+                        <button type="submit" class="results-btn">Apply Filters</button>
+                        <a href="{% url 'scorecard:ifrs9_results_extract' %}" class="results-btn-outline">Reset</a>
+                    </div>
+                </form>
+            </div>
+        </aside>
+
+        <section class="results-main-card">
+            <div class="results-main-header">
+                <h2 class="results-main-title">Results Workspace</h2>
+                <div class="results-summary-strip">
+                    <div class="results-summary-chip">
+                        <span class="results-summary-label">Reporting Date</span>
+                        <strong>{{ results_selected_date_value|default:"Not selected" }}</strong>
+                    </div>
+                    <div class="results-summary-chip">
+                        <span class="results-summary-label">Latest Run Key</span>
+                        <strong>{{ results_latest_run_key|default:"Not available" }}</strong>
+                    </div>
+                    <div class="results-summary-chip">
+                        <span class="results-summary-label">Columns</span>
+                        <strong>{{ results_extract_columns|length }}</strong>
+                    </div>
+                    <div class="results-summary-chip">
+                        <span class="results-summary-label">Rows</span>
+                        <strong>{{ results_extract_total_rows|default:"0" }}</strong>
+                    </div>
+                    <div class="results-summary-chip">
+                        <span class="results-summary-label">Branch Scope</span>
+                        <strong>{{ results_branch_scope_label }}</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="results-main-body">
+                {% if results_extract_page %}
+                <div class="results-toolbar">
+                    <div class="results-toolbar-copy">
+                        Previewing rows {{ results_extract_page.start_index }} - {{ results_extract_page.end_index }} of {{ results_extract_page.paginator.count }} for the selected reporting date.
+                    </div>
+                    <a href="{% url 'scorecard:ifrs9_results_extract_download' %}?reporting_date={{ results_selected_date_value|urlencode }}" class="results-btn">Download Excel</a>
+                </div>
+
+                <div class="results-table-shell">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                {% for column in results_extract_columns %}
+                                <th>{{ results_extract_column_labels|get_item:column }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in results_extract_rows %}
+                            <tr>
+                                {% for column in results_extract_columns %}
+                                <td>{{ row|get_item:column|default:"-" }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if results_extract_page.paginator.num_pages > 1 %}
+                <div class="results-pagination">
+                    {% if results_extract_page.has_previous %}
+                    <a class="results-pagination-link" href="?reporting_date={{ results_selected_date_value|urlencode }}&page=1">First</a>
+                    <a class="results-pagination-link" href="?reporting_date={{ results_selected_date_value|urlencode }}&page={{ results_extract_page.previous_page_number }}">Previous</a>
+                    {% endif %}
+                    <span class="results-pagination-current">Page {{ results_extract_page.number }} of {{ results_extract_page.paginator.num_pages }}</span>
+                    {% if results_extract_page.has_next %}
+                    <a class="results-pagination-link" href="?reporting_date={{ results_selected_date_value|urlencode }}&page={{ results_extract_page.next_page_number }}">Next</a>
+                    <a class="results-pagination-link" href="?reporting_date={{ results_selected_date_value|urlencode }}&page={{ results_extract_page.paginator.num_pages }}">Last</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="results-empty">
+                    <div class="results-empty-icon">R</div>
+                    <h3>No data available for this report</h3>
+                    <p>Select a <strong>Reporting Date</strong> in the filter, then click <strong>Apply Filters</strong> to load the latest-run results for the current branch scope.</p>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

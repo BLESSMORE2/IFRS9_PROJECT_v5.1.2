@@ -1,0 +1,10 @@
+Hello,
+
+A {{ score_label|lower }} has been submitted for your review.
+
+Customer: {{ customer_name }} ({{ customer_code }})
+Branch: {{ branch_name }}
+Submitted By: {{ actor_name }}
+
+Open Review:
+{{ action_url|default:"-" }}

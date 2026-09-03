@@ -1,0 +1,1 @@
+{{ workflow_label }} approved: {{ template_code }}

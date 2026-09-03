@@ -1,0 +1,105 @@
+﻿{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Reopen IFRS9 Score Form Evaluation{% endblock %}
+
+{% block content %}
+    <style>
+        .confirmation-box {
+            max-width: 600px;
+            margin: 2rem auto;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+        .warning-box {
+            padding: 1rem;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            color: #856404;
+        }
+        .info-section {
+            margin-bottom: 1.5rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #cbd2e1;
+            border-radius: 4px;
+            font-family: "Calibri", sans-serif;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-warning {
+            background: #ffc107;
+            color: #000;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+    </style>
+    
+    <div class="confirmation-box">
+        <h2 style="margin-top: 0; color: #333;">Reopen IFRS9 Score Form Evaluation (Admin Only)</h2>
+        
+        <div class="warning-box">
+            <strong>⚠️ Admin Action:</strong> This will reopen an approved evaluation for editing. 
+            Use this only when necessary.
+        </div>
+        
+        <div class="info-section">
+            <p><strong>Customer:</strong> {{ evaluation.customer_name }} ({{ evaluation.customer_id }})</p>
+            <p><strong>Branch:</strong> {{ evaluation.branch_name }}</p>
+            <p><strong>Template:</strong> {{ evaluation.template.code }}</p>
+            <p><strong>Current Status:</strong> {{ evaluation.get_status_display }}</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="new_status">New Status:</label>
+                <select id="new_status" name="new_status" required>
+                    <option value="returned" selected>Returned (Needs Changes)</option>
+                    <option value="in_progress">In Progress</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="reopen_reason">Reason for Reopening <span style="color: #dc3545;">*</span>:</label>
+                <textarea id="reopen_reason" name="reopen_reason" rows="5" 
+                          placeholder="Explain why this evaluation is being reopened..." 
+                          required></textarea>
+            </div>
+            
+            <div class="btn-group">
+                <button type="submit" class="btn btn-warning">Confirm Reopen</button>
+                <a href="{% url 'scorecard:maker_ifrs9_scores_draft_list' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

@@ -1,0 +1,1214 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Submitted IFRS9 SCORE FORMS{% endblock %}
+{% block header_title %}Submitted IFRS9 SCORE FORMS{% endblock %}
+
+{% block content %}
+    <style>
+        .page-header {
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .table-container {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .summary-strip {
+            padding: 0.9rem 1.5rem;
+            border-bottom: 1px solid #e5edf5;
+            background: #f8fbff;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .summary-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.55rem 0.8rem;
+            border: 1px solid #d4e3f1;
+            border-radius: 999px;
+            background: white;
+            color: #355777;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .summary-value {
+            color: #0f4f8a;
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .table-header-section {
+            padding: 1rem 1.5rem;
+            border-bottom: 2px solid #0066cc;
+        }
+        .table-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        .table-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .table-header-right {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .export-btn, .columns-btn {
+            padding: 0.4rem 0.8rem;
+            border: 1px solid #0066cc;
+            background: white;
+            color: #0066cc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: none;
+            display: inline-block;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .export-btn:hover, .columns-btn:hover {
+            background: #f0f8ff;
+        }
+        .export-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .export-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            min-width: 150px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+            margin-top: 0.25rem;
+            z-index: 10000;
+            border: 1px solid #ddd;
+        }
+        .export-dropdown-menu.show {
+            display: block !important;
+        }
+        .export-dropdown-item {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: #555;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background 0.2s ease;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .export-dropdown-item:last-child {
+            border-bottom: none;
+        }
+        .export-dropdown-item:hover {
+            background: #f5f5f5;
+        }
+        .table-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .search-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: nowrap;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        .search-input {
+            border: 1px solid #cbd2e1;
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 320px;
+            max-width: 100%;
+            flex: 0 1 320px;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .entries-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 12px;
+        }
+        .entries-select {
+            border: 1px solid #cbd2e1;
+            padding: 0.4rem 0.5rem;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .data-table thead {
+            background: #e3f2fd;
+        }
+        .data-table th {
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            color: #333;
+            border-bottom: 2px solid #0066cc;
+            position: relative;
+            white-space: nowrap;
+        }
+        .data-table th.text-center {
+            text-align: center;
+        }
+        .data-table td {
+            padding: 0.6rem 0.75rem;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #333;
+            vertical-align: middle;
+        }
+        .data-table tbody tr:hover {
+            background: #f5f5f5;
+        }
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .data-table td.text-center {
+            text-align: center;
+        }
+        .table-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+        .pagination-info {
+            color: #666;
+            font-size: 12px;
+        }
+        .pagination-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .pagination-btn {
+            padding: 0.4rem 0.8rem;
+            border: 1px solid #cbd2e1;
+            background: white;
+            color: #333;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: none;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .pagination-btn.active {
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
+        }
+        .pagination-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .pagination-btn:hover:not(.disabled) {
+            background: #f5f5f5;
+        }
+        .no-data-message {
+            padding: 3rem;
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            font-size: 12px;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .btn-primary {
+            padding: 0.45rem 0.9rem;
+            background: #0066cc;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 12px;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .btn-primary:hover {
+            background: #0052a3;
+        }
+        .btn-secondary {
+            padding: 0.55rem 1.2rem;
+            background: #6c757d;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 12px;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .actions {
+            margin-top: 2rem;
+        }
+        .column-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .column-modal-overlay.show {
+            display: flex;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .column-modal-content {
+            background: white;
+            border-radius: 8px;
+            max-width: 900px;
+            width: 90%;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .column-modal-header {
+            background: linear-gradient(135deg, #0066cc 0%, #004d99 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .column-modal-header h2 {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .column-modal-close-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .column-modal-close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .column-modal-body {
+            padding: 1.5rem 2rem;
+            display: flex;
+            gap: 1.5rem;
+            flex: 1;
+            overflow: hidden;
+        }
+        .column-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .column-section-title {
+            font-weight: 600;
+            font-size: 12px;
+            margin-bottom: 0.75rem;
+            color: #333;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .column-search {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #cbd2e1;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 0.75rem;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .column-list {
+            border: 1px solid #cbd2e1;
+            border-radius: 4px;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 300px;
+            max-height: 400px;
+            background: #f8f9fa;
+        }
+        .column-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid #e0e0e0;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 12px;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .column-item:hover {
+            background: #e9ecef;
+        }
+        .column-item.selected {
+            background: #d1ecf1;
+        }
+        .column-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+        .column-controls {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 1rem;
+            padding: 0 1rem;
+        }
+        .column-control-btn {
+            padding: 0.75rem 1rem;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+            min-width: 80px;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .column-control-btn:hover:not(:disabled) {
+            background: #5a6268;
+        }
+        .column-control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .column-modal-footer {
+            padding: 1rem 2rem;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+        }
+        .column-modal-btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .column-modal-btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+        .column-modal-btn-primary:hover {
+            background: #0052a3;
+        }
+        .column-modal-btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .column-modal-btn-secondary:hover {
+            background: #5a6268;
+        }
+    </style>
+    
+    <div class="page-header">
+        <div class="page-title">IFRS9 SCORE FORMS</div>
+    </div>
+
+    <div class="table-container">
+        <div class="summary-strip">
+            <div class="summary-card">
+                <span>Total Submitted</span>
+                <span class="summary-value">{{ submitted_total|default:0 }}</span>
+            </div>
+            <div class="summary-card">
+                <span>Pending Review</span>
+                <span class="summary-value">{{ submitted_pending_total|default:0 }}</span>
+            </div>
+            <div class="summary-card">
+                <span>Approved</span>
+                <span class="summary-value">{{ submitted_approved_total|default:0 }}</span>
+            </div>
+            <div class="summary-card">
+                <span>Returned</span>
+                <span class="summary-value">{{ submitted_returned_total|default:0 }}</span>
+            </div>
+        </div>
+        <div class="table-header-section">
+            <div class="table-header-top">
+                <div class="table-header-left">
+                    {% if scorecard_route_access.ifrs9_scores_template_select %}
+                        <a href="{% url 'scorecard:ifrs9_scores_template_select' %}" class="btn-primary">
+                New IFRS9 Score Form
+            </a>
+                    {% endif %}
+                    <div class="export-dropdown">
+                        <a href="#" class="export-btn" id="export-data-btn">Export Data</a>
+                        <div class="export-dropdown-menu" id="export-dropdown">
+                            <a href="#" class="export-dropdown-item" data-action="print">Print</a>
+                            <a href="#" class="export-dropdown-item" data-action="copy">Copy</a>
+                            <a href="{% url 'scorecard:ifrs9_scores_export_excel' %}?page=current{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="export-dropdown-item">Excel</a>
+                            <a href="{% url 'scorecard:ifrs9_scores_export_csv' %}?page=current{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="export-dropdown-item">CSV</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-header-right">
+                    <div class="export-dropdown">
+                        <a href="#" class="export-btn" id="export-all-btn">Export Data for all pages</a>
+                        <div class="export-dropdown-menu" id="export-all-dropdown">
+                            <a href="#" class="export-dropdown-item" data-action="print-all">Print</a>
+                            <a href="#" class="export-dropdown-item" data-action="copy-all">Copy</a>
+                            <a href="{% url 'scorecard:ifrs9_scores_export_excel' %}?page=all{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="export-dropdown-item">Excel</a>
+                            <a href="{% url 'scorecard:ifrs9_scores_export_csv' %}?page=all{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="export-dropdown-item">CSV</a>
+                        </div>
+                    </div>
+                    <a href="#" class="columns-btn" id="show-hide-columns-btn">Show/Hide Columns</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Column Selection Modal -->
+        <div id="column-modal" class="column-modal-overlay">
+            <div class="column-modal-content">
+                <div class="column-modal-header">
+                    <h2>Show/Hide Columns</h2>
+                    <button class="column-modal-close-btn" id="close-column-modal" aria-label="Close">×</button>
+                </div>
+                <div class="column-modal-body">
+                    <div class="column-section">
+                        <div class="column-section-title">Available Columns</div>
+                        <input type="text" 
+                               id="available-columns-search" 
+                               class="column-search" 
+                               placeholder="Search available columns...">
+                        <div class="column-list" id="available-columns-list">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    <div class="column-controls">
+                        <button class="column-control-btn" id="move-to-shown-btn" title="Move to Shown Columns">></button>
+                        <button class="column-control-btn" id="move-to-available-btn" title="Move to Available Columns"><</button>
+                    </div>
+                    <div class="column-section">
+                        <div class="column-section-title">Shown Columns</div>
+                        <input type="text" 
+                               id="shown-columns-search" 
+                               class="column-search" 
+                               placeholder="Search shown columns...">
+                        <div class="column-list" id="shown-columns-list">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+                <div class="column-modal-footer">
+                    <button class="column-modal-btn column-modal-btn-secondary" id="cancel-column-modal">Cancel</button>
+                    <button class="column-modal-btn column-modal-btn-primary" id="apply-column-modal">Apply</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-controls">
+            <div class="search-control">
+                <input type="text" 
+                       id="ifrs9_scores-search" 
+                       value="{{ search_query|default:'' }}"
+                       placeholder="Search by template, branch, customer name, customer ID, score..." 
+                       class="search-input"
+                       autocomplete="off">
+                <select id="status-filter" class="entries-select" aria-label="Filter by status">
+                    <option value="" {% if not status_filter %}selected{% endif %}>All Statuses</option>
+                    <option value="submitted" {% if status_filter == 'submitted' %}selected{% endif %}>Pending Review</option>
+                    <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                    <option value="returned" {% if status_filter == 'returned' %}selected{% endif %}>Returned</option>
+                </select>
+                <select id="exposure-filter" class="entries-select" aria-label="Filter by active loan or overdraft">
+                    <option value="" {% if not exposure_filter %}selected{% endif %}>All Customers</option>
+                    <option value="loan" {% if exposure_filter == 'loan' %}selected{% endif %}>Active Loans Only</option>
+                    <option value="overdraft" {% if exposure_filter == 'overdraft' %}selected{% endif %}>Active Overdrafts Only</option>
+                    <option value="active" {% if exposure_filter == 'active' %}selected{% endif %}>Active Loan/Overdraft Only</option>
+                </select>
+            </div>
+            <div class="entries-control">
+                <span>Show</span>
+                <select id="entries-per-page" class="entries-select">
+                    <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+                </select>
+                <span>entries</span>
+            </div>
+    </div>
+
+    {% if evaluations %}
+            <div id="search-results-count" style="padding: 0.5rem 1.5rem; color: #666; font-size: 12px; display: none;"></div>
+            <table class="data-table" id="ifrs9_scores-table">
+            <thead>
+            <tr>
+                    <th data-column="template">Template</th>
+                    <th data-column="branch">Branch</th>
+                    <th data-column="customer_name">Customer Name</th>
+                    <th data-column="customer_id">Customer ID</th>
+                    <th class="text-center" data-column="weighted_score">Weighted Score</th>
+                    <th class="text-center" data-column="submitted">Submitted</th>
+                    <th class="text-center" data-column="actions">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for evaluation in evaluations %}
+                    <tr class="ifrs9_scores-row" 
+                        data-template-code="{% if evaluation.template %}{{ evaluation.template.code|lower }}{% else %}external_import{% endif %}" 
+                        data-template-name="{% if evaluation.template %}{{ evaluation.template.name|lower }}{% else %}template not assigned{% endif %}" 
+                        data-branch="{{ evaluation.branch_name|lower }}" 
+                        data-customer-name="{{ evaluation.customer_name|lower }}" 
+                        data-customer-id="{{ evaluation.customer_id|lower }}"
+                        data-score="{{ evaluation.total_weighted_percent|default:0 }}">
+                        <td data-column="template" style="font-size: 12px;">
+                            {% if evaluation.template %}
+                                <strong>{{ evaluation.template.code }}</strong><br>
+                                <small style="font-size: 11px; color: #666;">{{ evaluation.template.name }}</small>
+                            {% else %}
+                                <strong style="color: #8a6116;">EXTERNAL_IMPORT</strong><br>
+                                <small style="font-size: 11px; color: #8a6116;">Template not assigned</small>
+                            {% endif %}
+                        </td>
+                        <td data-column="branch" style="font-size: 12px;">{{ evaluation.branch_name }}</td>
+                        <td data-column="customer_name" style="font-size: 12px;">{{ evaluation.customer_name }}</td>
+                        <td data-column="customer_id" style="font-size: 12px;">{{ evaluation.customer_id }}</td>
+                        <td data-column="weighted_score" class="text-center" style="font-size: 12px;">
+                        {% if evaluation.status == 'submitted' %}
+                            {# When submitted, show approved score as current (if exists), new score as pending #}
+                            {% if evaluation.get_current_weighted_percent %}
+                                {# There's an approved score - show it as current, new as pending #}
+                                <strong>{{ evaluation.get_current_weighted_percent|floatformat:2 }}%</strong>
+                                {% if evaluation.pending_weighted_percent %}
+                                    <br><small style="color: #ff9800; font-style: italic; font-size: 11px;">(Pending: {{ evaluation.pending_weighted_percent|floatformat:2 }}%)</small>
+                                {% endif %}
+                            {% else %}
+                                {# First submission - no approved score yet, show only pending #}
+                                <strong style="color: #ff9800;">{{ evaluation.pending_weighted_percent|floatformat:2 }}%</strong>
+                                <br><small style="color: #ff9800; font-style: italic; font-size: 11px;">(Pending Approval)</small>
+                            {% endif %}
+                        {% elif evaluation.status == 'returned' %}
+                            {# When returned (from submitted status), show the last approved score (if exists) as current #}
+                            {# The rejected submission is not shown - we show approved state with orange "Returned" indicator #}
+                            {% if evaluation.approved_weighted_percent %}
+                                {# There was a previous approved score - show it as current #}
+                                <strong>{{ evaluation.approved_weighted_percent|floatformat:2 }}%</strong>
+                                <br><small style="color: #ff9800; font-style: italic; font-size: 11px;">(Returned for Changes)</small>
+                            {% else %}
+                                {# First submission was returned - no approved score yet, show rejected score in orange #}
+                                <strong style="color: #ff9800;">{{ evaluation.total_weighted_percent|floatformat:2 }}%</strong>
+                                <br><small style="color: #ff9800; font-style: italic; font-size: 11px;">(Returned for Changes)</small>
+                            {% endif %}
+                        {% else %}
+                            {# When approved or other statuses, show current score #}
+                        <strong>{{ evaluation.total_weighted_percent|floatformat:2 }}%</strong>
+                            {% if evaluation.previous_weighted_percent and evaluation.previous_weighted_percent != evaluation.total_weighted_percent %}
+                                <br><small style="color: #999; font-style: italic; font-size: 11px;">(Prev: {{ evaluation.previous_weighted_percent|floatformat:2 }}%)</small>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                        <td data-column="submitted" class="text-center" style="font-size: 12px;">
+                            <small style="font-size: 11px;">{{ evaluation.submitted_at|default:evaluation.created_at|date:"Y-m-d" }}<br>{{ evaluation.submitted_at|default:evaluation.created_at|date:"H:i" }}</small>
+                    </td>
+                        <td data-column="actions" class="text-center" style="font-size: 12px;">
+                        {% if evaluation.status != 'submitted' %}
+                            {% if evaluation.template %}
+                                {% if scorecard_route_access.ifrs9_scores_edit %}
+                        <a href="{% url 'scorecard:ifrs9_scores_edit' evaluation_id=evaluation.id %}" 
+                               style="text-decoration: none; color: #28a745; margin-right: 0.5rem; font-size: 12px;">Edit</a>
+                                {% endif %}
+                            {% else %}
+                                {% if scorecard_route_access.ifrs9_scores_template_assignment %}
+                        <a href="{% url 'scorecard:ifrs9_scores_template_assignment' evaluation_id=evaluation.id %}" 
+                               style="text-decoration: none; color: #c17a00; margin-right: 0.5rem; font-size: 12px;">Assign Template</a>
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+                        {% if scorecard_route_access.ifrs9_scores_view_detail %}
+                        <a href="{% url 'scorecard:ifrs9_scores_view_detail' evaluation_id=evaluation.id %}" 
+                               style="text-decoration: none; color: #0066cc; margin-right: 0.5rem; font-size: 12px;">View</a>
+                        {% endif %}
+                        {% if evaluation.template %}
+                            {% if scorecard_route_access.ifrs9_scores_compare_versions %}
+                        <a href="{% url 'scorecard:ifrs9_scores_compare_versions' evaluation_id=evaluation.id %}" 
+                               style="text-decoration: none; color: #6f42c1; margin-right: 0.5rem; font-size: 12px;">Versions</a>
+                            {% endif %}
+                        {% endif %}
+                        {% if evaluation.status != 'submitted' %}
+                            {% if scorecard_route_access.ifrs9_scores_template_assignment %}
+                        <a href="{% url 'scorecard:ifrs9_scores_template_assignment' evaluation_id=evaluation.id %}" 
+                               style="text-decoration: none; color: #0d6efd; margin-right: 0.5rem; font-size: 12px;">{% if evaluation.template %}Change Template{% else %}Choose Template{% endif %}</a>
+                            {% endif %}
+                            {% if scorecard_route_access.ifrs9_scores_delete %}
+                        <a href="{% url 'scorecard:ifrs9_scores_delete' evaluation_id=evaluation.id %}" 
+                               style="text-decoration: none; color: #dc3545; font-size: 12px;">Delete</a>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+            <div class="table-footer">
+                <div class="pagination-info" id="pagination-info">
+                    Showing <span id="showing-from">{{ page_obj.start_index }}</span> to <span id="showing-to">{{ page_obj.end_index }}</span> of <span id="total-entries">{{ page_obj.paginator.count }}</span> entries
+                </div>
+                <div class="pagination-controls">
+                    {% if page_obj.has_previous %}
+                    <a href="?p={{ page_obj.previous_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="pagination-btn" id="prev-btn">Previous</a>
+                    {% else %}
+                    <a href="#" class="pagination-btn disabled" id="prev-btn">Previous</a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                    <a href="?p={{ page_obj.next_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="pagination-btn" id="next-btn">Next</a>
+                    {% else %}
+                    <a href="#" class="pagination-btn disabled" id="next-btn">Next</a>
+                    {% endif %}
+                </div>
+            </div>
+    {% else %}
+            <div class="no-data-message">
+            No submitted IFRS9 Score Forms yet. Click "New IFRS9 Score Form" to create one.
+        </div>
+            <div class="table-footer">
+                <div class="pagination-info">
+                    Showing 0 to 0 of 0 entries
+                </div>
+                <div class="pagination-controls">
+                    <a href="#" class="pagination-btn disabled">Previous</a>
+                    <a href="#" class="pagination-btn disabled">Next</a>
+                </div>
+        </div>
+    {% endif %}
+    </div>
+
+    
+    <script>
+        // Real-time search functionality for ifrs9_scores list
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('ifrs9_scores-search');
+            const tableRows = Array.from(document.querySelectorAll('.ifrs9_scores-row'));
+            const resultsCount = document.getElementById('search-results-count');
+            const entriesSelect = document.getElementById('entries-per-page');
+            const statusFilter = document.getElementById('status-filter');
+            const exposureFilter = document.getElementById('exposure-filter');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            let searchTimeout = null;
+            
+            // Export dropdown functionality
+            const exportBtn = document.getElementById('export-data-btn');
+            const exportAllBtn = document.getElementById('export-all-btn');
+            const exportDropdown = document.getElementById('export-dropdown');
+            const exportAllDropdown = document.getElementById('export-all-dropdown');
+            
+            // Toggle export dropdown
+            if (exportBtn && exportDropdown) {
+                exportBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const isShowing = exportDropdown.classList.contains('show');
+                    // Close all dropdowns first
+                    if (exportAllDropdown) exportAllDropdown.classList.remove('show');
+                    // Toggle current dropdown
+                    if (isShowing) {
+                        exportDropdown.classList.remove('show');
+                    } else {
+                        exportDropdown.classList.add('show');
+                    }
+                });
+            }
+            
+            if (exportAllBtn && exportAllDropdown) {
+                exportAllBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const isShowing = exportAllDropdown.classList.contains('show');
+                    // Close all dropdowns first
+                    if (exportDropdown) exportDropdown.classList.remove('show');
+                    // Toggle current dropdown
+                    if (isShowing) {
+                        exportAllDropdown.classList.remove('show');
+                    } else {
+                        exportAllDropdown.classList.add('show');
+                    }
+                });
+            }
+            
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', function(e) {
+                if (exportDropdown && exportBtn && !exportBtn.contains(e.target) && !exportDropdown.contains(e.target)) {
+                    exportDropdown.classList.remove('show');
+                }
+                if (exportAllDropdown && exportAllBtn && !exportAllBtn.contains(e.target) && !exportAllDropdown.contains(e.target)) {
+                    exportAllDropdown.classList.remove('show');
+                }
+            });
+            
+            // Prevent dropdown from closing when clicking inside it
+            if (exportDropdown) {
+                exportDropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+            }
+            if (exportAllDropdown) {
+                exportAllDropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+            }
+            
+            // Handle export actions
+            document.querySelectorAll('.export-dropdown-item[data-action]').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const action = this.dataset.action;
+                    
+                    if (action === 'print' || action === 'print-all') {
+                        window.print();
+                    } else if (action === 'copy' || action === 'copy-all') {
+                        // Copy table data to clipboard
+                        copyTableToClipboard(action === 'copy-all');
+                    }
+                    
+                    // Close dropdown
+                    if (exportDropdown) exportDropdown.classList.remove('show');
+                    if (exportAllDropdown) exportAllDropdown.classList.remove('show');
+                });
+            });
+            
+            // Function to copy table to clipboard
+            function copyTableToClipboard(allPages) {
+                const rowsToCopy = tableRows;
+                
+                let text = 'Template\tBranch\tCustomer Name\tCustomer ID\tWeighted Score\tSubmitted\n';
+                
+                rowsToCopy.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length > 0) {
+                        const rowData = Array.from(cells).slice(0, 6).map(cell => {
+                            return cell.textContent.trim().replace(/\t/g, ' ').replace(/\n/g, ' ');
+                        });
+                        text += rowData.join('\t') + '\n';
+                    }
+                });
+                
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Data copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                    alert('Failed to copy to clipboard');
+                });
+            }
+
+            function buildListUrl(overrides) {
+                const url = new URL(window.location.href);
+                const params = url.searchParams;
+                const currentSearch = (searchInput.value || '').trim();
+                const currentPageSize = entriesSelect ? entriesSelect.value : '20';
+                const currentStatus = statusFilter ? (statusFilter.value || '').trim() : '';
+                const currentExposure = exposureFilter ? (exposureFilter.value || '').trim() : '';
+
+                params.set('page_size', currentPageSize);
+                if (currentSearch) {
+                    params.set('q', currentSearch);
+                } else {
+                    params.delete('q');
+                }
+                if (currentStatus) {
+                    params.set('status', currentStatus);
+                } else {
+                    params.delete('status');
+                }
+                if (currentExposure) {
+                    params.set('exposure', currentExposure);
+                } else {
+                    params.delete('exposure');
+                }
+                params.delete('p');
+
+                Object.entries(overrides || {}).forEach(([key, value]) => {
+                    if (value === null || value === undefined || value === '') {
+                        params.delete(key);
+                    } else {
+                        params.set(key, value);
+                    }
+                });
+                return `${url.pathname}?${params.toString()}`;
+            }
+            
+            // Search input event
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    const query = this.value;
+                    
+                    if (searchTimeout) {
+                        clearTimeout(searchTimeout);
+                    }
+                    
+                    searchTimeout = setTimeout(function() {
+                        window.location.href = buildListUrl({ p: 1 });
+                    }, 300);
+                });
+                
+                // Clear search on Escape key
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        this.value = '';
+                        window.location.href = buildListUrl({ q: null, p: 1 });
+                    }
+                });
+            }
+            
+            // Entries per page change
+            if (entriesSelect) {
+                entriesSelect.addEventListener('change', function() {
+                    window.location.href = buildListUrl({ page_size: this.value, p: 1 });
+                });
+            }
+
+            if (statusFilter) {
+                statusFilter.addEventListener('change', function() {
+                    window.location.href = buildListUrl({ status: this.value || null, p: 1 });
+                });
+            }
+
+            if (exposureFilter) {
+                exposureFilter.addEventListener('change', function() {
+                    window.location.href = buildListUrl({ exposure: this.value || null, p: 1 });
+                });
+            }
+            
+            // Pagination buttons
+            if (prevBtn) {
+                prevBtn.addEventListener('click', function(e) {
+                    if (this.classList.contains('disabled')) {
+                        e.preventDefault();
+                    }
+                });
+            }
+            
+            if (nextBtn) {
+                nextBtn.addEventListener('click', function(e) {
+                    if (this.classList.contains('disabled')) {
+                        e.preventDefault();
+                    }
+                });
+            }
+            
+            // Column Selection Modal Functionality
+            const showHideColumnsBtn = document.getElementById('show-hide-columns-btn');
+            const columnModal = document.getElementById('column-modal');
+            const closeColumnModal = document.getElementById('close-column-modal');
+            const cancelColumnModal = document.getElementById('cancel-column-modal');
+            const applyColumnModal = document.getElementById('apply-column-modal');
+            const moveToShownBtn = document.getElementById('move-to-shown-btn');
+            const moveToAvailableBtn = document.getElementById('move-to-available-btn');
+            const availableColumnsList = document.getElementById('available-columns-list');
+            const shownColumnsList = document.getElementById('shown-columns-list');
+            const availableColumnsSearch = document.getElementById('available-columns-search');
+            const shownColumnsSearch = document.getElementById('shown-columns-search');
+            
+            // Define all available columns for ifrs9_scores
+            const allColumns = [
+                { key: 'template', label: 'Template', default: true },
+                { key: 'branch', label: 'Branch', default: true },
+                { key: 'customer_name', label: 'Customer Name', default: true },
+                { key: 'customer_id', label: 'Customer ID', default: true },
+                { key: 'weighted_score', label: 'Weighted Score', default: true },
+                { key: 'submitted', label: 'Submitted', default: true },
+                { key: 'actions', label: 'Actions', default: true }
+            ];
+            
+            // Get saved column preferences from localStorage
+            function getSavedColumns() {
+                const saved = localStorage.getItem('ifrs9_scores_list_columns');
+                if (saved) {
+                    try {
+                        return JSON.parse(saved);
+                    } catch (e) {
+                        return null;
+                    }
+                }
+                return null;
+            }
+            
+            // Get visible columns (saved or default)
+            function getVisibleColumns() {
+                const saved = getSavedColumns();
+                if (saved && saved.length > 0) {
+                    return saved;
+                }
+                // Return default visible columns
+                return allColumns.filter(col => col.default).map(col => col.key);
+            }
+            
+            // Save visible columns to localStorage
+            function saveVisibleColumns(columns) {
+                localStorage.setItem('ifrs9_scores_list_columns', JSON.stringify(columns));
+            }
+            
+            // Initialize column modal
+            function initializeColumnModal() {
+                const visibleColumns = getVisibleColumns();
+                const availableCols = allColumns.filter(col => !visibleColumns.includes(col.key));
+                const shownCols = allColumns.filter(col => visibleColumns.includes(col.key));
+                
+                renderColumnLists(availableCols, shownCols);
+            }
+            
+            // Render column lists
+            function renderColumnLists(availableCols, shownCols) {
+                // Render available columns
+                availableColumnsList.innerHTML = '';
+                availableCols.forEach(col => {
+                    const item = document.createElement('div');
+                    item.className = 'column-item';
+                    item.dataset.columnKey = col.key;
+                    item.innerHTML = `
+                        <input type="checkbox" id="avail-${col.key}" onchange="toggleColumnSelection(this)">
+                        <label for="avail-${col.key}" style="cursor: pointer; flex: 1;">${col.label}</label>
+                    `;
+                    availableColumnsList.appendChild(item);
+                });
+                
+                // Render shown columns (with order numbers)
+                shownColumnsList.innerHTML = '';
+                shownCols.forEach((col, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'column-item';
+                    item.dataset.columnKey = col.key;
+                    item.innerHTML = `
+                        <input type="checkbox" id="shown-${col.key}" onchange="toggleColumnSelection(this)">
+                        <label for="shown-${col.key}" style="cursor: pointer; flex: 1;">
+                            <span style="color: #666; margin-right: 0.5rem;">${String(index + 1).padStart(2, '0')}</span>
+                            ${col.label}
+                        </label>
+                    `;
+                    shownColumnsList.appendChild(item);
+                });
+                
+                updateMoveButtons();
+            }
+            
+            // Toggle column selection
+            window.toggleColumnSelection = function(checkbox) {
+                const item = checkbox.closest('.column-item');
+                if (checkbox.checked) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+                updateMoveButtons();
+            };
+            
+            // Update move buttons state
+            function updateMoveButtons() {
+                const availableSelected = availableColumnsList.querySelectorAll('.column-item.selected').length;
+                const shownSelected = shownColumnsList.querySelectorAll('.column-item.selected').length;
+                
+                if (moveToShownBtn) moveToShownBtn.disabled = availableSelected === 0;
+                if (moveToAvailableBtn) moveToAvailableBtn.disabled = shownSelected === 0;
+            }
+            
+            // Move columns to shown
+            if (moveToShownBtn) {
+                moveToShownBtn.addEventListener('click', function() {
+                    const selected = availableColumnsList.querySelectorAll('.column-item.selected');
+                    const availableCols = Array.from(availableColumnsList.querySelectorAll('.column-item'))
+                        .filter(item => !item.classList.contains('selected'))
+                        .map(item => {
+                            const key = item.dataset.columnKey;
+                            return allColumns.find(col => col.key === key);
+                        })
+                        .filter(col => col !== undefined);
+                    
+                    const shownCols = Array.from(shownColumnsList.querySelectorAll('.column-item'))
+                        .map(item => {
+                            const key = item.dataset.columnKey;
+                            return allColumns.find(col => col.key === key);
+                        })
+                        .filter(col => col !== undefined);
+                    
+                    selected.forEach(item => {
+                        const key = item.dataset.columnKey;
+                        const col = allColumns.find(c => c.key === key);
+                        if (col) shownCols.push(col);
+                    });
+                    
+                    renderColumnLists(availableCols, shownCols);
+                });
+            }
+            
+            // Move columns to available
+            if (moveToAvailableBtn) {
+                moveToAvailableBtn.addEventListener('click', function() {
+                    const selected = shownColumnsList.querySelectorAll('.column-item.selected');
+                    const shownCols = Array.from(shownColumnsList.querySelectorAll('.column-item'))
+                        .filter(item => !item.classList.contains('selected'))
+                        .map(item => {
+                            const key = item.dataset.columnKey;
+                            return allColumns.find(col => col.key === key);
+                        })
+                        .filter(col => col !== undefined);
+                    
+                    const availableCols = Array.from(availableColumnsList.querySelectorAll('.column-item'))
+                        .map(item => {
+                            const key = item.dataset.columnKey;
+                            return allColumns.find(col => col.key === key);
+                        })
+                        .filter(col => col !== undefined);
+                    
+                    selected.forEach(item => {
+                        const key = item.dataset.columnKey;
+                        const col = allColumns.find(c => c.key === key);
+                        if (col) availableCols.push(col);
+                    });
+                    
+                    renderColumnLists(availableCols, shownCols);
+                });
+            }
+            
+            // Search functionality
+            if (availableColumnsSearch) {
+                availableColumnsSearch.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const items = availableColumnsList.querySelectorAll('.column-item');
+                    items.forEach(item => {
+                        const label = item.textContent.toLowerCase();
+                        item.style.display = label.includes(searchTerm) ? '' : 'none';
+                    });
+                });
+            }
+            
+            if (shownColumnsSearch) {
+                shownColumnsSearch.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const items = shownColumnsList.querySelectorAll('.column-item');
+                    items.forEach(item => {
+                        const label = item.textContent.toLowerCase();
+                        item.style.display = label.includes(searchTerm) ? '' : 'none';
+                    });
+                });
+            }
+            
+            // Open modal
+            if (showHideColumnsBtn) {
+                showHideColumnsBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    initializeColumnModal();
+                    if (columnModal) columnModal.classList.add('show');
+                });
+            }
+            
+            // Close modal
+            function closeModal() {
+                if (columnModal) columnModal.classList.remove('show');
+            }
+            
+            if (closeColumnModal) {
+                closeColumnModal.addEventListener('click', closeModal);
+            }
+            
+            if (cancelColumnModal) {
+                cancelColumnModal.addEventListener('click', closeModal);
+            }
+            
+            // Apply column changes
+            if (applyColumnModal) {
+                applyColumnModal.addEventListener('click', function() {
+                    const shownCols = Array.from(shownColumnsList.querySelectorAll('.column-item'))
+                        .map(item => item.dataset.columnKey)
+                        .filter(key => key);
+                    
+                    saveVisibleColumns(shownCols);
+                    applyColumnVisibility(shownCols);
+                    closeModal();
+                });
+            }
+            
+            // Apply column visibility to table
+            function applyColumnVisibility(visibleColumns) {
+                const table = document.getElementById('ifrs9_scores-table');
+                if (!table) return;
+                
+                // Hide/show columns based on visibility using data-column attribute
+                allColumns.forEach((col) => {
+                    const shouldShow = visibleColumns.includes(col.key);
+                    
+                    // Hide/show headers
+                    const headers = table.querySelectorAll(`thead th[data-column="${col.key}"]`);
+                    headers.forEach(header => {
+                        header.style.display = shouldShow ? '' : 'none';
+                    });
+                    
+                    // Hide/show cells in all rows
+                    const rows = table.querySelectorAll('tbody tr');
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll(`td[data-column="${col.key}"]`);
+                        cells.forEach(cell => {
+                            cell.style.display = shouldShow ? '' : 'none';
+                        });
+                    });
+                });
+            }
+            
+            // Initialize column visibility on page load
+            const visibleColumns = getVisibleColumns();
+            applyColumnVisibility(visibleColumns);
+        });
+    </script>
+{% endblock %}

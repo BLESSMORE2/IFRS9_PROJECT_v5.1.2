@@ -1,0 +1,533 @@
+{% extends "api/base.html" %}
+
+{% block title %}Main Customer Sync{% endblock %}
+{% block api_title %}Main Customer Sync{% endblock %}
+{% block api_intro %}Track whether the main customer table is ready to sync for each reporting date. Sync runs only after the selected corporate and individual source imports are available for that date.{% endblock %}
+{% block api_summary_section %}{% endblock %}
+
+{% block api_body %}
+<div class="api-layout-two">
+    <div class="api-panel">
+        <h2>Sync Rule</h2>
+        <p>The main customer table only syncs when all required source imports are available for the same reporting date.</p>
+        <div class="api-message-list">
+            <div class="api-message">Required customer sources: <strong>{{ required_targets|join:", " }}</strong>.</div>
+            <div class="api-message">If one source has not loaded yet, the sync waits and the status stays in <strong>Waiting For Sources</strong>.</div>
+            <div class="api-message">Once both are loaded for the same reporting date, the countdown starts from the latest completed source import.</div>
+            <div class="api-message">When the configured delay finishes, the system syncs the main customer table automatically through the Django scheduler service.</div>
+        </div>
+    </div>
+
+    <div class="api-panel">
+        <h2>Auto Sync Configuration</h2>
+        <p>Set how long the system should wait after the required customer source imports are ready before it automatically syncs the main customer table.</p>
+        {% if sync_configuration %}
+            <div class="api-message-list" style="margin-top:1rem;">
+                <div class="api-message">Configuration name: <strong>{{ sync_configuration.name }}</strong>.</div>
+                <div class="api-message">Corporate endpoint: <strong>{{ sync_configuration.corporate_endpoint.name|default:"Not selected" }}</strong>.</div>
+                <div class="api-message">Individual endpoint: <strong>{{ sync_configuration.individual_endpoint.name|default:"Not selected" }}</strong>.</div>
+                <div class="api-message">Current delay: <strong>{{ sync_configuration.delay_minutes }}</strong> minute{{ sync_configuration.delay_minutes|pluralize }}.</div>
+                <div class="api-message">Tip: <strong>60</strong> means one hour, <strong>30</strong> means half an hour, and <strong>0</strong> means sync immediately once the required sources are ready.</div>
+                <div class="api-message">Status: <strong>{% if sync_configuration.is_active %}Active{% else %}Inactive{% endif %}</strong>.</div>
+                <div class="api-message">Last auto sync run: <strong>{% if sync_configuration.last_run_at %}{{ sync_configuration.last_run_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</strong>.</div>
+                <div class="api-message">Last message: <strong>{{ sync_configuration.last_message|default:"No auto sync has run yet." }}</strong>.</div>
+            </div>
+        {% endif %}
+        {% if edit_sync_configuration %}
+            <form method="post" style="margin-top:1rem;">
+                {% csrf_token %}
+                <div class="api-form-grid">
+                    {% for field in sync_form %}
+                        <div class="api-field {% if field.name == 'name' %}full{% endif %}">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {{ field.errors }}
+                            {% if field.help_text %}
+                                <small>{{ field.help_text }}</small>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="api-button-row">
+                    <button type="submit" class="api-button primary">Update Auto Sync</button>
+                    <a href="{% url 'scorecard:api_main_sync' %}" class="api-button secondary">Cancel</a>
+                </div>
+            </form>
+        {% elif api_can_manage_settings %}
+            <div class="api-button-row" style="margin-top:1rem;">
+                <a href="{% url 'scorecard:api_main_sync' %}?edit=1" class="api-button primary">Edit Auto Sync</a>
+            </div>
+        {% else %}
+            <div class="api-message" style="margin-top:1rem;">You have read-only access to Auto Sync. Configuration changes are hidden.</div>
+        {% endif %}
+    </div>
+</div>
+
+{% if next_due_sync %}
+<div class="api-panel api-result-panel" style="margin-bottom:1.25rem;">
+    <h2>Time Remaining</h2>
+    <p>The next automatic main customer sync is highlighted here so you do not need to scan the full table.</p>
+    <div
+        style="
+            display:grid;
+            grid-template-columns:repeat(5, minmax(0, 1fr));
+            gap:0.85rem;
+            margin-top:1rem;
+        "
+    >
+        <div class="api-message" style="margin:0;">
+            Reporting date:
+            <strong>{{ next_due_sync.reporting_date|date:"Y-m-d" }}</strong>
+        </div>
+        <div class="api-message" style="margin:0;">
+            Status:
+            <strong>{{ next_due_sync.status_label }}</strong>
+        </div>
+        <div class="api-message" style="margin:0;">
+            Sources ready at:
+            <strong>{{ next_due_sync.latest_source_completed_at }}</strong>
+        </div>
+        <div class="api-message" style="margin:0;">
+            Time remaining:
+            <strong
+                class="api-main-sync-countdown"
+                data-countdown-seconds="{{ next_due_sync.countdown_seconds }}"
+                data-static-value="{{ next_due_sync.countdown_display }}"
+            >{{ next_due_sync.countdown_display }}</strong>
+        </div>
+        <div class="api-message" style="margin:0;">
+            Sync due at:
+            <strong>{{ next_due_sync.sync_due_at }}</strong>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="api-panel api-result-panel">
+    <h2>Auto Sync Status</h2>
+    <p>Use this view to confirm whether the main customer sync is waiting, ready, or already completed for each reporting date.</p>
+    <div class="api-table-section-header">
+        <div></div>
+        <div class="api-table-controls">
+            <form method="get">
+                {% if edit_sync_configuration %}
+                    <input type="hidden" name="edit" value="1">
+                {% endif %}
+                <input type="hidden" name="sync_status_page" value="1">
+                <input type="hidden" name="main_sync_history_page" value="{{ main_sync_history_page_obj.number|default:1 }}">
+                <input type="hidden" name="main_sync_history_per_page" value="{{ main_sync_history_per_page }}">
+                <div class="entries-control">
+                    <span>Show</span>
+                    <select name="sync_status_per_page" class="entries-select" onchange="this.form.submit()">
+                        <option value="10" {% if sync_status_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if sync_status_per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if sync_status_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if sync_status_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                    <span>entries</span>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="api-table-wrap api-table-scroll">
+        <table class="api-table">
+            <thead>
+                <tr>
+                    <th>Reporting Date</th>
+                    {% for target_label in required_targets %}
+                    <th>{{ target_label }}</th>
+                    {% endfor %}
+                    <th>Sync Status</th>
+                    <th>Sources Ready At</th>
+                    <th>Countdown</th>
+                    <th>Sync Due At</th>
+                    <th>Main Customer Rows</th>
+                    <th>Last Synced</th>
+                    <th>Details</th>
+                    {% if api_can_run_operations %}<th>Action</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in sync_status_page_obj %}
+                    <tr>
+                        <td>{{ row.reporting_date|date:"Y-m-d" }}</td>
+                        {% for target, source in row.source_runs.items %}
+                            <td>
+                                {% if source.available %}
+                                    <span class="api-status success">Ready</span>
+                                    <div style="margin-top:0.35rem;font-size:0.8rem;color:#6d8094;">
+                                        {{ source.endpoint_name }}<br>
+                                        Fetched {{ source.fetched }}
+                                    </div>
+                                {% else %}
+                                    <span class="api-badge-soft">Waiting</span>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        <td>
+                            {% if row.status == "synced" %}
+                                <span class="api-status success">{{ row.status_label }}</span>
+                            {% elif row.status == "awaiting_scheduler" %}
+                                <span class="api-badge-soft" style="background:#eef5ff;color:#1d5d96;">{{ row.status_label }}</span>
+                            {% elif row.status == "paused" %}
+                                <span class="api-badge-soft" style="background:#f3f1ff;color:#5a43a0;">{{ row.status_label }}</span>
+                            {% elif row.status == "countdown" %}
+                                <span class="api-badge-soft" style="background:#eef5ff;color:#1d5d96;">{{ row.status_label }}</span>
+                            {% elif row.status == "ready" %}
+                                <span class="api-badge-soft" style="background:#fff5e8;color:#9a6a16;">{{ row.status_label }}</span>
+                            {% else %}
+                                <span class="api-status failed">{{ row.status_label }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ row.latest_source_completed_at }}</td>
+                        <td
+                            class="api-main-sync-countdown"
+                            data-countdown-seconds="{{ row.countdown_seconds }}"
+                            data-static-value="{{ row.countdown_display }}"
+                        >
+                            {{ row.countdown_display }}
+                        </td>
+                        <td>{{ row.sync_due_at }}</td>
+                        <td>{{ row.main_customer_count }}</td>
+                        <td>{{ row.last_synced_at }}</td>
+                        <td>{{ row.detail }}</td>
+                        {% if api_can_run_operations %}
+                        <td>
+                            {% if row.status == "ready" or row.status == "countdown" or row.status == "paused" or row.status == "awaiting_scheduler" %}
+                                <div class="api-action-stack" style="min-width:auto;">
+                                    <form method="post" action="{% url 'scorecard:api_main_sync_run' reporting_date_value=row.reporting_date|date:'Y-m-d' %}" class="js-main-sync-run-form">
+                                        {% csrf_token %}
+                                        <button type="submit" class="api-action-button api-button primary js-main-sync-run-button" data-tooltip="Sync Now" aria-label="Sync Now">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <polygon points="8 5 19 12 8 19 8 5"></polygon>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </div>
+                            {% else %}
+                                <span class="api-badge-soft">-</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="{{ sync_status_colspan }}">No reporting dates are available yet from the API import history.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="api-pagination-bar">
+        <div class="pagination-info">
+            Showing
+            {% if sync_status_page_obj and sync_status_page_obj.paginator.count %}
+                {{ sync_status_page_obj.start_index }} to {{ sync_status_page_obj.end_index }} of {{ sync_status_page_obj.paginator.count }}
+            {% else %}
+                0 to 0 of 0
+            {% endif %}
+            entries
+        </div>
+        {% if sync_status_page_obj and sync_status_page_obj.paginator.num_pages > 1 %}
+            <div class="pagination">
+                {% if sync_status_page_obj.has_previous %}
+                    <a class="pagination-link" href="?sync_status_page={{ sync_status_page_obj.previous_page_number }}&sync_status_per_page={{ sync_status_per_page }}&main_sync_history_page={{ main_sync_history_page_obj.number|default:1 }}&main_sync_history_per_page={{ main_sync_history_per_page }}{% if edit_sync_configuration %}&edit=1{% endif %}">Previous</a>
+                {% endif %}
+                {% for num in sync_status_page_obj.paginator.page_range %}
+                    {% if num == sync_status_page_obj.number %}
+                        <span class="pagination-current">{{ num }}</span>
+                    {% elif num >= sync_status_page_obj.number|add:'-2' and num <= sync_status_page_obj.number|add:'2' %}
+                        <a class="pagination-link" href="?sync_status_page={{ num }}&sync_status_per_page={{ sync_status_per_page }}&main_sync_history_page={{ main_sync_history_page_obj.number|default:1 }}&main_sync_history_per_page={{ main_sync_history_per_page }}{% if edit_sync_configuration %}&edit=1{% endif %}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if sync_status_page_obj.has_next %}
+                    <a class="pagination-link" href="?sync_status_page={{ sync_status_page_obj.next_page_number }}&sync_status_per_page={{ sync_status_per_page }}&main_sync_history_page={{ main_sync_history_page_obj.number|default:1 }}&main_sync_history_per_page={{ main_sync_history_per_page }}{% if edit_sync_configuration %}&edit=1{% endif %}">Next</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="api-panel api-result-panel">
+    <h2>Main Sync History</h2>
+    <p>Recent main customer sync runs are kept here for audit, troubleshooting, and review of source details.</p>
+    <div class="api-table-section-header">
+        <div></div>
+        <div class="api-table-controls">
+            <form method="get">
+                {% if edit_sync_configuration %}
+                    <input type="hidden" name="edit" value="1">
+                {% endif %}
+                <input type="hidden" name="main_sync_history_page" value="1">
+                <input type="hidden" name="sync_status_page" value="{{ sync_status_page_obj.number|default:1 }}">
+                <input type="hidden" name="sync_status_per_page" value="{{ sync_status_per_page }}">
+                <div class="entries-control">
+                    <span>Show</span>
+                    <select name="main_sync_history_per_page" class="entries-select" onchange="this.form.submit()">
+                        <option value="10" {% if main_sync_history_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if main_sync_history_per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if main_sync_history_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if main_sync_history_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                    <span>entries</span>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="api-table-wrap api-table-scroll">
+        <table class="api-table">
+            <thead>
+                <tr>
+                    <th>Started</th>
+                    <th>Reporting Date</th>
+                    <th>Source</th>
+                    <th>Status</th>
+                    <th>Rows Synced</th>
+                    <th>Time</th>
+                    <th>Triggered By</th>
+                    {% if api_can_run_operations %}<th>Action</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in main_sync_history_page_obj %}
+                    <tr>
+                        <td>{{ run.started_display }}</td>
+                        <td>{{ run.reporting_date_display }}</td>
+                        <td>{{ run.source_display }}</td>
+                        <td>
+                            {% if run.status == "success" %}
+                                <span class="api-status success">Success</span>
+                            {% elif run.status == "failed" %}
+                                <span class="api-status failed">Failed</span>
+                            {% else %}
+                                <span class="api-badge-soft">{{ run.status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ run.rows_synced }}</td>
+                        <td>{{ run.duration_display }}</td>
+                        <td>{{ run.triggered_by_display }}</td>
+                        <td>
+                            <div class="api-action-stack" style="min-width:auto;">
+                                <button
+                                    type="button"
+                                    class="api-action-button api-button secondary js-main-sync-history-view"
+                                    data-tooltip="View"
+                                    data-started="{{ run.started_full|escape }}"
+                                    data-completed="{{ run.completed_display|escape }}"
+                                    data-reporting-date="{{ run.reporting_date_display|escape }}"
+                                    data-source="{{ run.source_display|escape }}"
+                                    data-status="{{ run.status_display|escape }}"
+                                    data-duration="{{ run.duration_display|escape }}"
+                                    data-rows-synced="{{ run.rows_synced }}"
+                                    data-triggered-by="{{ run.triggered_by_display|escape }}"
+                                    data-detail-message="{{ run.detail_message|escape }}"
+                                    data-failure-message="{{ run.failure_message|escape }}"
+                                    data-source-details="{{ run.source_details_text|escape }}"
+                                    data-history-type="{{ run.history_type|escape }}"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="8">No main sync history saved yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="api-pagination-bar">
+        <div class="pagination-info">
+            Showing
+            {% if main_sync_history_page_obj and main_sync_history_page_obj.paginator.count %}
+                {{ main_sync_history_page_obj.start_index }} to {{ main_sync_history_page_obj.end_index }} of {{ main_sync_history_page_obj.paginator.count }}
+            {% else %}
+                0 to 0 of 0
+            {% endif %}
+            entries
+        </div>
+        {% if main_sync_history_page_obj and main_sync_history_page_obj.paginator.num_pages > 1 %}
+            <div class="pagination">
+                {% if main_sync_history_page_obj.has_previous %}
+                    <a class="pagination-link" href="?main_sync_history_page={{ main_sync_history_page_obj.previous_page_number }}&main_sync_history_per_page={{ main_sync_history_per_page }}&sync_status_page={{ sync_status_page_obj.number|default:1 }}&sync_status_per_page={{ sync_status_per_page }}{% if edit_sync_configuration %}&edit=1{% endif %}">Previous</a>
+                {% endif %}
+                {% for num in main_sync_history_page_obj.paginator.page_range %}
+                    {% if num == main_sync_history_page_obj.number %}
+                        <span class="pagination-current">{{ num }}</span>
+                    {% elif num >= main_sync_history_page_obj.number|add:'-2' and num <= main_sync_history_page_obj.number|add:'2' %}
+                        <a class="pagination-link" href="?main_sync_history_page={{ num }}&main_sync_history_per_page={{ main_sync_history_per_page }}&sync_status_page={{ sync_status_page_obj.number|default:1 }}&sync_status_per_page={{ sync_status_per_page }}{% if edit_sync_configuration %}&edit=1{% endif %}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if main_sync_history_page_obj.has_next %}
+                    <a class="pagination-link" href="?main_sync_history_page={{ main_sync_history_page_obj.next_page_number }}&main_sync_history_per_page={{ main_sync_history_per_page }}&sync_status_page={{ sync_status_page_obj.number|default:1 }}&sync_status_per_page={{ sync_status_per_page }}{% if edit_sync_configuration %}&edit=1{% endif %}">Next</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="api-modal-backdrop" id="mainSyncHistoryModal" aria-hidden="true">
+    <div class="api-modal" role="dialog" aria-modal="true" aria-labelledby="mainSyncHistoryTitle">
+        <div class="api-modal-header">
+            <div>
+                <h3 class="api-modal-title" id="mainSyncHistoryTitle">Main Sync Details</h3>
+                <p class="api-modal-subtitle">Review the saved outcome and source details for this main customer sync run.</p>
+            </div>
+            <button type="button" class="api-modal-close" id="mainSyncHistoryClose" aria-label="Close">×</button>
+        </div>
+        <div class="api-modal-content">
+            <div class="api-modal-grid">
+                <div class="api-modal-card"><div class="api-modal-label">Started</div><div class="api-modal-value" data-main-sync-field="started">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Completed</div><div class="api-modal-value" data-main-sync-field="completed">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Reporting Date</div><div class="api-modal-value" data-main-sync-field="reportingDate">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">History Type</div><div class="api-modal-value" data-main-sync-field="historyType">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Source</div><div class="api-modal-value" data-main-sync-field="source">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Status</div><div class="api-modal-value" data-main-sync-field="status">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Time Taken</div><div class="api-modal-value" data-main-sync-field="duration">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Rows Synced</div><div class="api-modal-value" data-main-sync-field="rowsSynced">-</div></div>
+                <div class="api-modal-card"><div class="api-modal-label">Triggered By</div><div class="api-modal-value" data-main-sync-field="triggeredBy">-</div></div>
+                <div class="api-modal-card full"><div class="api-modal-label">Detail Message</div><div class="api-modal-value" data-main-sync-field="detailMessage">-</div></div>
+                <div class="api-modal-card full"><div class="api-modal-label">Failure Message</div><div class="api-modal-value" data-main-sync-field="failureMessage">-</div></div>
+                <div class="api-modal-card full"><div class="api-modal-label">Source Details</div><div class="api-code-box" data-main-sync-field="sourceDetails">No source details recorded.</div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    function formatDuration(totalSeconds) {
+        const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+        const hours = Math.floor(safeSeconds / 3600);
+        const minutes = Math.floor((safeSeconds % 3600) / 60);
+        const seconds = safeSeconds % 60;
+
+        if (hours > 0) {
+            return `${hours}h ${minutes}m ${seconds}s`;
+        }
+        if (minutes > 0) {
+            return `${minutes}m ${seconds}s`;
+        }
+        return `${seconds}s`;
+    }
+
+    const countdownNodes = Array.from(document.querySelectorAll(".api-main-sync-countdown"));
+    countdownNodes.forEach((node) => {
+        node.dataset.remaining = node.dataset.countdownSeconds || "0";
+    });
+
+    if (countdownNodes.length) {
+        window.setInterval(() => {
+            countdownNodes.forEach((node) => {
+                const startingValue = Number(node.dataset.countdownSeconds || "0");
+                if (!startingValue) {
+                    node.textContent = node.dataset.staticValue || "-";
+                    return;
+                }
+                const remaining = Math.max(0, Number(node.dataset.remaining || "0") - 1);
+                node.dataset.remaining = String(remaining);
+                node.textContent = remaining > 0 ? formatDuration(remaining) : "Due now";
+            });
+        }, 1000);
+    }
+
+    const mainSyncHistoryModal = document.getElementById("mainSyncHistoryModal");
+    const mainSyncHistoryClose = document.getElementById("mainSyncHistoryClose");
+
+    function setMainSyncField(name, value) {
+        if (!mainSyncHistoryModal) {
+            return;
+        }
+        const target = mainSyncHistoryModal.querySelector(`[data-main-sync-field="${name}"]`);
+        if (target) {
+            target.textContent = value || "-";
+        }
+    }
+
+    function openMainSyncHistoryModal(trigger) {
+        if (!mainSyncHistoryModal) {
+            return;
+        }
+        setMainSyncField("started", trigger.dataset.started);
+        setMainSyncField("completed", trigger.dataset.completed);
+        setMainSyncField("reportingDate", trigger.dataset.reportingDate);
+        setMainSyncField("historyType", trigger.dataset.historyType);
+        setMainSyncField("source", trigger.dataset.source);
+        setMainSyncField("status", trigger.dataset.status);
+        setMainSyncField("duration", trigger.dataset.duration);
+        setMainSyncField("rowsSynced", trigger.dataset.rowsSynced);
+        setMainSyncField("triggeredBy", trigger.dataset.triggeredBy);
+        setMainSyncField("detailMessage", trigger.dataset.detailMessage);
+        setMainSyncField("failureMessage", trigger.dataset.failureMessage);
+
+        const detailsTarget = mainSyncHistoryModal.querySelector('[data-main-sync-field="sourceDetails"]');
+        const detailsText = trigger.dataset.sourceDetails || "No source details recorded.";
+        if (detailsTarget) {
+            detailsTarget.textContent = detailsText;
+        }
+
+        mainSyncHistoryModal.classList.add("is-open");
+        mainSyncHistoryModal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeMainSyncHistoryModal() {
+        if (!mainSyncHistoryModal) {
+            return;
+        }
+        mainSyncHistoryModal.classList.remove("is-open");
+        mainSyncHistoryModal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+    }
+
+    document.querySelectorAll(".js-main-sync-history-view").forEach((button) => {
+        button.addEventListener("click", function() {
+            openMainSyncHistoryModal(button);
+        });
+    });
+
+    if (mainSyncHistoryClose) {
+        mainSyncHistoryClose.addEventListener("click", closeMainSyncHistoryModal);
+    }
+
+    if (mainSyncHistoryModal) {
+        mainSyncHistoryModal.addEventListener("click", function(event) {
+            if (event.target === mainSyncHistoryModal) {
+                closeMainSyncHistoryModal();
+            }
+        });
+    }
+
+    document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape" && mainSyncHistoryModal && mainSyncHistoryModal.classList.contains("is-open")) {
+            closeMainSyncHistoryModal();
+        }
+    });
+
+    document.querySelectorAll(".js-main-sync-run-form").forEach((form) => {
+        form.addEventListener("submit", function() {
+            const button = form.querySelector(".js-main-sync-run-button");
+            if (!button || button.disabled) {
+                return false;
+            }
+            button.disabled = true;
+            button.dataset.tooltip = "Starting...";
+            button.setAttribute("aria-label", "Starting sync");
+            button.style.opacity = "0.6";
+            button.style.cursor = "wait";
+            button.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <rect x="6" y="6" width="12" height="12" rx="1.5"></rect>
+                </svg>
+            `;
+            return true;
+        });
+    });
+})();
+</script>
+{% endblock %}

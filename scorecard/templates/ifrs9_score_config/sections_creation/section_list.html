@@ -1,0 +1,297 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}IFRS9 Section/Demographics - {{ template.code }}{% endblock %}
+{% block header_title %}IFRS9 Section/Demographics Management: {{ template.code }}{% endblock %}
+
+{% block content %}
+<style>
+    .summary-card {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .summary-label {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+    .actions-header {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 0.75rem;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.5rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    table thead th {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        padding: 0.4rem 0.5rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    table thead th.text-center {
+        text-align: center;
+    }
+    table tbody td {
+        border: 1px solid #e0e0e0;
+        padding: 0.3rem 0.5rem;
+        font-size: 12px;
+        color: #333;
+    }
+    table tbody td.text-center {
+        text-align: center;
+    }
+    table tbody td strong {
+        font-weight: 600;
+        color: #333;
+    }
+    table tbody tr:hover {
+        background-color: #f5f5f5;
+    }
+    table tfoot td {
+        border: 1px solid #e0e0e0;
+        padding: 0.75rem;
+        font-size: 12px;
+    }
+    table tfoot td.text-right {
+        text-align: right;
+        font-weight: 600;
+    }
+    .tfoot-row {
+        background-color: #f9f9f9;
+        font-weight: 600;
+    }
+    .tfoot-row strong {
+        font-weight: 600;
+        color: #333;
+    }
+    .tfoot-row small {
+        font-size: 0.85rem;
+        font-weight: normal;
+    }
+    .warning-small {
+        color: #dc3545;
+    }
+    .valid-small {
+        color: #28a745;
+    }
+    .action-link {
+        text-decoration: none;
+        margin-right: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: color 0.2s ease;
+    }
+    .action-link:last-child {
+        margin-right: 0;
+    }
+    .action-link-edit {
+        color: #0066cc;
+    }
+    .action-link-edit:hover {
+        color: #0052a3;
+        text-decoration: underline;
+    }
+    .action-link-manage {
+        color: #28a745;
+    }
+    .action-link-manage:hover {
+        color: #218838;
+        text-decoration: underline;
+    }
+    .action-link-delete {
+        color: #dc3545;
+    }
+    .action-link-delete:hover {
+        color: #c82333;
+        text-decoration: underline;
+    }
+    .warning-box {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 4px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 0.9rem;
+        color: #856404;
+    }
+    .warning-box strong {
+        font-weight: 600;
+        color: #856404;
+    }
+    .valid-box {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #d4edda;
+        border: 1px solid #28a745;
+        border-radius: 4px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 0.9rem;
+        color: #155724;
+    }
+    .valid-box strong {
+        font-weight: 600;
+        color: #155724;
+    }
+    .empty-state {
+        padding: 2rem;
+        text-align: center;
+        color: #999;
+        font-style: italic;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+<div class="summary-card">
+    <div class="summary-grid">
+        <div>
+            <div class="summary-label">Template</div>
+            <div>{{ template.code }} - {{ template.name }}</div>
+        </div>
+        <div>
+            <div class="summary-label">Total Section/Demographics</div>
+            <div>{{ sections|length }}</div>
+        </div>
+    </div>
+</div>
+
+
+
+{% if sections %}
+    <table>
+        <thead>
+        <tr>
+            <th style="width: 7%;">Order</th>
+            <th style="width: 10%;">Code</th>
+            <th style="width: 35%;">Name</th>
+            <th style="width: 12%;">Weight %</th>
+            <th style="width: 12%;">Max Score</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for section in sections %}
+            <tr>
+                <td class="text-center">{{ section.display_order }}</td>
+                <td><strong>{{ section.code }}</strong></td>
+                <td>{{ section.name }}</td>
+                <td class="text-center">
+                    <strong>{{ section.get_total_weight_percent }}%</strong>
+                </td>
+                <td class="text-center">
+                    <strong>{{ section.get_total_max_score|floatformat:2 }}</strong>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="tfoot-row">
+                <td colspan="2" class="text-right">Total Weight:</td>
+                <td class="text-center">
+                    <strong>{{ total_weight }}%</strong>
+                    {% if total_weight != 100 %}
+                        <br><small class="warning-small">
+                            {% if total_weight < 100 %}
+                                ⚠️ Less than 100%
+                            {% else %}
+                                ⚠️ Greater than 100%
+                            {% endif %}
+                        </small>
+                    {% else %}
+                        <br><small class="valid-small">✓ Valid</small>
+                    {% endif %}
+                </td>
+                <td></td>
+            </tr>
+            <tr class="tfoot-row">
+                <td colspan="2" class="text-right">Total Max Score:</td>
+                <td></td>
+                <td class="text-center">
+                    <strong>{{ total_max_score|floatformat:2 }}</strong>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {% if total_weight != 100 %}
+        <div class="warning-box">
+            <strong>⚠️ Warning:</strong> The total weight across all section/demographics is <strong>{{ total_weight }}%</strong>. 
+            {% if total_weight < 100 %}
+                It should be exactly <strong>100%</strong>. You are missing <strong>{{ weight_diff|floatformat:2|slice:"1:" }}%</strong>.
+                Please adjust the weight percentages of attributes in the section/demographics to reach 100%.
+            {% else %}
+                It should be exactly <strong>100%</strong>. You have <strong>{{ weight_diff|floatformat:2 }}%</strong> excess.
+                Please reduce the weight percentages of attributes in the section/demographics to reach 100%.
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="valid-box">
+            <strong>✓ Valid:</strong> The total weight across all section/demographics is exactly <strong>100%</strong>.
+        </div>
+    {% endif %}
+{% else %}
+    <div class="empty-state">
+        No section/demographics configured yet. Click "Add New Section/Demographics" to create one.
+    </div>
+{% endif %}
+
+<div class="actions">
+    
+    <a href="{% url 'scorecard:ifrs9_template_list'%}" class="btn btn-secondary">
+        Back to Template
+    </a>
+</div>
+{% endblock %}

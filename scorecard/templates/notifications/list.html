@@ -1,0 +1,322 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Notifications{% endblock %}
+{% block header_title %}Notifications{% endblock %}
+
+{% block content %}
+<style>
+    .page-header { padding: 1rem 0; margin-bottom: 1rem; border-bottom: 1px solid #e0e0e0; }
+    .page-title { font-size: 1.5rem; font-weight: 600; color: #333; font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .table-container { background: white; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .summary-strip { padding: 0.9rem 1.5rem; border-bottom: 1px solid #e5edf5; background: #f8fbff; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
+    .summary-card { display:inline-flex; align-items:center; gap:0.6rem; padding:0.55rem 0.8rem; border:1px solid #d4e3f1; border-radius:999px; background:white; color:#355777; font-size:12px; font-weight:600; }
+    .summary-card.filterable { cursor:pointer; transition: all 0.2s ease; }
+    .summary-card.filterable:hover { border-color:#9ec4e8; background:#eef6ff; }
+    .summary-value { color:#0f4f8a; font-size:16px; font-weight:700; }
+    .table-header-section { padding: 1rem 1.5rem; border-bottom: 2px solid #0066cc; }
+    .table-header-top, .table-controls, .table-footer { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
+    .table-header-right { display:flex; gap:0.5rem; align-items:center; }
+    .action-btn, .pagination-btn { padding: 0.4rem 0.8rem; border: 1px solid #0066cc; background: white; color: #0066cc; border-radius: 4px; cursor: pointer; font-size: 0.85rem; text-decoration: none; display: inline-block; }
+    .pagination-btn.disabled { opacity: 0.5; cursor: not-allowed; }
+    .table-controls, .table-footer { padding: 0.75rem 1.5rem; background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+    .table-footer { border-top: 1px solid #dee2e6; border-bottom: none; }
+    .search-input, .entries-select, .filter-select { border: 1px solid #cbd2e1; padding: 0.4rem 0.75rem; border-radius: 4px; font-size: 0.9rem; }
+    .search-input { width: 320px; max-width: 100%; }
+    .filter-row { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; }
+    .table-controls form { width: 100%; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
+    .table-scroll { overflow-x: auto; }
+    .data-table { width: 100%; min-width: 1100px; border-collapse: collapse; font-size: 12px; font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .data-table thead { background: #e3f2fd; }
+    .data-table th, .data-table td { padding: 0.6rem 0.75rem; text-align:left; border-bottom:1px solid #e0e0e0; font-size:12px; color:#333; white-space:nowrap; }
+    .data-table th { font-weight:600; border-bottom:2px solid #0066cc; }
+    .data-table tbody tr:hover { background:#f5f5f5; }
+    .sort-icons { display:inline-flex; flex-direction:column; margin-left:0.25rem; font-size:0.65rem; line-height:1; }
+    .status-pill { display:inline-flex; align-items:center; border-radius:999px; padding:0.2rem 0.55rem; font-size:11px; font-weight:600; }
+    .status-pill-seen { background:#e7f8ef; color:#127749; }
+    .status-pill-not-seen { background:#fff3df; color:#a66a11; }
+    .notification-action-stack { display:flex; align-items:center; }
+    .notification-action-button {
+        width: 44px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        border: 1px solid #c8dbef;
+        background: #eef6ff;
+        color: #45698a;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    .notification-action-button:hover {
+        background: #e1efff;
+        border-color: #b6d1ec;
+    }
+    .notification-action-button svg {
+        width: 18px;
+        height: 18px;
+    }
+    .no-data-message { padding: 3rem; text-align: center; color: #999; font-style: italic; font-size: 12px; }
+    .notification-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10000; align-items:center; justify-content:center; padding:1rem; }
+    .notification-modal-overlay.show { display:flex; }
+    .notification-modal-card { background:white; border-radius:8px; max-width:900px; width:90%; max-height:85vh; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,0.2); display:flex; flex-direction:column; }
+    .notification-modal-header { background:linear-gradient(135deg, #0066cc 0%, #004d99 100%); color:white; padding:1rem 1.4rem; display:flex; justify-content:space-between; align-items:center; }
+    .notification-modal-header h2 { margin:0; font-size:14px; font-weight:600; }
+    .notification-modal-close-btn { background:rgba(255,255,255,0.2); border:none; color:white; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1.2rem; display:flex; align-items:center; justify-content:center; }
+    .notification-modal-body { padding:1.25rem 1.4rem; overflow:auto; }
+    .notification-modal-loading { padding:2rem 0; text-align:center; color:#637a92; }
+</style>
+
+<div class="page-header">
+    <div class="page-title">Notifications</div>
+</div>
+
+<div class="table-container">
+    <div class="summary-strip">
+        <div class="summary-card">
+            <span>Unread</span>
+            <span class="summary-value">{{ unread_total }}</span>
+        </div>
+        <div class="summary-card">
+            <span>Total Notifications</span>
+            <span class="summary-value">{{ total_notifications }}</span>
+        </div>
+        {% for bucket in category_totals %}
+        <div class="summary-card filterable js-category-chip" data-category="{{ bucket.category|lower }}">
+            <span>{{ bucket.category|title }}</span>
+            <span class="summary-value">{{ bucket.total }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="table-header-section">
+        <form method="get" class="table-header-top" id="notification-filter-form">
+            <div class="filter-row">
+                <select id="notification-category-filter" name="category" class="filter-select">
+                    <option value="">All Modules</option>
+                    {% for value, label in category_choices %}
+                    <option value="{{ value|lower }}" {% if filters.category == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <select id="notification-level-filter" name="level" class="filter-select">
+                    <option value="">All Priorities</option>
+                    {% for value, label in level_choices %}
+                    <option value="{{ value|lower }}" {% if filters.level == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <select id="notification-status-filter" name="status" class="filter-select">
+                    <option value="">All Statuses</option>
+                    <option value="unread" {% if filters.status == 'unread' %}selected{% endif %}>Not Seen</option>
+                    <option value="read" {% if filters.status == 'read' %}selected{% endif %}>Seen</option>
+                </select>
+            </div>
+            <div class="table-header-right">
+                <a href="{% url 'scorecard:notification_mark_all_read' %}{% if list_query_string %}?next={% url 'scorecard:notifications' %}%3F{{ list_query_string|urlencode }}{% endif %}" class="action-btn">Mark All Read</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-controls">
+        <form method="get" id="notification-search-form">
+            <input type="hidden" name="category" value="{{ filters.category }}">
+            <input type="hidden" name="level" value="{{ filters.level }}">
+            <input type="hidden" name="status" value="{{ filters.status }}">
+            <div class="search-control">
+                <input type="text" id="notification-search" name="q" value="{{ search_query }}" placeholder="Search by title, module, reference, status..." class="search-input" autocomplete="off">
+            </div>
+            <div class="entries-control">
+                <span>Show</span>
+                <select id="notification-entries-per-page" name="page_size" class="entries-select">
+                    {% for option in page_size_options %}
+                    <option value="{{ option }}" {% if page_size == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+                <span>entries</span>
+                <button type="submit" class="action-btn">Apply</button>
+            </div>
+        </form>
+    </div>
+
+    {% if notifications %}
+    <div class="table-scroll">
+        <table class="data-table" id="notification-table">
+            <thead>
+                <tr>
+                    <th data-column="row_number">No. <span class="sort-icons">&#8595;&#8593;</span></th>
+                    <th data-column="title">Title <span class="sort-icons">&#8595;&#8593;</span></th>
+                    <th data-column="module_label">Module <span class="sort-icons">&#8595;&#8593;</span></th>
+                    <th data-column="reference_label">Reference <span class="sort-icons">&#8595;&#8593;</span></th>
+                    <th data-column="status_label">Status <span class="sort-icons">&#8595;&#8593;</span></th>
+                    <th data-column="receipt_date">Receipt Date <span class="sort-icons">&#8595;&#8593;</span></th>
+                    <th data-column="actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for notification in notifications %}
+                <tr class="notification-row"
+                    data-notification-id="{{ notification.id }}"
+                    data-search="{{ notification.title|lower }} {{ notification.module_label|lower }} {{ notification.reference_label|lower }} {{ notification.status_label|lower }} {{ notification.category_display|lower }} {{ notification.level_display|lower }}"
+                    data-row_number="{{ notification.row_number }}"
+                    data-title="{{ notification.title|lower }}"
+                    data-module_label="{{ notification.module_label|lower }}"
+                    data-category="{{ notification.category_value|lower }}"
+                    data-level="{{ notification.level_value|lower }}"
+                    data-status_label="{{ notification.status_label|lower }}"
+                    data-receipt_date="{{ notification.receipt_date|date:'Y-m-d H:i'|lower }}">
+                    <td data-column="row_number">{{ notification.row_number }}</td>
+                    <td data-column="title">{{ notification.title }}</td>
+                    <td data-column="module_label">{{ notification.module_label }}</td>
+                    <td data-column="reference_label">{{ notification.reference_label }}</td>
+                    <td data-column="status_label">
+                        <span class="status-pill {% if notification.is_read %}status-pill-seen{% else %}status-pill-not-seen{% endif %} js-notification-status">
+                            {{ notification.status_label }}
+                        </span>
+                    </td>
+                    <td data-column="receipt_date">{{ notification.receipt_date|date:"d/m/Y H:i" }}</td>
+                    <td data-column="actions">
+                        <div class="notification-action-stack">
+                            <a href="#" class="js-notification-view notification-action-button" data-detail-url="{{ notification.detail_url }}" title="View">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="table-footer">
+        <div class="pagination-info" id="notification-pagination-info">Showing {{ page_start }} to {{ page_end }} of {{ page_obj.paginator.count }} entries</div>
+        <div class="pagination-controls">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="pagination-btn" id="notification-prev-btn">Previous</a>
+            {% else %}
+            <a href="#" class="pagination-btn disabled" id="notification-prev-btn">Previous</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="pagination-btn" id="notification-next-btn">Next</a>
+            {% else %}
+            <a href="#" class="pagination-btn disabled" id="notification-next-btn">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="no-data-message">No notifications yet. When scoring, imports, or main sync events need attention or action, they will appear here.</div>
+    <div class="table-footer">
+        <div class="pagination-info">Showing 0 to 0 of 0 entries</div>
+        <div class="pagination-controls">
+            <a href="#" class="pagination-btn disabled">Previous</a>
+            <a href="#" class="pagination-btn disabled">Next</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div id="notification-detail-modal" class="notification-modal-overlay">
+    <div class="notification-modal-card">
+        <div class="notification-modal-header">
+            <h2>Notification Details</h2>
+            <button class="notification-modal-close-btn" id="close-notification-modal" aria-label="Close">&times;</button>
+        </div>
+        <div class="notification-modal-body" id="notification-modal-body">
+            <div class="notification-modal-loading">Loading notification details...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('notification-search');
+    const categoryFilter = document.getElementById('notification-category-filter');
+    const levelFilter = document.getElementById('notification-level-filter');
+    const statusFilter = document.getElementById('notification-status-filter');
+    const entriesSelect = document.getElementById('notification-entries-per-page');
+    const categoryChips = Array.from(document.querySelectorAll('.js-category-chip'));
+    const notificationModal = document.getElementById('notification-detail-modal');
+    const notificationModalBody = document.getElementById('notification-modal-body');
+    const closeNotificationModalBtn = document.getElementById('close-notification-modal');
+    const filterForm = document.getElementById('notification-filter-form');
+    const searchForm = document.getElementById('notification-search-form');
+
+    function updateNotificationRowAsSeen(row) {
+        if (!row) return;
+        row.dataset.status_label = 'seen';
+        const statusChip = row.querySelector('.js-notification-status');
+        if (statusChip) {
+            statusChip.textContent = 'Seen';
+            statusChip.classList.remove('status-pill-not-seen');
+            statusChip.classList.add('status-pill-seen');
+        }
+    }
+
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', function() {
+            if (filterForm) filterForm.submit();
+        });
+    }
+    if (levelFilter) {
+        levelFilter.addEventListener('change', function() {
+            if (filterForm) filterForm.submit();
+        });
+    }
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            if (filterForm) filterForm.submit();
+        });
+    }
+    if (entriesSelect) {
+        entriesSelect.addEventListener('change', function() {
+            if (searchForm) searchForm.submit();
+        });
+    }
+    categoryChips.forEach(chip => {
+        chip.addEventListener('click', function() {
+            if (!categoryFilter) return;
+            categoryFilter.value = this.dataset.category || '';
+            if (filterForm) filterForm.submit();
+        });
+    });
+
+    document.querySelectorAll('.js-notification-view').forEach(link => {
+        link.addEventListener('click', function(event) {
+            event.preventDefault();
+            const detailUrl = this.dataset.detailUrl;
+            if (!detailUrl || !notificationModal || !notificationModalBody) return;
+            const row = this.closest('.notification-row');
+
+            notificationModal.classList.add('show');
+            notificationModalBody.innerHTML = '<div class="notification-modal-loading">Loading notification details...</div>';
+
+            fetch(detailUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(response => {
+                    if (!response.ok) throw new Error('Notification details could not be loaded.');
+                    return response.text();
+                })
+                .then(html => {
+                    notificationModalBody.innerHTML = html;
+                    updateNotificationRowAsSeen(row);
+                })
+                .catch(error => {
+                    notificationModalBody.innerHTML = `<div class="notification-modal-loading">${error.message}</div>`;
+                });
+        });
+    });
+
+    function closeNotificationModal() {
+        if (!notificationModal) return;
+        notificationModal.classList.remove('show');
+    }
+
+    if (closeNotificationModalBtn) closeNotificationModalBtn.addEventListener('click', closeNotificationModal);
+    if (notificationModal) {
+        notificationModal.addEventListener('click', function(event) {
+            if (event.target === notificationModal) closeNotificationModal();
+        });
+    }
+});
+</script>
+{% endblock %}

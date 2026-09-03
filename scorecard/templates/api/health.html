@@ -1,0 +1,311 @@
+{% extends "api/base.html" %}
+
+{% block title %}Endpoint Health{% endblock %}
+{% block api_title %}Endpoint Health{% endblock %}
+{% block api_intro %}Monitor endpoint health from one place, including the last test, the last import, the last scheduled run, and the recent success or failure trend.{% endblock %}
+{% block api_summary_section %}{% endblock %}
+
+{% block api_body %}
+<div class="api-layout-two">
+    <div class="api-panel">
+        <h2>Health Overview</h2>
+        <p>This page gives a quick operational view of your saved endpoints so you can spot issues without opening each section one by one.</p>
+        <div class="api-message-list">
+            <div class="api-message">Last test time shows the most recent endpoint connection test from the Endpoints page.</div>
+            <div class="api-message">Last import time shows the most recent manual or scheduled import run saved in import history.</div>
+            <div class="api-message">Last scheduled run shows the latest run executed through Automation for that endpoint.</div>
+            <div class="api-message">Trend is based on the recent saved import runs for that endpoint.</div>
+        </div>
+    </div>
+
+    <div class="api-panel">
+        <h2>Scheduler Status</h2>
+        <p>This helps confirm whether the Django scheduler service is alive and checking due schedules.</p>
+        <div class="api-message-list" id="health-scheduler-status">
+            <div class="api-message {% if scheduler_service.state == 'running' %}progress{% endif %}">
+                Service state:
+                <strong data-scheduler-field="state">{{ scheduler_service.state_label }}</strong>
+            </div>
+            <div class="api-message">Last heartbeat: <strong data-scheduler-field="heartbeat">{{ scheduler_service.last_heartbeat }}</strong> (<span data-scheduler-field="heartbeatAge">{{ scheduler_service.heartbeat_age }}</span>)</div>
+            <div class="api-message">Last check: <strong data-scheduler-field="check">{{ scheduler_service.last_check }}</strong></div>
+            <div class="api-message">Due schedules found on last check: <strong data-scheduler-field="count">{{ scheduler_service.last_run_count }}</strong></div>
+            <div class="api-message">Last service note: <strong data-scheduler-field="message">{{ scheduler_service.last_message }}</strong></div>
+            <div class="api-message">Scheduler command: <code>{{ scheduler_service.command }}</code></div>
+        </div>
+        {% if user.is_superuser or perms.scorecard.manage_scorecard_api_settings %}
+            <form method="post" action="{% url 'scorecard:api_scheduler_start' %}" style="margin-top:1rem;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'scorecard:api_health' %}">
+                <button type="submit" class="api-button primary">Start Scheduler</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="api-panel">
+    <h2>Scheduler Logs</h2>
+    <p>Review the most recent scheduler events, including starts, failures, due imports, main sync runs, historical captures, score auto-updates, and missing-score emails.</p>
+    <div class="api-table-section-header">
+        <div></div>
+        <div class="api-table-controls">
+            <form method="get">
+                <input type="hidden" name="health_page" value="{{ health_page_obj.number|default:1 }}">
+                <input type="hidden" name="health_per_page" value="{{ health_per_page }}">
+                <input type="hidden" name="scheduler_logs_page" value="1">
+                <div class="entries-control">
+                    <span>Show</span>
+                    <select name="scheduler_logs_per_page" class="entries-select" onchange="this.form.submit()">
+                        <option value="10" {% if scheduler_logs_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if scheduler_logs_per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if scheduler_logs_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if scheduler_logs_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                    <span>entries</span>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="api-table-wrap">
+        <table class="api-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Level</th>
+                    <th>Event</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in scheduler_logs_page_obj %}
+                    <tr>
+                        <td>{{ log.created_display }}</td>
+                        <td>
+                            {% if log.level == "success" %}
+                                <span class="api-status success">Success</span>
+                            {% elif log.level == "error" %}
+                                <span class="api-status failed">Error</span>
+                            {% elif log.level == "warning" %}
+                                <span class="api-badge-soft" style="background:#fff5e8;color:#9a6a16;">Warning</span>
+                            {% else %}
+                                <span class="api-badge-soft">Info</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.event_label }}</td>
+                        <td>{{ log.message }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="4">No scheduler logs recorded yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="api-pagination-bar">
+        <div class="pagination-info">
+            Showing
+            {% if scheduler_logs_page_obj and scheduler_logs_page_obj.paginator.count %}
+                {{ scheduler_logs_page_obj.start_index }} to {{ scheduler_logs_page_obj.end_index }} of {{ scheduler_logs_page_obj.paginator.count }}
+            {% else %}
+                0 to 0 of 0
+            {% endif %}
+            entries
+        </div>
+        {% if scheduler_logs_page_obj and scheduler_logs_page_obj.paginator.num_pages > 1 %}
+            <div class="pagination">
+                {% if scheduler_logs_page_obj.has_previous %}
+                    <a class="pagination-link" href="?health_page={{ health_page_obj.number|default:1 }}&health_per_page={{ health_per_page }}&scheduler_logs_page={{ scheduler_logs_page_obj.previous_page_number }}&scheduler_logs_per_page={{ scheduler_logs_per_page }}">Previous</a>
+                {% endif %}
+                {% for num in scheduler_logs_page_obj.paginator.page_range %}
+                    {% if num == scheduler_logs_page_obj.number %}
+                        <span class="pagination-current">{{ num }}</span>
+                    {% elif num >= scheduler_logs_page_obj.number|add:'-2' and num <= scheduler_logs_page_obj.number|add:'2' %}
+                        <a class="pagination-link" href="?health_page={{ health_page_obj.number|default:1 }}&health_per_page={{ health_per_page }}&scheduler_logs_page={{ num }}&scheduler_logs_per_page={{ scheduler_logs_per_page }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if scheduler_logs_page_obj.has_next %}
+                    <a class="pagination-link" href="?health_page={{ health_page_obj.number|default:1 }}&health_per_page={{ health_per_page }}&scheduler_logs_page={{ scheduler_logs_page_obj.next_page_number }}&scheduler_logs_per_page={{ scheduler_logs_per_page }}">Next</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="api-panel">
+    <h2>Endpoint Health Dashboard</h2>
+    <p>Review the most important health signals for every endpoint in one table.</p>
+    <div class="api-table-section-header">
+        <div></div>
+        <div class="api-table-controls">
+            <form method="get">
+                <input type="hidden" name="health_page" value="1">
+                <div class="entries-control">
+                    <span>Show</span>
+                    <select name="health_per_page" class="entries-select" onchange="this.form.submit()">
+                        <option value="10" {% if health_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if health_per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if health_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if health_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                    <span>entries</span>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="api-table-wrap">
+        <table class="api-table">
+            <thead>
+                <tr>
+                    <th>Endpoint</th>
+                    <th>Target</th>
+                    <th>Last Test Time</th>
+                    <th>Last Test</th>
+                    <th>Last Import Time</th>
+                    <th>Last Import</th>
+                    <th>Last Schedule Run</th>
+                    <th>Schedule Status</th>
+                    <th>Success / Failure Trend</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in health_page_obj %}
+                    <tr>
+                        <td>
+                            <div style="font-weight:700;color:#16324f;">{{ row.endpoint.name }}</div>
+                            <div style="font-size:0.8rem;color:#6d8094;">{{ row.endpoint.path }}</div>
+                        </td>
+                        <td>{{ row.endpoint.get_target_table_display|default:"Not set" }}</td>
+                        <td>{{ row.last_test_time }}</td>
+                        <td>
+                            {% if row.last_test_status == "success" %}
+                                <span class="api-status success">Success</span>
+                            {% elif row.last_test_status == "failed" %}
+                                <span class="api-status failed">Failed</span>
+                            {% else %}
+                                <span class="api-badge-soft">Not tested</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ row.last_import_time }}</td>
+                        <td>
+                            {% if row.last_import_status == "success" %}
+                                <span class="api-status success">Success</span>
+                            {% elif row.last_import_status == "failed" %}
+                                <span class="api-status failed">Failed</span>
+                            {% else %}
+                                <span class="api-badge-soft">Not run</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ row.last_schedule_run_time }}</td>
+                        <td>
+                            {% if row.last_schedule_status == "success" %}
+                                <span class="api-status success">Success</span>
+                            {% elif row.last_schedule_status == "failed" %}
+                                <span class="api-status failed">Failed</span>
+                            {% elif row.last_schedule_status == "not_scheduled" %}
+                                <span class="api-badge-soft">No schedule</span>
+                            {% else %}
+                                <span class="api-badge-soft">Not run</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.trend_class == "success" %}
+                                <span class="api-status success">{{ row.trend_label }}</span>
+                            {% elif row.trend_class == "failed" %}
+                                <span class="api-status failed">{{ row.trend_label }}</span>
+                            {% elif row.trend_class == "warning" %}
+                                <span class="api-badge-soft" style="background:#fff5e8;color:#9a6a16;">{{ row.trend_label }}</span>
+                            {% else %}
+                                <span class="api-badge-soft">{{ row.trend_label }}</span>
+                            {% endif %}
+                            <div style="margin-top:0.35rem;font-size:0.8rem;color:#6d8094;">
+                                {{ row.successful_runs }} success / {{ row.failed_runs }} failed
+                                {% if row.run_sample_size %}
+                                    in last {{ row.run_sample_size }} run{{ row.run_sample_size|pluralize }}
+                                {% else %}
+                                    with no recent import history
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="9">No endpoints saved yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="api-pagination-bar">
+        <div class="pagination-info">
+            Showing
+            {% if health_page_obj and health_page_obj.paginator.count %}
+                {{ health_page_obj.start_index }} to {{ health_page_obj.end_index }} of {{ health_page_obj.paginator.count }}
+            {% else %}
+                0 to 0 of 0
+            {% endif %}
+            entries
+        </div>
+        {% if health_page_obj and health_page_obj.paginator.num_pages > 1 %}
+            <div class="pagination">
+                {% if health_page_obj.has_previous %}
+                    <a class="pagination-link" href="?health_page={{ health_page_obj.previous_page_number }}&health_per_page={{ health_per_page }}">Previous</a>
+                {% endif %}
+                {% for num in health_page_obj.paginator.page_range %}
+                    {% if num == health_page_obj.number %}
+                        <span class="pagination-current">{{ num }}</span>
+                    {% elif num >= health_page_obj.number|add:'-2' and num <= health_page_obj.number|add:'2' %}
+                        <a class="pagination-link" href="?health_page={{ num }}&health_per_page={{ health_per_page }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if health_page_obj.has_next %}
+                    <a class="pagination-link" href="?health_page={{ health_page_obj.next_page_number }}&health_per_page={{ health_per_page }}">Next</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    (function () {
+        const statusUrl = "{% url 'scorecard:api_scheduler_status' %}";
+        const stateField = document.querySelector('[data-scheduler-field="state"]');
+        const heartbeatField = document.querySelector('[data-scheduler-field="heartbeat"]');
+        const heartbeatAgeField = document.querySelector('[data-scheduler-field="heartbeatAge"]');
+        const checkField = document.querySelector('[data-scheduler-field="check"]');
+        const countField = document.querySelector('[data-scheduler-field="count"]');
+        const messageField = document.querySelector('[data-scheduler-field="message"]');
+        const messageList = document.getElementById("health-scheduler-status");
+        if (!stateField || !heartbeatField || !heartbeatAgeField || !checkField || !countField || !messageField || !messageList) {
+            return;
+        }
+
+        async function refreshSchedulerStatus() {
+            try {
+                const response = await fetch(statusUrl, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                    credentials: "same-origin"
+                });
+                if (!response.ok) {
+                    return;
+                }
+                const data = await response.json();
+                stateField.textContent = data.state_label || "Unknown";
+                heartbeatField.textContent = data.last_heartbeat || "-";
+                heartbeatAgeField.textContent = data.heartbeat_age || "-";
+                checkField.textContent = data.last_check || "-";
+                countField.textContent = data.last_run_count || 0;
+                messageField.textContent = data.last_message || "No scheduler message yet.";
+
+                const firstMessage = messageList.querySelector(".api-message");
+                if (firstMessage) {
+                    firstMessage.classList.toggle("progress", data.state === "running");
+                }
+            } catch (error) {
+                // Keep the last known status visible if refresh fails.
+            }
+        }
+
+        window.setInterval(refreshSchedulerStatus, 15000);
+    })();
+</script>
+{% endblock %}

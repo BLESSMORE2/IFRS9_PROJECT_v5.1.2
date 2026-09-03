@@ -1,0 +1,440 @@
+{% extends "api/base.html" %}
+
+{% block title %}API Endpoints{% endblock %}
+{% block api_title %}API Endpoints{% endblock %}
+{% block api_intro %}Create simple endpoint paths, test them against the saved API settings, then save the ones your other templates will use later. Endpoint codes are created automatically in the background.{% endblock %}
+{% block api_summary_section %}{% endblock %}
+
+{% block api_body %}
+{% if api_can_manage_endpoints %}<div class="api-layout-two">{% else %}<div>{% endif %}
+    {% if api_can_manage_endpoints %}<div class="api-panel">
+        <h2>{% if editing_endpoint %}Edit Endpoint{% else %}Create Endpoint{% endif %}</h2>
+        <p>Define a simple endpoint name and path, choose its target table and parameters, test it, and save it for later retrieval and import.</p>
+        <form method="post" id="endpoint-form">
+            {% csrf_token %}
+            {% if editing_endpoint %}
+                <input type="hidden" name="endpoint_id" value="{{ editing_endpoint.id }}">
+            {% endif %}
+            <div class="api-form-grid">
+                {% for field in form %}
+                    <div class="api-field {% if field.name == 'description' or field.name == 'default_query_template' or field.name == 'parameters' %}full{% endif %}">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {{ field.errors }}
+                        {% if field.name == 'path' and form.path_warning %}
+                            <small style="color:#9a6a16;">{{ form.path_warning }}</small>
+                        {% endif %}
+                        {% if field.help_text %}
+                            <small>{{ field.help_text }}</small>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="api-button-row">
+                <button type="submit" name="action" value="test" class="api-button secondary" id="test-endpoint-button">Test Endpoint</button>
+                <button type="submit" name="action" value="save" class="api-button primary" id="save-endpoint-button">
+                    {% if editing_endpoint %}Update Endpoint{% else %}Save Endpoint{% endif %}
+                </button>
+            </div>
+        </form>
+        <div id="endpoint-loading-message" class="api-message" style="display:none;margin-top:1rem;background:#eef7ff;border-color:#d3e6f8;color:#1e5077;">
+            Testing endpoint, please wait...
+        </div>
+        <div id="endpoint-save-message" class="api-message" style="display:none;margin-top:1rem;background:#eefbf3;border-color:#cfead9;color:#1f6a43;"></div>
+        <div id="endpoint-test-feedback" style="display:none;margin-top:1rem;">
+            <div id="endpoint-test-status" style="margin-bottom:0.6rem;"></div>
+            <div class="api-json-panel">
+                <div class="api-json-toolbar">
+                    <div class="api-json-title">JSON Output</div>
+                    <div class="api-json-meta">Scroll inside the box to inspect the response</div>
+                </div>
+                <div class="api-json-body">
+                    <pre id="endpoint-test-output"></pre>
+                </div>
+            </div>
+        </div>
+        {% if test_result %}
+            <div style="margin-top:1rem;">
+                <h3 style="margin:0 0 0.5rem;font-size:1rem;color:#16324f;">Test Output</h3>
+                <div style="margin-bottom:0.6rem;">
+                    {% if test_result.ok %}
+                        <span class="api-status success">Status {{ test_result.status_code }}</span>
+                    {% else %}
+                        <span class="api-status failed">Status {{ test_result.status_code|default:"Error" }}</span>
+                    {% endif %}
+                </div>
+                <div class="api-json-panel">
+                    <div class="api-json-toolbar">
+                        <div class="api-json-title">JSON Output</div>
+                        <div class="api-json-meta">Scroll inside the box to inspect the response</div>
+                    </div>
+                    <div class="api-message" style="margin:0.75rem 0 0;">
+                        Preview shown below is normalized to match saved import data.
+                    </div>
+                    <div class="api-json-body">
+                        <pre>{{ test_result.preview_text }}</pre>
+                    </div>
+                </div>
+            </div>
+        {% elif editing_endpoint and editing_endpoint.last_test_message %}
+            <div style="margin-top:1rem;">
+                <h3 style="margin:0 0 0.5rem;font-size:1rem;color:#16324f;">Last Test Output</h3>
+                <div style="margin-bottom:0.6rem;">
+                    {% if editing_endpoint.last_test_status == "success" %}
+                        <span class="api-status success">Last status {{ editing_endpoint.last_test_status|title }}</span>
+                    {% elif editing_endpoint.last_test_status == "failed" %}
+                        <span class="api-status failed">Last status {{ editing_endpoint.last_test_status|title }}</span>
+                    {% endif %}
+                </div>
+                <div class="api-json-panel">
+                    <div class="api-json-toolbar">
+                        <div class="api-json-title">JSON Output</div>
+                        <div class="api-json-meta">Scroll inside the box to inspect the response</div>
+                    </div>
+                    <div class="api-message" style="margin:0.75rem 0 0;">
+                        Preview shown below is normalized to match saved import data.
+                    </div>
+                    <div class="api-json-body">
+                        <pre>{{ editing_endpoint.last_test_message }}</pre>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>{% endif %}
+
+    <div class="api-panel">
+        <h2>Saved Endpoints</h2>
+        <p>{% if api_can_manage_endpoints %}These are the endpoint definitions available for future retrieval pages and other templates.{% else %}Review the saved endpoint definitions in read-only mode. Endpoint management actions are hidden for viewer access.{% endif %}</p>
+        <div class="api-table-wrap">
+            <table class="api-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Path</th>
+                        <th>Target Table</th>
+                        <th>Parameters</th>
+                        <th>Test</th>
+                        {% if api_can_manage_endpoints %}<th>Action</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for endpoint in saved_endpoints %}
+                        <tr>
+                            <td>
+                                <div style="font-weight:700;color:#16324f;">{{ endpoint.name }}</div>
+                                <div style="font-size:0.8rem;color:#6d8094;">{{ endpoint.description|default:"No description" }}</div>
+                            </td>
+                            <td>{{ endpoint.path }}</td>
+                            <td>{{ endpoint.get_target_table_display|default:"Not set" }}</td>
+                            <td>
+                                {% with endpoint_parameters=endpoint.parameters.all %}
+                                    {% if endpoint_parameters %}
+                                        {% for parameter in endpoint_parameters %}
+                                            <span class="api-badge-soft" style="display:inline-flex;margin:0 0.35rem 0.35rem 0;">{{ parameter.name }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span style="color:#7b8da0;">No parameters</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% if endpoint.last_test_status == "success" %}
+                                    <span class="api-status success">Success</span>
+                                {% elif endpoint.last_test_status == "failed" %}
+                                    <span class="api-status failed">Failed</span>
+                                {% else %}
+                                    <span style="color:#7b8da0;">Not tested</span>
+                                {% endif %}
+                            </td>
+                            {% if api_can_manage_endpoints %}<td>
+                                <div class="api-action-stack">
+                                    <button
+                                        type="button"
+                                        class="api-button secondary api-action-button js-endpoint-view"
+                                        data-tooltip="View"
+                                        aria-label="View"
+                                        data-endpoint-name="{{ endpoint.name|escape }}"
+                                        data-endpoint-path="{{ endpoint.path|escape }}"
+                                        data-endpoint-target="{{ endpoint.get_target_table_display|default:'Not set'|escape }}"
+                                        data-endpoint-description="{{ endpoint.description|default:'No description'|escape }}"
+                                        data-endpoint-test-status="{{ endpoint.last_test_status|default:'Not tested'|escape }}"
+                                        data-endpoint-last-message="{{ endpoint.last_test_message|default:'No test output yet.'|escape }}"
+                                        data-endpoint-parameters="{% with endpoint_parameters=endpoint.parameters.all %}{% if endpoint_parameters %}{% for parameter in endpoint_parameters %}{{ parameter.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}No parameters{% endif %}{% endwith %}"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                    </button>
+                                    <a href="{% url 'scorecard:api_endpoints' %}?endpoint={{ endpoint.id }}" class="api-button primary api-action-button" data-tooltip="Edit" aria-label="Edit">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M12 20h9"></path>
+                                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                                        </svg>
+                                    </a>
+                                    <form method="post" action="/api/endpoints/{{ endpoint.id }}/delete/" onsubmit="return confirm('Delete endpoint {{ endpoint.name|escapejs }}?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="api-button danger api-action-button" data-tooltip="Delete" aria-label="Delete">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M3 6h18"></path>
+                                                <path d="M8 6V4h8v2"></path>
+                                                <path d="M19 6l-1 14H6L5 6"></path>
+                                                <path d="M10 11v6"></path>
+                                                <path d="M14 11v6"></path>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>{% endif %}
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="{% if api_can_manage_endpoints %}6{% else %}5{% endif %}" style="text-align:center;color:#7b8da0;">No endpoints saved yet.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="api-modal-backdrop" id="endpoint-view-modal" aria-hidden="true">
+    <div class="api-modal" role="dialog" aria-modal="true" aria-labelledby="endpoint-view-title">
+        <div class="api-modal-header">
+            <div>
+                <h3 class="api-modal-title" id="endpoint-view-title">Endpoint Details</h3>
+                <p class="api-modal-subtitle" id="endpoint-view-subtitle">Saved endpoint information</p>
+            </div>
+            <button type="button" class="api-modal-close" id="endpoint-view-close" aria-label="Close">×</button>
+        </div>
+        <div class="api-modal-content">
+            <div class="api-modal-grid">
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Name</div>
+                    <div class="api-modal-value" id="modal-endpoint-name"></div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Target Table</div>
+                    <div class="api-modal-value" id="modal-endpoint-target"></div>
+                </div>
+                <div class="api-modal-card full">
+                    <div class="api-modal-label">Path</div>
+                    <div class="api-modal-value" id="modal-endpoint-path"></div>
+                </div>
+                <div class="api-modal-card full">
+                    <div class="api-modal-label">Description</div>
+                    <div class="api-modal-value" id="modal-endpoint-description"></div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Test Status</div>
+                    <div class="api-modal-value" id="modal-endpoint-test-status"></div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Parameters</div>
+                    <div class="api-modal-value" id="modal-endpoint-parameters"></div>
+                </div>
+                <div class="api-modal-card full">
+                    <div class="api-modal-label">Last Test Message</div>
+                    <div class="api-code-box" id="modal-endpoint-last-message"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const form = document.getElementById("endpoint-form");
+        const testButton = document.getElementById("test-endpoint-button");
+        const saveButton = document.getElementById("save-endpoint-button");
+        const loadingMessage = document.getElementById("endpoint-loading-message");
+        const saveMessage = document.getElementById("endpoint-save-message");
+        const feedbackBox = document.getElementById("endpoint-test-feedback");
+        const feedbackStatus = document.getElementById("endpoint-test-status");
+        const feedbackOutput = document.getElementById("endpoint-test-output");
+        const modal = document.getElementById("endpoint-view-modal");
+        const modalClose = document.getElementById("endpoint-view-close");
+        const modalName = document.getElementById("modal-endpoint-name");
+        const modalTarget = document.getElementById("modal-endpoint-target");
+        const modalPath = document.getElementById("modal-endpoint-path");
+        const modalDescription = document.getElementById("modal-endpoint-description");
+        const modalStatus = document.getElementById("modal-endpoint-test-status");
+        const modalParameters = document.getElementById("modal-endpoint-parameters");
+        const modalLastMessage = document.getElementById("modal-endpoint-last-message");
+        const modalSubtitle = document.getElementById("endpoint-view-subtitle");
+
+        if (!form || !testButton || !saveButton || !loadingMessage || !saveMessage || !feedbackBox || !feedbackStatus || !feedbackOutput) {
+            return;
+        }
+
+        function openModal(trigger) {
+            if (!modal) {
+                return;
+            }
+            modalName.textContent = trigger.dataset.endpointName || "-";
+            modalTarget.textContent = trigger.dataset.endpointTarget || "-";
+            modalPath.textContent = trigger.dataset.endpointPath || "-";
+            modalDescription.textContent = trigger.dataset.endpointDescription || "-";
+            modalStatus.textContent = trigger.dataset.endpointTestStatus || "Not tested";
+            modalParameters.textContent = trigger.dataset.endpointParameters || "No parameters";
+            modalLastMessage.textContent = trigger.dataset.endpointLastMessage || "No test output yet.";
+            modalSubtitle.textContent = `Saved endpoint overview for ${trigger.dataset.endpointName || "this endpoint"}`;
+            modal.classList.add("is-open");
+            modal.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
+        }
+
+        function closeModal() {
+            if (!modal) {
+                return;
+            }
+            modal.classList.remove("is-open");
+            modal.setAttribute("aria-hidden", "true");
+            document.body.style.overflow = "";
+        }
+
+        document.querySelectorAll(".js-endpoint-view").forEach(function(button) {
+            button.addEventListener("click", function() {
+                openModal(button);
+            });
+        });
+
+        if (modalClose) {
+            modalClose.addEventListener("click", closeModal);
+        }
+
+        if (modal) {
+            modal.addEventListener("click", function(event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+        }
+
+        document.addEventListener("keydown", function(event) {
+            if (event.key === "Escape" && modal && modal.classList.contains("is-open")) {
+                closeModal();
+            }
+        });
+
+        function setTestingState(isLoading) {
+            if (isLoading) {
+                testButton.dataset.originalText = testButton.textContent;
+                testButton.textContent = "Testing...";
+                testButton.disabled = true;
+                testButton.classList.add("is-loading");
+                saveButton.disabled = true;
+                saveButton.classList.add("is-loading");
+                loadingMessage.style.display = "block";
+                feedbackBox.style.display = "none";
+            } else {
+                testButton.textContent = testButton.dataset.originalText || "Test Endpoint";
+                testButton.disabled = false;
+                testButton.classList.remove("is-loading");
+                saveButton.disabled = false;
+                saveButton.classList.remove("is-loading");
+                loadingMessage.style.display = "none";
+            }
+        }
+
+        function showFeedback(ok, statusCode, message, previewText, pathWarning) {
+            const badgeClass = ok ? "api-status success" : "api-status failed";
+            const badgeText = ok
+                ? `Status ${statusCode || "Success"}`
+                : `Status ${statusCode || "Failed"}`;
+            feedbackStatus.innerHTML = `<span class="${badgeClass}">${badgeText}</span>`;
+            feedbackOutput.textContent = pathWarning ? `${pathWarning}\n\n${previewText || message}` : (previewText || message);
+            feedbackBox.style.display = "block";
+        }
+
+        function showSaveMessage(ok, message) {
+            saveMessage.textContent = message;
+            saveMessage.style.display = "block";
+            saveMessage.style.background = ok ? "#eefbf3" : "#fff1f1";
+            saveMessage.style.borderColor = ok ? "#cfead9" : "#f1c8c8";
+            saveMessage.style.color = ok ? "#1f6a43" : "#9f2f2f";
+        }
+
+        testButton.addEventListener("click", async function(event) {
+            event.preventDefault();
+            setTestingState(true);
+
+            const formData = new FormData(form);
+            const controller = new AbortController();
+            const browserTimeout = setTimeout(function() {
+                controller.abort();
+            }, {{ browser_test_timeout_ms|default:7000 }});
+
+            try {
+                const response = await fetch("{% url 'scorecard:api_endpoint_test' %}", {
+                    method: "POST",
+                    body: formData,
+                    signal: controller.signal,
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    }
+                });
+                const data = await response.json();
+                showFeedback(
+                    !!data.ok,
+                    data.status_code,
+                    data.message || "Endpoint test completed.",
+                    data.preview_text || "",
+                    data.path_warning || ""
+                );
+            } catch (error) {
+                const timeoutMessage = error.name === "AbortError"
+                    ? "Endpoint test stopped because the server did not respond quickly. Please check whether the API server is reachable."
+                    : `Endpoint test failed: ${error.message}`;
+                showFeedback(false, null, timeoutMessage, timeoutMessage, "");
+            } finally {
+                clearTimeout(browserTimeout);
+                setTestingState(false);
+            }
+        });
+
+            const isEditingEndpoint = {{ editing_endpoint|yesno:"true,false" }};
+
+            saveButton.addEventListener("click", async function(event) {
+            event.preventDefault();
+            saveButton.dataset.originalText = saveButton.textContent;
+            saveButton.textContent = isEditingEndpoint ? "Updating..." : "Saving...";
+            saveButton.disabled = true;
+            saveButton.classList.add("is-loading");
+            testButton.disabled = true;
+            testButton.classList.add("is-loading");
+
+            saveMessage.style.display = "none";
+
+            try {
+                const response = await fetch("{% url 'scorecard:api_endpoint_save' %}", {
+                    method: "POST",
+                    body: new FormData(form),
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    }
+                });
+                const data = await response.json();
+                if (data.ok) {
+                    const successMessage = isEditingEndpoint ? "Endpoint updated successfully." : "Endpoint saved successfully.";
+                    showSaveMessage(true, data.path_warning ? `${successMessage} ${data.path_warning}` : successMessage);
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                        return;
+                    }
+                } else {
+                    showSaveMessage(false, data.message || "Endpoint save failed.");
+                }
+            } catch (error) {
+                showSaveMessage(false, `Endpoint save failed: ${error.message}`);
+            } finally {
+                saveButton.textContent = saveButton.dataset.originalText || (isEditingEndpoint ? "Update Endpoint" : "Save Endpoint");
+                saveButton.disabled = false;
+                saveButton.classList.remove("is-loading");
+                testButton.disabled = false;
+                testButton.classList.remove("is-loading");
+            }
+        });
+    });
+</script>
+{% endblock %}

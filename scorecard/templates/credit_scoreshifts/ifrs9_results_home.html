@@ -1,0 +1,311 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}IFRS9 Results{% endblock %}
+
+{% block content %}
+<style>
+    .results-workspace {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .results-hero {
+        background: linear-gradient(135deg, #0f3e72 0%, #0b2d52 100%);
+        border-radius: 14px;
+        padding: 0.8rem 1rem 0.9rem;
+        color: #fff;
+        box-shadow: 0 18px 40px rgba(8, 37, 66, 0.16);
+    }
+    .results-kicker {
+        display: inline-block;
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.72);
+        margin-bottom: 0.18rem;
+    }
+    .results-title {
+        margin: 0 0 0.18rem;
+        font-size: 1.08rem;
+        font-weight: 700;
+    }
+    .results-copy {
+        margin: 0;
+        font-size: 0.77rem;
+        line-height: 1.45;
+        color: rgba(255,255,255,0.84);
+        max-width: 1040px;
+    }
+    .results-tabs-shell {
+        background: #fff;
+        border: 1px solid #dfe9f4;
+        border-radius: 14px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+        padding: 0.45rem 0.55rem;
+    }
+    .results-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+    }
+    .results-tab {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        border: 1px solid #d5e3f2;
+        background: #fff;
+        color: #175494;
+        text-decoration: none;
+        font-size: 0.76rem;
+        font-weight: 700;
+        transition: all 0.2s ease;
+    }
+    .results-tab:hover {
+        text-decoration: none;
+        color: #0f3d78;
+        border-color: #aac7e8;
+        background: #f3f8ff;
+    }
+    .results-tab.active {
+        color: #fff;
+        border-color: #175494;
+        background: linear-gradient(135deg, #175494 0%, #1b79c2 100%);
+        box-shadow: 0 8px 18px rgba(23, 84, 148, 0.18);
+    }
+    .results-banner {
+        border-radius: 12px;
+        padding: 0.7rem 0.9rem;
+        font-size: 0.78rem;
+        line-height: 1.45;
+    }
+    .results-banner.error {
+        background: #fff3f2;
+        border: 1px solid #fecdca;
+        color: #912018;
+    }
+    .results-banner.info {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1d4ed8;
+    }
+    .results-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 0.75rem;
+    }
+    .results-card,
+    .results-option {
+        background: #fff;
+        border: 1px solid #e2ebf5;
+        border-radius: 14px;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+    .results-card-body {
+        padding: 0.9rem 1rem;
+    }
+    .results-card-title {
+        margin: 0 0 0.18rem;
+        font-size: 0.96rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .results-card-copy {
+        margin: 0;
+        color: #64748b;
+        font-size: 0.76rem;
+        line-height: 1.45;
+    }
+    .results-meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem;
+        margin-top: 0.75rem;
+    }
+    .results-meta-card {
+        border: 1px solid #dce8f5;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        padding: 0.72rem 0.8rem;
+    }
+    .results-meta-label {
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 0.16rem;
+    }
+    .results-meta-value {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .results-options {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+    .results-option-body {
+        padding: 1rem;
+    }
+    .results-option-kicker {
+        display: inline-block;
+        font-size: 0.63rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 0.25rem;
+    }
+    .results-option-title {
+        margin: 0 0 0.26rem;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .results-option-copy {
+        margin: 0 0 0.8rem;
+        color: #64748b;
+        font-size: 0.77rem;
+        line-height: 1.5;
+        min-height: 58px;
+    }
+    .results-option-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        padding: 0.5rem 0.85rem;
+        border-radius: 999px;
+        border: 1px solid #175494;
+        background: linear-gradient(135deg, #175494 0%, #1b79c2 100%);
+        color: #fff;
+        text-decoration: none;
+        font-size: 0.76rem;
+        font-weight: 700;
+    }
+    .results-option-btn:hover {
+        color: #fff;
+        text-decoration: none;
+        opacity: 0.95;
+    }
+    .results-dates {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-top: 0.8rem;
+    }
+    .results-date-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 28px;
+        padding: 0.32rem 0.58rem;
+        border-radius: 999px;
+        background: #eff6ff;
+        border: 1px solid #dbeafe;
+        color: #1d4ed8;
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+    @media (max-width: 960px) {
+        .results-grid,
+        .results-options,
+        .results-meta {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="results-workspace">
+    <section class="results-hero">
+        <span class="results-kicker">IFRS9 Results</span>
+        <h1 class="results-title">{{ results_workspace_title }}</h1>
+        <p class="results-copy">{{ results_workspace_copy }}</p>
+    </section>
+
+    <div class="results-tabs-shell">
+        <div class="results-tabs">
+            <a href="{% url 'scorecard:ifrs9_results_home' %}" class="results-tab{% if results_page_key == 'home' %} active{% endif %}">Overview</a>
+            <a href="{% url 'scorecard:ifrs9_results_extract' %}" class="results-tab{% if results_page_key == 'extract' %} active{% endif %}">Results Extract</a>
+            <a href="{% url 'scorecard:ifrs9_results_ecl_summary' %}" class="results-tab{% if results_page_key == 'summary' %} active{% endif %}">ECL Summary Report</a>
+        </div>
+    </div>
+
+    {% if not results_module_available %}
+    <div class="results-banner error">
+        {{ results_module_error }}
+    </div>
+    {% else %}
+    <div class="results-grid">
+        <div class="results-card">
+            <div class="results-card-body">
+                <h2 class="results-card-title">Branch Scope</h2>
+                <p class="results-card-copy">
+                    This workspace only shows IFRS9 results for branches assigned to the current user. If one branch is selected in the sidebar, the results are limited to that branch. If <strong>All Assigned Branches</strong> is selected, the results combine only those assigned branches.
+                </p>
+                <div class="results-meta">
+                    <div class="results-meta-card">
+                        <div class="results-meta-label">Current Branch Mode</div>
+                        <div class="results-meta-value">{{ results_branch_scope_label }}</div>
+                    </div>
+                    <div class="results-meta-card">
+                        <div class="results-meta-label">Assigned Branches In Scope</div>
+                        <div class="results-meta-value">{{ results_branch_scope_count }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="results-card">
+            <div class="results-card-body">
+                <h2 class="results-card-title">Available Reporting Dates</h2>
+                <p class="results-card-copy">
+                    Choose one reporting date in the next step. The scorecard automatically picks the latest available run key for that date, so users do not need to manage run keys manually.
+                </p>
+                {% if results_available_dates %}
+                <div class="results-dates">
+                    {% for available_date in results_available_dates %}
+                    <span class="results-date-chip">{{ available_date|date:"Y-m-d" }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="results-banner info" style="margin-top: 0.8rem;">
+                    No reporting dates are currently available in the assigned branch scope.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="results-options">
+        <article class="results-option">
+            <div class="results-option-body">
+                <span class="results-option-kicker">Report Workspace</span>
+                <h2 class="results-option-title">Results Extract</h2>
+                <p class="results-option-copy">
+                    Review raw IFRS9 reporting rows from <code>fct_reporting_table</code>, preview the latest-run extract for a reporting date, and export the full result set for the selected branch scope.
+                </p>
+                <a href="{% url 'scorecard:ifrs9_results_extract' %}" class="results-option-btn">Open Results Extract</a>
+            </div>
+        </article>
+
+        <article class="results-option">
+            <div class="results-option-body">
+                <span class="results-option-kicker">Summary Workspace</span>
+                <h2 class="results-option-title">ECL Summary Report</h2>
+                <p class="results-option-copy">
+                    Review grouped ECL totals by stage, portfolio, risk group, and branch using the latest run key for the chosen reporting date inside the active branch scope.
+                </p>
+                <a href="{% url 'scorecard:ifrs9_results_ecl_summary' %}" class="results-option-btn">Open ECL Summary</a>
+            </div>
+        </article>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>IFRS9 ECL Summary Report</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 18px 20px;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            color: #0f172a;
+            font-size: 10px;
+        }
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #0f3e72;
+            margin-bottom: 6px;
+        }
+        .subtitle {
+            font-size: 11px;
+            color: #475569;
+            margin-bottom: 14px;
+        }
+        .meta-table,
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .meta-table td {
+            border: 1px solid #d8e4f1;
+            padding: 6px 8px;
+            vertical-align: top;
+        }
+        .meta-label {
+            font-size: 9px;
+            font-weight: bold;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+        .meta-value {
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 2px;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #0f3e72;
+            margin: 18px 0 8px;
+        }
+        .data-table th,
+        .data-table td {
+            border: 1px solid #d8e4f1;
+            padding: 6px 7px;
+        }
+        .data-table th {
+            background: #0e4377;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: bold;
+            text-align: left;
+        }
+        .numeric {
+            text-align: right;
+        }
+        .data-table tfoot td {
+            background: #e8f6ef;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="title">Scorecard IFRS9 ECL Summary Report</div>
+    <div class="subtitle">Grouped by {{ ecl_summary_grouped_by_label }} using the latest run key for the selected reporting date in the active branch scope.</div>
+
+    <table class="meta-table">
+        <tr>
+            <td>
+                <div class="meta-label">Reporting Date</div>
+                <div class="meta-value">{{ results_selected_date_value|default:"Not selected" }}</div>
+            </td>
+            <td>
+                <div class="meta-label">Latest Run Key</div>
+                <div class="meta-value">{{ results_latest_run_key|default:"Not available" }}</div>
+            </td>
+            <td>
+                <div class="meta-label">Branch Scope</div>
+                <div class="meta-value">{{ results_branch_scope_label }}</div>
+            </td>
+            <td>
+                <div class="meta-label">Contracts</div>
+                <div class="meta-value">{{ ecl_summary_grand_totals.n_account_number }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-title">Summary Totals</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                {% for header in ecl_summary_group_by_headers %}
+                <th>{{ header }}</th>
+                {% endfor %}
+                <th>Total Exposure{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</th>
+                <th>Total EAD{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</th>
+                <th>Collateral Amount{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</th>
+                <th>Reporting ECL{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</th>
+                <th>Weighted Reporting ECL{% if reporting_currency_code %} ({{ reporting_currency_code }}){% endif %}</th>
+                <th>ECL / EAD Ratio</th>
+                <th>ECL / Exposure Ratio</th>
+                <th>Contracts</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in ecl_summary_rows %}
+            <tr>
+                {% for value in row.group_values %}
+                <td>{{ value }}</td>
+                {% endfor %}
+                <td class="numeric">{{ row.n_principal_balance_rcy|floatformat:2 }}</td>
+                <td class="numeric">{{ row.n_exposure_at_default_rcy|floatformat:2 }}</td>
+                <td class="numeric">{{ row.n_collateral_considered|floatformat:2 }}</td>
+                <td class="numeric">{{ row.n_reporting_ecl_rcy|floatformat:2 }}</td>
+                <td class="numeric">{{ row.n_weighted_reporting_ecl_rcy|floatformat:2 }}</td>
+                <td class="numeric">{{ row.ecl_ead_ratio|floatformat:2 }}%</td>
+                <td class="numeric">{{ row.ecl_principal_ratio|floatformat:2 }}%</td>
+                <td class="numeric">{{ row.n_account_number }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="{{ ecl_summary_group_by_fields|length }}">Grand Total</td>
+                <td class="numeric">{{ ecl_summary_grand_totals.n_principal_balance_rcy|floatformat:2 }}</td>
+                <td class="numeric">{{ ecl_summary_grand_totals.n_exposure_at_default_rcy|floatformat:2 }}</td>
+                <td class="numeric">{{ ecl_summary_grand_totals.n_collateral_considered|floatformat:2 }}</td>
+                <td class="numeric">{{ ecl_summary_grand_totals.n_reporting_ecl_rcy|floatformat:2 }}</td>
+                <td class="numeric">{{ ecl_summary_grand_totals.n_weighted_reporting_ecl_rcy|floatformat:2 }}</td>
+                <td class="numeric">{{ ecl_summary_grand_totals.ecl_ead_ratio|floatformat:2 }}%</td>
+                <td class="numeric">{{ ecl_summary_grand_totals.ecl_principal_ratio|floatformat:2 }}%</td>
+                <td class="numeric">{{ ecl_summary_grand_totals.n_account_number }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="section-title">Percentage Split</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                {% for header in ecl_summary_group_by_headers %}
+                <th>{{ header }}</th>
+                {% endfor %}
+                <th>% of Reporting ECL</th>
+                <th>% of Contracts</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in ecl_summary_percentages %}
+            <tr>
+                {% for value in row.group_values %}
+                <td>{{ value }}</td>
+                {% endfor %}
+                <td class="numeric">{{ row.percent_reporting_ecl_rcy|floatformat:2 }}%</td>
+                <td class="numeric">{{ row.percent_accounts|floatformat:2 }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="{{ ecl_summary_group_by_fields|length }}">Grand Total</td>
+                <td class="numeric">{% if ecl_summary_grand_totals.n_reporting_ecl_rcy %}100.00%{% else %}0.00%{% endif %}</td>
+                <td class="numeric">{% if ecl_summary_grand_totals.n_account_number %}100.00%{% else %}0.00%{% endif %}</td>
+            </tr>
+        </tfoot>
+    </table>
+</body>
+</html>

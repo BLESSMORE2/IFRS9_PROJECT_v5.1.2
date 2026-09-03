@@ -1,0 +1,211 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Risk Drivers - {{ template.code }}{% endblock %}
+{% block header_title %}Risk Drivers: {{ section.code }} - {{ template.code }}{% endblock %}
+
+{% block content %}
+<style>
+    .summary-card {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .summary-label {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+    .actions-header {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.5rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    table thead th {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        padding: 0.4rem 0.5rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    table thead th.text-center {
+        text-align: center;
+    }
+    table tbody td {
+        border: 1px solid #e0e0e0;
+        padding: 0.3rem 0.5rem;
+        font-size: 12px;
+        color: #333;
+    }
+    table tbody td.text-center {
+        text-align: center;
+    }
+    table tbody td strong {
+        font-weight: 600;
+        color: #333;
+    }
+    table tbody tr:hover {
+        background-color: #f5f5f5;
+    }
+    .action-link {
+        text-decoration: none;
+        margin-right: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: color 0.2s ease;
+    }
+    .action-link:last-child {
+        margin-right: 0;
+    }
+    .action-link-edit {
+        color: #0066cc;
+    }
+    .action-link-edit:hover {
+        color: #0052a3;
+        text-decoration: underline;
+    }
+    .action-link-manage {
+        color: #28a745;
+    }
+    .action-link-manage:hover {
+        color: #218838;
+        text-decoration: underline;
+    }
+    .action-link-delete {
+        color: #dc3545;
+    }
+    .action-link-delete:hover {
+        color: #c82333;
+        text-decoration: underline;
+    }
+    .empty-state {
+        padding: 2rem;
+        text-align: center;
+        color: #999;
+        font-style: italic;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+<div class="summary-card">
+    <div class="summary-grid">
+        <div>
+            <div class="summary-label">Template</div>
+            <div>{{ template.code }} - {{ template.name }}</div>
+        </div>
+        <div>
+            <div class="summary-label">Section</div>
+            <div>{{ section.code }} - {{ section.name }}</div>
+        </div>
+        <div>
+            <div class="summary-label">Total Risk Drivers</div>
+            <div>{{ risk_drivers|length }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="actions-header">
+    <a href="{% url 'scorecard:risk_driver_create' template_id=template.id section_id=section.id %}" class="btn btn-primary">
+        Add New Risk Driver
+    </a>
+</div>
+
+{% if risk_drivers %}
+    <table>
+        <thead>
+        <tr>
+            <th style="width: 8%;">Order</th>
+            <th style="width: 12%;">Code</th>
+            <th style="width: 40%;">Name</th>
+            <th style="width: 15%;" class="text-center">Weight %</th>
+            <th style="width: 15%;" class="text-center">Max Score</th>
+            <th style="width: 10%;">Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for driver in risk_drivers %}
+            <tr>
+                <td class="text-center">{{ driver.display_order }}</td>
+                <td><strong>{{ driver.code }}</strong></td>
+                <td>{{ driver.name }}</td>
+                <td class="text-center">{{ driver.get_total_weight_percent }}%</td>
+                <td class="text-center">{{ driver.get_max_score }}</td>
+                <td class="text-center">
+                    <a href="{% url 'scorecard:risk_driver_edit' template_id=template.id section_id=section.id driver_id=driver.id %}" 
+                       class="action-link action-link-edit">Edit</a>
+                    <a href="{% url 'scorecard:attribute_list' template_id=template.id section_id=section.id driver_id=driver.id %}" 
+                       class="action-link action-link-manage">Manage Attributes</a>
+                    <a href="{% url 'scorecard:risk_driver_delete' template_id=template.id section_id=section.id driver_id=driver.id %}" 
+                       class="action-link action-link-delete">Delete</a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <div class="empty-state">
+        No risk drivers configured yet. Click "Add New Risk Driver" to create one.
+    </div>
+{% endif %}
+
+<div class="actions">
+    <a href="{% url 'scorecard:section_list' template_id=template.id %}" class="btn btn-secondary">
+        Back to Section/Demographics
+    </a>
+    <a href="{% url 'scorecard:basel_template_detail' template_id=template.id %}" class="btn btn-secondary">
+        Back to Template
+    </a>
+</div>
+{% endblock %}

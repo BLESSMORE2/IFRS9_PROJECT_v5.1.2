@@ -1,0 +1,561 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Preview Import{% endblock %}
+{% block header_title %}Preview Import{% endblock %}
+
+{% block content %}
+<style>
+    .upload-shell {
+        --upload-primary: #0b63ce;
+        --upload-primary-dark: #094ea1;
+        --upload-ink: #122033;
+        --upload-muted: #61748b;
+        --upload-line: #d7e1ec;
+        --upload-soft: #f6f9fc;
+        --upload-soft-blue: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%);
+        --upload-soft-warn: #fff9f1;
+        --upload-warn-line: #f0d4a7;
+        --upload-shadow: 0 18px 45px rgba(15, 40, 75, 0.08);
+        --upload-radius: 18px;
+    }
+    .stepbar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-bottom: 1rem;
+    }
+    .stepbar-item {
+        background: #fff;
+        border: 1px solid var(--upload-line);
+        border-radius: 14px;
+        padding: 0.95rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        box-shadow: 0 8px 24px rgba(15, 40, 75, 0.04);
+    }
+    .stepbar-item.is-current {
+        background: var(--upload-soft-blue);
+        border-color: #b6d0ef;
+    }
+    .stepbar-number {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #e8f1fd;
+        color: var(--upload-primary-dark);
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+    .stepbar-item.is-current .stepbar-number {
+        background: var(--upload-primary);
+        color: #fff;
+    }
+    .stepbar-label {
+        font-size: 0.92rem;
+        line-height: 1.35;
+    }
+    .hero {
+        background: var(--upload-soft-blue);
+        border: 1px solid #dbe8f5;
+        border-radius: var(--upload-radius);
+        padding: 1.35rem 1.5rem;
+        box-shadow: var(--upload-shadow);
+        margin-bottom: 1rem;
+    }
+    .hero h2 {
+        margin-bottom: 0.45rem;
+        font-size: 1.5rem;
+    }
+    .muted {
+        color: var(--upload-muted);
+        font-size: 0.94rem;
+        line-height: 1.55;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    .stat-card,
+    .card {
+        background: #fff;
+        border: 1px solid var(--upload-line);
+        border-radius: var(--upload-radius);
+        box-shadow: var(--upload-shadow);
+    }
+    .stat-card {
+        padding: 1rem 1.05rem;
+    }
+    .stat-card span {
+        display: block;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #6a8098;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+    }
+    .stat-card strong {
+        display: block;
+        font-size: 1.35rem;
+        color: var(--upload-ink);
+    }
+    .layout {
+        display: grid;
+        grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+        gap: 1rem;
+    }
+    .card {
+        padding: 1.25rem 1.3rem;
+    }
+    .card h3 {
+        font-size: 1.08rem;
+        margin-bottom: 0.4rem;
+    }
+    .mapping-list {
+        display: grid;
+        gap: 0.65rem;
+        margin-top: 1rem;
+    }
+    .mapping-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.7rem;
+        padding: 0.8rem 0.9rem;
+        border: 1px solid #e4ebf2;
+        border-radius: 14px;
+        background: #fbfdff;
+        font-size: 0.91rem;
+    }
+    .mapping-item strong {
+        display: block;
+        color: var(--upload-ink);
+    }
+    .mapping-item span {
+        color: var(--upload-muted);
+    }
+    .actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.15rem;
+        flex-wrap: wrap;
+    }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        border: none;
+        border-radius: 12px;
+        padding: 0.82rem 1.2rem;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    .btn:hover {
+        transform: translateY(-1px);
+    }
+    .btn-primary {
+        background: var(--upload-primary);
+        color: #fff;
+        box-shadow: 0 14px 24px rgba(11, 99, 206, 0.2);
+    }
+    .btn-primary:hover {
+        background: var(--upload-primary-dark);
+    }
+    .btn-secondary {
+        background: #e6edf5;
+        color: #203148;
+    }
+    .btn[disabled] {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    .table-card + .table-card {
+        margin-top: 1rem;
+    }
+    .table-card.warning {
+        background: var(--upload-soft-warn);
+        border-color: var(--upload-warn-line);
+    }
+    .table-wrap {
+        margin-top: 1rem;
+        overflow: auto;
+        border: 1px solid #e2eaf2;
+        border-radius: 16px;
+        background: #fff;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 720px;
+    }
+    th, td {
+        padding: 0.72rem 0.8rem;
+        border-bottom: 1px solid #edf2f7;
+        text-align: left;
+        vertical-align: top;
+        font-size: 0.9rem;
+    }
+    thead th {
+        position: sticky;
+        top: 0;
+        background: #f8fbfe;
+        color: #395069;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    tbody tr:nth-child(even) {
+        background: #fbfdff;
+    }
+    .status-note {
+        margin-top: 0.9rem;
+        padding: 0.9rem 1rem;
+        border-radius: 14px;
+        border: 1px solid #dbe8f5;
+        background: #f7fbff;
+        font-size: 0.91rem;
+        line-height: 1.5;
+        color: #476078;
+    }
+    .status-note.warning {
+        border-color: #f0d4a7;
+        background: #fff8ef;
+        color: #8a5a12;
+    }
+    .error-summary {
+        display: grid;
+        gap: 0.65rem;
+        margin-top: 1rem;
+    }
+    .error-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.8rem 0.9rem;
+        border-radius: 14px;
+        background: #fff8ef;
+        border: 1px solid #f0d4a7;
+        font-size: 0.91rem;
+    }
+    .error-item strong {
+        color: #7a4b0d;
+    }
+    .error-item-main {
+        flex: 1 1 auto;
+    }
+    .error-item-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+    .error-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2rem;
+        height: 2rem;
+        padding: 0 0.55rem;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid #efc679;
+        color: #8a5a12;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+    .error-download {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        border: 1px solid #efc679;
+        background: #fff;
+        color: #8a5a12;
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .table-header-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+    @media (max-width: 980px) {
+        .summary-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+        .layout {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 720px) {
+        .stepbar,
+        .summary-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="upload-shell">
+    <div class="stepbar">
+        <div class="stepbar-item">
+            <span class="stepbar-number">1</span>
+            <div class="stepbar-label"><strong>Upload</strong><br>Workbook prepared</div>
+        </div>
+        <div class="stepbar-item">
+            <span class="stepbar-number">2</span>
+            <div class="stepbar-label"><strong>Map</strong><br>Columns aligned</div>
+        </div>
+        <div class="stepbar-item is-current">
+            <span class="stepbar-number">3</span>
+            <div class="stepbar-label"><strong>Preview</strong><br>Review the import result before loading</div>
+        </div>
+    </div>
+
+    <section class="hero">
+        <h2>Preview the cleaned import before you commit it.</h2>
+        <div class="muted">
+            This screen validates the full workbook now, shows a fast browser preview, and blocks loading until the issues are fixed. Download the full preview Excel when you want every cleaned and skipped row.
+        </div>
+    </section>
+
+    <div class="summary-grid">
+        <div class="stat-card">
+            <span>Source file</span>
+            <strong>{{ state.original_name }}</strong>
+        </div>
+        <div class="stat-card">
+            <span>Sheet</span>
+            <strong>{{ state.sheet_name }}</strong>
+        </div>
+        <div class="stat-card">
+            <span>Valid rows</span>
+            <strong>{{ analysis.valid_rows }}</strong>
+        </div>
+        <div class="stat-card">
+            <span>Skipped rows</span>
+            <strong>{{ analysis.invalid_rows }}</strong>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="card">
+            <h3>Import settings</h3>
+            <div class="muted">
+                Target table: <strong>{{ config.table_name }}</strong><br>
+                Imported rows will use the system submission timestamp and will not require questionnaire period selection.
+            </div>
+
+            <div class="mapping-list">
+                {% for item in mapping_summary %}
+                    <div class="mapping-item">
+                        <div>
+                            <strong>{{ item.target }}</strong>
+                            <span>Mapped model field</span>
+                        </div>
+                        <div>{{ item.source }}</div>
+                    </div>
+                {% empty %}
+                    <div class="mapping-item">
+                        <div>
+                            <strong>No mapped columns</strong>
+                            <span>Go back and complete the mapping first.</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="status-note">
+                Cleaning applied: branch values are validated against BankBranch and normalized to the stored branch name, numeric customer numbers lose leading zeroes, and invalid numeric values are left out before import.
+            </div>
+
+            {% if analysis.invalid_rows > 0 %}
+                <div class="status-note warning">
+                    Import is disabled because the full preview found <strong>{{ analysis.invalid_rows }}</strong> skipped row{{ analysis.invalid_rows|pluralize }}. Correct or remove those rows, then preview again.
+                </div>
+            {% elif analysis.valid_rows == 0 %}
+                <div class="status-note warning">
+                    Import is currently disabled because the preview found <strong>0 valid rows</strong>. Check the skipped rows below, then go back to mapping and correct the required fields.
+                </div>
+            {% else %}
+                <div class="status-note">
+                    This import is ready to load. <strong>{{ analysis.valid_rows }}</strong> row{{ analysis.valid_rows|pluralize }} passed the full validation check.
+                </div>
+            {% endif %}
+
+            {% if analysis.warning_summary %}
+                <div class="status-note warning">
+                    <strong>Automatic score conversion:</strong> Ratio-style scores greater than <strong>0</strong> and up to <strong>1</strong> will be multiplied by <strong>100</strong> during import. These rows will continue to load.
+                </div>
+                <div class="error-summary">
+                    {% for item in analysis.warning_summary %}
+                        <div class="error-item">
+                            <div class="error-item-main">
+                                <strong>{{ item.reason }}</strong>
+                                <div class="muted">Conversion warning shown during preview.</div>
+                            </div>
+                            <div class="error-item-actions">
+                                <span class="error-count">{{ item.count }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if analysis.error_summary %}
+                <div class="error-summary">
+                    {% for item in analysis.error_summary %}
+                        <div class="error-item">
+                            <div class="error-item-main">
+                                <strong>{{ item.reason }}</strong>
+                                <div class="muted">Validation issue found during preview.</div>
+                            </div>
+                            <div class="error-item-actions">
+                                <span class="error-count">{{ item.count }}</span>
+                                <a class="error-download" href="{% url 'scorecard:upload_preview_errors_download' upload_kind=upload_kind %}?reason={{ item.reason|urlencode }}">
+                                    Download Excel
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="actions">
+                <a class="btn btn-secondary" href="{% url 'scorecard:upload_preview_full_download' upload_kind=upload_kind %}">
+                    Download Full Preview Excel
+                </a>
+                <form method="post" action="{% url 'scorecard:upload_run' upload_kind=upload_kind %}">
+                    {% csrf_token %}
+                    <button class="btn btn-primary" type="submit" {% if analysis.invalid_rows > 0 or analysis.valid_rows == 0 %}disabled{% endif %}>
+                        {% if analysis.invalid_rows > 0 %}Fix Skipped Rows Before Import{% elif analysis.valid_rows == 0 %}No Valid Rows To Import{% else %}Import Valid Rows{% endif %}
+                    </button>
+                </form>
+                <a class="btn btn-secondary" href="{% url 'scorecard:upload_mapping' upload_kind=upload_kind %}">Back To Mapping</a>
+            </div>
+        </aside>
+
+        <section>
+            <div class="card table-card">
+                <h3>Cleaned rows preview</h3>
+                <div class="muted">
+                    Showing the first {{ analysis.preview_display_limit }} cleaned row{{ analysis.preview_display_limit|pluralize }} on screen for speed. The full preview Excel contains all {{ analysis.valid_rows }} cleaned row{{ analysis.valid_rows|pluralize }}.
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Row</th>
+                                {% if config.is_historical_scores %}<th>Reporting Date</th>{% endif %}
+                                <th>Branch</th>
+                                <th>Customer Number</th>
+                                <th>Customer Name</th>
+                                {% if config.is_historical_scores %}
+                                    <th>Basel II Score</th>
+                                    <th>Basel II Grade</th>
+                                    <th>Basel Override Grade</th>
+                                    <th>IFRS9 Score</th>
+                                {% else %}
+                                    <th>Weighted Score</th>
+                                    <th>Raw Score</th>
+                                    {% if config.supports_grade %}
+                                        <th>Grade</th>
+                                    {% endif %}
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in analysis.valid_preview %}
+                                <tr>
+                                    <td>{{ row.row_number }}</td>
+                                    {% if config.is_historical_scores %}<td>{{ row.reporting_date }}</td>{% endif %}
+                                    <td>{{ row.branch_name }}</td>
+                                    <td>{{ row.customer_id }}</td>
+                                    <td>{{ row.customer_name }}</td>
+                                    {% if config.is_historical_scores %}
+                                        <td>{{ row.total_weighted_percent|default:"-" }}</td>
+                                        <td>{{ row.final_grade|default:"-" }}</td>
+                                        <td>{{ row.basel_override_grade|default:"-" }}</td>
+                                        <td>{{ row.ifrs_9_score|default:"-" }}</td>
+                                    {% else %}
+                                        <td>{{ row.total_weighted_percent }}</td>
+                                        <td>{{ row.total_raw_score }}</td>
+                                        {% if config.supports_grade %}
+                                            <td>{{ row.final_grade }}</td>
+                                        {% endif %}
+                                    {% endif %}
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="{% if config.is_historical_scores %}9{% elif config.supports_grade %}7{% else %}6{% endif %}">No valid rows are ready to import yet.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card table-card warning">
+                <div class="table-header-row">
+                    <div>
+                        <h3>Skipped rows preview</h3>
+                        <div class="muted">
+                            Showing the first {{ analysis.preview_display_limit }} skipped row{{ analysis.preview_display_limit|pluralize }} on screen for speed. The full preview Excel contains all skipped rows.
+                        </div>
+                    </div>
+                    {% if analysis.invalid_rows > 0 %}
+                        <a class="btn btn-secondary" href="{% url 'scorecard:upload_preview_errors_download' upload_kind=upload_kind %}">
+                            Download All Skipped Rows
+                        </a>
+                    {% endif %}
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Row</th>
+                                <th>Branch</th>
+                                <th>Customer Number</th>
+                                <th>Customer Name</th>
+                                <th>Why it was skipped</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in analysis.invalid_preview %}
+                                <tr>
+                                    <td>{{ row.row_number }}</td>
+                                    <td>{{ row.branch_name }}</td>
+                                    <td>{{ row.customer_id }}</td>
+                                    <td>{{ row.customer_name }}</td>
+                                    <td>{{ row.errors_display }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="{% if config.is_historical_scores %}6{% else %}5{% endif %}">No skipped rows in the preview.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}

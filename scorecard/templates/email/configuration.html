@@ -1,0 +1,761 @@
+{% extends "email/base.html" %}
+
+{% block title %}Email Configuration{% endblock %}
+{% block email_title %}Email Configuration{% endblock %}
+{% block email_intro %}Manage the built-in system mailbox, the delivery switches, the shared footer text, and email testing without mixing in the template editing area.{% endblock %}
+
+{% block email_body %}
+<style>
+    .email-status-banner {
+        display:flex;
+        align-items:center;
+        gap:0.75rem;
+        padding:1rem 1.1rem;
+    }
+    .email-test-result {
+        border-radius:12px;
+        padding:0.95rem 1rem;
+        margin:1rem 0;
+        font-size:0.92rem;
+        font-weight:700;
+        line-height:1.5;
+    }
+    .email-test-result.success {
+        background:#e7f8ef;
+        border:1px solid #b9ebcf;
+        color:#0d6b3f;
+    }
+    .email-test-result.error {
+        background:#fde8ea;
+        border:1px solid #f5bdc4;
+        color:#9b1c28;
+    }
+    .email-config-topbar {
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:1rem;
+        margin:1rem 0 0;
+        flex-wrap:wrap;
+    }
+    .email-config-topbar-copy {
+        max-width:720px;
+    }
+    .email-config-topbar-copy h3 {
+        margin:0 0 0.3rem;
+        font-size:1.04rem;
+        color:#16324f;
+    }
+    .email-config-topbar-copy p {
+        margin:0;
+        color:#607385;
+        font-size:0.88rem;
+        line-height:1.55;
+    }
+    .email-inline-actions {
+        display:flex;
+        align-items:center;
+        gap:0.75rem;
+        flex-wrap:wrap;
+    }
+    .email-section-block {
+        margin-top:1rem;
+        padding:1.15rem 1.2rem;
+        border:1px solid #d8e5f2;
+        border-radius:18px;
+        background:linear-gradient(180deg, #fbfdff 0%, #f7fbff 100%);
+        box-shadow:0 12px 28px rgba(16, 52, 87, 0.05);
+    }
+    .email-section-block h2 {
+        margin:0 0 0.3rem;
+        font-size:1.02rem;
+        color:#16324f;
+    }
+    .email-section-block > p {
+        margin:0 0 1rem;
+        color:#607385;
+        font-size:0.88rem;
+        line-height:1.55;
+    }
+    .email-event-grid {
+        display:grid;
+        grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));
+        gap:1rem;
+        margin-top:1rem;
+    }
+    .email-event-panel {
+        border:1px solid #d8e5f2;
+        border-radius:18px;
+        background:#fff;
+        overflow:hidden;
+        box-shadow:0 10px 22px rgba(15, 52, 86, 0.05);
+    }
+    .email-event-panel-header {
+        padding:1rem 1rem 0.85rem;
+        border-bottom:1px solid #e4edf6;
+        background:linear-gradient(180deg, #f8fbff 0%, #f4f9ff 100%);
+    }
+    .email-event-panel-header h3 {
+        margin:0 0 0.3rem;
+        font-size:1rem;
+        color:#16324f;
+    }
+    .email-event-panel-header p {
+        margin:0;
+        color:#607385;
+        font-size:0.85rem;
+        line-height:1.55;
+    }
+    .email-event-list {
+        display:flex;
+        flex-direction:column;
+    }
+    .email-event-toggle {
+        display:flex;
+        align-items:flex-start;
+        gap:0.85rem;
+        padding:0.95rem 1rem;
+        border-bottom:1px solid #e8eff6;
+        transition:background-color 0.18s ease;
+    }
+    .email-event-toggle:hover {
+        background:#f8fbff;
+    }
+    .email-event-toggle:last-child {
+        border-bottom:none;
+    }
+    .email-event-toggle input[type="checkbox"] {
+        width:19px;
+        height:19px;
+        margin-top:0.18rem;
+        flex:0 0 auto;
+        accent-color:#1766a6;
+    }
+    .email-event-toggle label {
+        display:block;
+        margin:0;
+        color:#16324f;
+        font-size:0.9rem;
+        font-weight:700;
+        text-transform:none;
+        letter-spacing:0;
+        cursor:pointer;
+    }
+    .email-event-toggle small {
+        display:block;
+        margin-top:0.22rem;
+        color:#607385;
+        font-size:0.8rem;
+        line-height:1.5;
+    }
+    .email-config-summary {
+        display:grid;
+        grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+        gap:1rem;
+        margin-top:1rem;
+    }
+    .email-config-card {
+        background:#fff;
+        border:1px solid #d8e5f2;
+        border-radius:16px;
+        padding:1rem 1.05rem;
+        box-shadow:0 10px 22px rgba(15, 52, 86, 0.04);
+    }
+    .email-config-card.full {
+        grid-column:1 / -1;
+    }
+    .email-config-card h3 {
+        margin:0 0 0.3rem;
+        font-size:0.78rem;
+        font-weight:700;
+        text-transform:uppercase;
+        letter-spacing:0.08em;
+        color:#6d8094;
+    }
+    .email-config-value {
+        font-size:1rem;
+        font-weight:700;
+        color:#16324f;
+        line-height:1.45;
+        word-break:break-word;
+    }
+    .email-config-help {
+        margin-top:0.35rem;
+        color:#607385;
+        font-size:0.82rem;
+        line-height:1.55;
+    }
+    .email-status-pill {
+        display:inline-flex;
+        align-items:center;
+        padding:0.25rem 0.7rem;
+        border-radius:999px;
+        font-size:0.78rem;
+        font-weight:700;
+        line-height:1;
+    }
+    .email-status-pill.enabled {
+        background:#e7f8ef;
+        color:#166f4c;
+    }
+    .email-status-pill.disabled {
+        background:#eef3f7;
+        color:#5b7085;
+    }
+    .email-event-status-item {
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:1rem;
+        padding:0.95rem 1rem;
+        border-bottom:1px solid #e8eff6;
+    }
+    .email-event-panel .email-event-status-item:last-child {
+        border-bottom:none;
+    }
+    .email-event-status-copy {
+        flex:1 1 auto;
+        min-width:0;
+    }
+    .email-event-status-title {
+        margin:0;
+        color:#16324f;
+        font-size:0.92rem;
+        font-weight:700;
+        line-height:1.4;
+    }
+    .email-event-status-copy small {
+        display:block;
+        margin-top:0.22rem;
+        color:#607385;
+        font-size:0.8rem;
+        line-height:1.5;
+    }
+    .email-section-meta {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:1rem;
+        margin-bottom:0.8rem;
+        flex-wrap:wrap;
+    }
+    .email-section-meta p {
+        margin:0;
+        color:#607385;
+        font-size:0.85rem;
+        line-height:1.5;
+    }
+    .email-count-chip {
+        display:inline-flex;
+        align-items:center;
+        gap:0.45rem;
+        padding:0.35rem 0.8rem;
+        border-radius:999px;
+        background:#edf6fd;
+        border:1px solid #d6e6f2;
+        color:#1d5f96;
+        font-size:0.8rem;
+        font-weight:700;
+        line-height:1;
+    }
+    .email-count-chip::before {
+        content:"";
+        width:8px;
+        height:8px;
+        border-radius:999px;
+        background:#22a06b;
+        box-shadow:0 0 0 4px rgba(34, 160, 107, 0.12);
+    }
+    .email-panel-count {
+        display:inline-flex;
+        align-items:center;
+        padding:0.22rem 0.58rem;
+        border-radius:999px;
+        background:#edf6fd;
+        color:#1d5f96;
+        font-size:0.74rem;
+        font-weight:700;
+    }
+    .email-settings-canvas {
+        display:flex;
+        flex-direction:column;
+        gap:1rem;
+        margin-top:1rem;
+    }
+    .email-sender-spotlight {
+        position:relative;
+        display:grid;
+        grid-template-columns:minmax(0, 1.25fr) minmax(280px, 0.75fr);
+        gap:1rem;
+        padding:1.15rem 1.2rem 1.15rem 1.35rem;
+        border-radius:20px;
+        border:1px solid #d7e5f0;
+        background:linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+        box-shadow:0 14px 30px rgba(15, 52, 86, 0.06);
+        overflow:hidden;
+    }
+    .email-sender-spotlight::before {
+        content:"";
+        position:absolute;
+        inset:0 auto 0 0;
+        width:6px;
+        background:linear-gradient(180deg, #1766a6 0%, #69b6dc 100%);
+    }
+    .email-sender-copy h3 {
+        margin:0 0 0.3rem;
+        font-size:0.8rem;
+        font-weight:700;
+        text-transform:uppercase;
+        letter-spacing:0.12em;
+        color:#6d8094;
+    }
+    .email-sender-copy strong {
+        display:block;
+        font-size:1.32rem;
+        font-weight:700;
+        line-height:1.2;
+        letter-spacing:-0.02em;
+        color:#16324f;
+    }
+    .email-sender-copy p {
+        margin:0.65rem 0 0;
+        max-width:700px;
+        font-size:0.9rem;
+        line-height:1.65;
+        color:#5f7487;
+    }
+    .email-sender-side {
+        display:flex;
+        align-items:stretch;
+    }
+    .email-sender-side .email-sender-chip {
+        width:100%;
+        padding:0.95rem 1rem;
+        border-radius:16px;
+        background:#f4f9fd;
+        border:1px solid #d8e6f1;
+    }
+    .email-sender-side .email-sender-chip h4 {
+        margin:0 0 0.3rem;
+        font-size:0.74rem;
+        font-weight:700;
+        text-transform:uppercase;
+        letter-spacing:0.1em;
+        color:#70839a;
+    }
+    .email-sender-side .email-sender-chip p {
+        margin:0;
+        font-size:0.9rem;
+        line-height:1.55;
+        color:#16324f;
+        font-weight:700;
+    }
+    .email-settings-grid {
+        display:grid;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:1rem;
+    }
+    .email-setting-card {
+        padding:1.1rem 1.15rem;
+        border-radius:18px;
+        border:1px solid #d8e5f2;
+        background:#fff;
+        box-shadow:0 10px 24px rgba(15, 52, 86, 0.04);
+    }
+    .email-setting-card.full {
+        grid-column:1 / -1;
+    }
+    .email-setting-card--toggle {
+        background:linear-gradient(180deg, #f7fbff 0%, #eef6fd 100%);
+        border-color:#cfe0ef;
+    }
+    .email-setting-label {
+        margin:0 0 0.35rem;
+        font-size:0.76rem;
+        font-weight:700;
+        text-transform:uppercase;
+        letter-spacing:0.09em;
+        color:#6c8094;
+    }
+    .email-setting-title {
+        margin:0;
+        font-size:1rem;
+        font-weight:700;
+        color:#16324f;
+        line-height:1.35;
+    }
+    .email-setting-card small,
+    .email-setting-copy {
+        display:block;
+        margin-top:0.35rem;
+        font-size:0.84rem;
+        line-height:1.6;
+        color:#607385;
+    }
+    .email-toggle-tile {
+        display:flex;
+        align-items:flex-start;
+        gap:0.9rem;
+    }
+    .email-toggle-tile input[type="checkbox"] {
+        width:22px;
+        height:22px;
+        margin-top:0.1rem;
+        accent-color:#1766a6;
+        flex:0 0 auto;
+    }
+    .email-toggle-tile label {
+        display:block;
+        margin:0;
+        color:#16324f;
+        font-size:1rem;
+        font-weight:700;
+        text-transform:none;
+        letter-spacing:0;
+        cursor:pointer;
+    }
+    .email-toggle-tile small {
+        margin-top:0.32rem;
+    }
+    .email-field-card label {
+        display:block;
+        margin:0 0 0.5rem;
+        font-size:0.76rem;
+        font-weight:700;
+        text-transform:uppercase;
+        letter-spacing:0.09em;
+        color:#6c8094;
+    }
+    .email-field-card input[type="number"],
+    .email-field-card input[type="email"],
+    .email-field-card input[type="text"],
+    .email-field-card select,
+    .email-field-card textarea {
+        width:100%;
+        padding:0.9rem 0.95rem;
+        border:1px solid #cddceb;
+        border-radius:14px;
+        background:#fcfeff;
+        color:#16324f;
+        font-size:0.95rem;
+        font-family:inherit;
+        transition:border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+    }
+    .email-field-card input:focus,
+    .email-field-card select:focus,
+    .email-field-card textarea:focus {
+        outline:none;
+        border-color:#1e70b3;
+        box-shadow:0 0 0 4px rgba(30, 112, 179, 0.12);
+        background:#fff;
+    }
+    .email-field-card textarea {
+        min-height:160px;
+        resize:vertical;
+    }
+    .email-field-card code {
+        color:#1d5f96;
+        background:#eef6ff;
+        padding:0.1rem 0.35rem;
+        border-radius:6px;
+    }
+    @media (max-width: 900px) {
+        .email-config-topbar {
+            flex-direction:column;
+            align-items:stretch;
+        }
+        .email-sender-spotlight,
+        .email-settings-grid,
+        .email-event-grid {
+            grid-template-columns:1fr;
+        }
+    }
+</style>
+<section class="email-panel">
+    <h2>System Email</h2>
+    <p>The sender mailbox is centrally managed. This page focuses on operational controls, covered email areas, and delivery testing.</p>
+
+    <div class="email-status-banner {% if email_summary.transport_ready %}ready{% else %}not-ready{% endif %}">
+        {% if email_summary.transport_ready %}
+            The system mailbox is ready to send.
+        {% else %}
+            The system mailbox is not ready yet. Update the settings, then send a test email to verify the configuration.
+        {% endif %}
+    </div>
+
+    {% if email_test_flash %}
+        <div class="email-test-result {{ email_test_flash.level }}">
+            {{ email_test_flash.message }}
+        </div>
+    {% endif %}
+
+    <div class="email-config-topbar">
+        <div class="email-config-topbar-copy">
+            <h3>{% if email_configuration_exists and not email_configuration_edit_mode %}Saved Configuration{% else %}Configuration Details{% endif %}</h3>
+            <p>{% if email_configuration_exists and not email_configuration_edit_mode %}Review the saved email settings below. Use edit only when you want to change the configuration.{% else %}Update the email behavior, reminder timing, shared footer text, and delivery coverage from this screen.{% endif %}</p>
+        </div>
+        {% if email_can_manage %}
+        <div class="email-inline-actions">
+            {% if email_configuration_exists and not email_configuration_edit_mode %}
+                <a href="{% url 'scorecard:email_configuration' %}?edit=1" class="email-button primary">Edit Email Settings</a>
+            {% else %}
+                <button type="submit" form="email-configuration-form" name="save_configuration" class="email-button primary">
+                    {% if email_configuration_exists %}Save Changes{% else %}Save Email Settings{% endif %}
+                </button>
+                {% if email_configuration_exists %}
+                    <a href="{% url 'scorecard:email_configuration' %}" class="email-button secondary">Cancel</a>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <form method="post" id="email-configuration-form">
+        {% csrf_token %}
+        {{ config_form.name.as_hidden }}
+        {{ config_form.smtp_host }}
+        {{ config_form.smtp_port }}
+
+        {% if email_configuration_exists and not email_configuration_edit_mode %}
+            <div class="email-config-summary">
+                <div class="email-config-card full">
+                    <h3>Built-In Sender Mailbox</h3>
+                    <div class="email-config-value">{{ email_configuration.from_email_override|default:"-" }}</div>
+                    <div class="email-config-help">
+                        This mailbox is managed by the system and is not edited from the frontend.
+                        {% if password_is_saved %}
+                            The sender password is being supplied through secure runtime settings.
+                        {% else %}
+                            The sender password is not yet available in secure runtime settings.
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="email-config-card">
+                    <h3>Global Scorecard Emails</h3>
+                    <div class="email-config-value">
+                        <span class="email-status-pill {% if email_configuration.is_enabled %}enabled{% else %}disabled{% endif %}">
+                            {% if email_configuration.is_enabled %}Enabled{% else %}Disabled{% endif %}
+                        </span>
+                    </div>
+                    <div class="email-config-help">Master switch for all scorecard email delivery.</div>
+                </div>
+
+                <div class="email-config-card">
+                    <h3>Covered Areas</h3>
+                    <div class="email-config-value">{{ event_template_enabled_count }} / {{ event_template_total_count }}</div>
+                    <div class="email-config-help">Email areas currently enabled across workflow and failure coverage.</div>
+                </div>
+
+                <div class="email-config-card">
+                    <h3>Checker Pending Reminder Hours</h3>
+                    <div class="email-config-value">{{ email_configuration.checker_pending_reminder_hours }}</div>
+                    <div class="email-config-help">Submitted score reviews trigger reminder emails after this many hours.</div>
+                </div>
+
+                <div class="email-config-card">
+                    <h3>Without-Score Email Schedule</h3>
+                    <div class="email-config-value">
+                        {{ email_configuration.get_without_score_summary_frequency_display }} at {{ email_configuration.without_score_summary_hour }}:00
+                    </div>
+                    <div class="email-config-help">Scheduled missing-score lists for Basel II and IFRS9 makers.</div>
+                </div>
+
+                <div class="email-config-card">
+                    <h3>Last Without-Score Email</h3>
+                    <div class="email-config-value">
+                        {{ email_configuration.without_score_summary_last_sent_at|date:"Y-m-d H:i"|default:"Not sent yet" }}
+                    </div>
+                    <div class="email-config-help">Last scheduler run for branch missing-score summaries.</div>
+                </div>
+
+                <div class="email-config-card">
+                    <h3>Repeated Schedule Failure Count</h3>
+                    <div class="email-config-value">{{ email_configuration.schedule_failure_repeat_threshold }}</div>
+                    <div class="email-config-help">Repeated-failure reminders start after this many schedule failures inside the reminder window.</div>
+                </div>
+
+                <div class="email-config-card">
+                    <h3>Schedule Failure Window Hours</h3>
+                    <div class="email-config-value">{{ email_configuration.schedule_failure_repeat_window_hours }}</div>
+                    <div class="email-config-help">Schedule failures are counted inside this many hours when deciding whether to trigger reminders.</div>
+                </div>
+
+                <div class="email-config-card full">
+                    <h3>Application Base URL</h3>
+                    <div class="email-config-value">{{ email_configuration.application_base_url|default:"-" }}</div>
+                    <div class="email-config-help">Email action links use this server URL or IP address.</div>
+                </div>
+
+                <div class="email-config-card full">
+                    <h3>Footer Text</h3>
+                    <div class="email-config-value" style="font-size:0.96rem; font-weight:600;">{{ email_configuration.footer_text|default:"-" }}</div>
+                    <div class="email-config-help">Shared footer content added across outgoing scorecard emails.</div>
+                </div>
+            </div>
+        {% else %}
+            <div class="email-settings-canvas">
+                <div class="email-sender-spotlight">
+                    <div class="email-sender-copy">
+                        <h3>System Sender</h3>
+                        <strong>{{ email_configuration.from_email_override|default:"-" }}</strong>
+                        <p>
+                            This mailbox is managed by the system and cannot be changed from the frontend.
+                            {% if password_is_saved %}
+                                The sender password is being supplied through secure runtime settings.
+                            {% else %}
+                                The sender password is not yet available in secure runtime settings.
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="email-sender-side">
+                        <div class="email-sender-chip">
+                            <h4>Delivery Status</h4>
+                            <p>{% if email_summary.transport_ready %}Ready to send{% else %}Needs attention{% endif %}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="email-settings-grid">
+                    <div class="email-setting-card email-setting-card--toggle">
+                        <p class="email-setting-label">Master Control</p>
+                        <div class="email-toggle-tile">
+                            {{ config_form.is_enabled }}
+                            <label for="{{ config_form.is_enabled.id_for_label }}">
+                                Enable scorecard emails globally
+                                <small>Turn all scorecard email delivery on or off from one master switch.</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="email-setting-card email-field-card">
+                        <label for="{{ config_form.checker_pending_reminder_hours.id_for_label }}">Checker Pending Reminder Hours</label>
+                        {{ config_form.checker_pending_reminder_hours }}
+                        <small>Send reminder emails when submitted score reviews have been waiting longer than this number of hours.</small>
+                    </div>
+
+                    <div class="email-setting-card email-field-card">
+                        <label for="{{ config_form.without_score_summary_frequency.id_for_label }}">Without-Score Summary Frequency</label>
+                        {{ config_form.without_score_summary_frequency }}
+                        <small>Choose how often the scheduler sends missing Basel II and IFRS9 score lists.</small>
+                    </div>
+
+                    <div class="email-setting-card email-field-card">
+                        <label for="{{ config_form.without_score_summary_hour.id_for_label }}">Without-Score Send Hour</label>
+                        {{ config_form.without_score_summary_hour }}
+                        <small>Hour of day from 0 to 23 when the summary becomes due.</small>
+                    </div>
+
+                    <div class="email-setting-card email-field-card">
+                        <label for="{{ config_form.without_score_summary_weekday.id_for_label }}">Weekly Send Day</label>
+                        {{ config_form.without_score_summary_weekday }}
+                        <small>Used only for weekly schedules. 0 is Monday and 6 is Sunday.</small>
+                    </div>
+
+                    <div class="email-setting-card email-field-card">
+                        <label for="{{ config_form.without_score_summary_month_day.id_for_label }}">Monthly Send Day</label>
+                        {{ config_form.without_score_summary_month_day }}
+                        <small>Used only for monthly schedules. Keep it from 1 to 28 so every month is valid.</small>
+                    </div>
+
+                    <div class="email-setting-card email-field-card">
+                        <label for="{{ config_form.schedule_failure_repeat_threshold.id_for_label }}">Repeated Schedule Failure Count</label>
+                        {{ config_form.schedule_failure_repeat_threshold }}
+                        <small>Trigger repeated-failure reminders after this many schedule failures inside the reminder window.</small>
+                    </div>
+
+                    <div class="email-setting-card email-field-card">
+                        <label for="{{ config_form.schedule_failure_repeat_window_hours.id_for_label }}">Schedule Failure Window Hours</label>
+                        {{ config_form.schedule_failure_repeat_window_hours }}
+                        <small>Count schedule failures inside this time window when deciding whether to trigger repeated-failure reminders.</small>
+                    </div>
+
+                    <div class="email-setting-card email-field-card full">
+                        <label for="{{ config_form.application_base_url.id_for_label }}">Application Base URL</label>
+                        {{ config_form.application_base_url }}
+                        <small>Enter the real server URL or IP address people open in the browser. Example: <code>http://192.168.x.x:8000</code>.</small>
+                    </div>
+
+                    <div class="email-setting-card email-field-card full">
+                        <label for="{{ config_form.footer_text.id_for_label }}">Footer Text</label>
+                        {{ config_form.footer_text }}
+                        <small>This shared footer appears across outgoing scorecard emails to keep the communication consistent.</small>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="email-section-block">
+            <div class="email-section-meta">
+                <h2>Covered Email Areas</h2>
+                <span class="email-count-chip">{{ event_template_enabled_count }} of {{ event_template_total_count }} enabled</span>
+            </div>
+            <p>Choose exactly which workflow and failure areas should send emails. The wording for each area still lives on the Email Templates page.</p>
+
+            <div class="email-event-grid">
+                {% for section in event_template_sections %}
+                    <div class="email-event-panel">
+                        <div class="email-event-panel-header">
+                            <h3>{{ section.title }} <span class="email-panel-count">{{ section.records|length }}</span></h3>
+                            <p>{{ section.subtitle }}</p>
+                        </div>
+                        <div class="email-event-list">
+                            {% for record in section.records %}
+                                {% if email_configuration_exists and not email_configuration_edit_mode %}
+                                    <div class="email-event-status-item">
+                                        <div class="email-event-status-copy">
+                                            <p class="email-event-status-title">{{ record.name }}</p>
+                                            <small>{{ record.description }}</small>
+                                        </div>
+                                        <span class="email-status-pill {% if record.is_enabled %}enabled{% else %}disabled{% endif %}">
+                                            {% if record.is_enabled %}Enabled{% else %}Disabled{% endif %}
+                                        </span>
+                                    </div>
+                                {% else %}
+                                    <div class="email-event-toggle">
+                                        <input
+                                            type="checkbox"
+                                            id="{{ record.toggle_field_name }}"
+                                            name="{{ record.toggle_field_name }}"
+                                            value="1"
+                                            {% if record.is_enabled %}checked{% endif %}
+                                        >
+                                        <label for="{{ record.toggle_field_name }}">
+                                            {{ record.name }}
+                                            <small>{{ record.description }}</small>
+                                        </label>
+                                    </div>
+                                {% endif %}
+                            {% empty %}
+                                <div class="email-readonly" style="margin:1rem;">No covered areas are available in this section yet.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </form>
+
+    {% if email_can_manage %}
+    <div class="email-section-block">
+        <h2>Test Email</h2>
+        <p>Send a test message to confirm that the fixed system mailbox can deliver successfully.</p>
+        <form method="post" action="{% url 'scorecard:email_configuration' %}" id="email-test-form">
+            {% csrf_token %}
+            <input type="hidden" name="send_test_email" value="1">
+            <div class="email-form-grid">
+                <div class="email-field full">
+                    <label for="test_recipient">Test Recipient</label>
+                    <input type="email" id="test_recipient" name="test_recipient" value="{{ default_test_recipient }}" required>
+                    <small>Enter the address that should receive the test email.</small>
+                </div>
+            </div>
+            <div class="email-button-row">
+                <button type="submit" form="email-test-form" class="email-button secondary">Send Test Email</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

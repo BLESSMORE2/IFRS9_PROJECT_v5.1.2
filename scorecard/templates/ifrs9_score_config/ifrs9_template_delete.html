@@ -1,0 +1,159 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Delete IFRS9 Template - {{ template.code }}{% endblock %}
+{% block header_title %}Delete IFRS9 Template{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .alert-box {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .alert-danger {
+        background-color: #ffe9e9;
+        border: 1px solid #dc3545;
+        color: #b00020;
+    }
+    .alert-warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        color: #856404;
+    }
+    .alert-box strong {
+        font-weight: 600;
+    }
+    .template-details-box {
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+        background-color: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .template-details-item {
+        margin-bottom: 0.75rem;
+        font-size: 0.9rem;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .template-details-item:last-child {
+        margin-bottom: 0;
+    }
+    .template-details-item strong {
+        font-weight: 600;
+        color: #333;
+        margin-right: 0.5rem;
+    }
+    .template-details-label {
+        display: inline-block;
+        min-width: 140px;
+        color: #666;
+    }
+    .template-details-value {
+        color: #333;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-danger {
+        background: #dc3545;
+        color: white;
+    }
+    .btn-danger:hover {
+        background: #c82333;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+<div class="alert-box alert-danger">
+    {% if evaluation_count > 0 %}
+        <strong>Archive Delete:</strong> This template has <strong>{{ evaluation_count }}</strong> evaluation(s) associated with it, so deleting it will archive it instead of removing historical data. It will be marked inactive and cancelled, and it will no longer be available for new IFRS9 evaluations.
+    {% else %}
+        <strong>Warning:</strong> This will permanently delete the template record and its configuration. This action cannot be undone.
+    {% endif %}
+</div>
+
+<div class="template-details-box">
+    <div class="template-details-item">
+        <strong class="template-details-label">Code:</strong>
+        <span class="template-details-value">{{ template.code }}</span>
+    </div>
+    <div class="template-details-item">
+        <strong class="template-details-label">Name:</strong>
+        <span class="template-details-value">{{ template.name }}</span>
+    </div>
+    {% if template.description %}
+    <div class="template-details-item">
+        <strong class="template-details-label">Description:</strong>
+        <span class="template-details-value">{{ template.description }}</span>
+    </div>
+    {% endif %}
+    <div class="template-details-item">
+        <strong class="template-details-label">Active:</strong>
+        <span class="template-details-value">{% if template.is_active %}Yes{% else %}No{% endif %}</span>
+    </div>
+    {% if evaluation_count > 0 %}
+    <div class="template-details-item">
+        <strong class="template-details-label">Associated Evaluations:</strong>
+        <span class="template-details-value">{{ evaluation_count }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="actions">
+        <a href="{% url 'scorecard:ifrs9_template_list' %}" class="btn btn-secondary">
+            Cancel
+        </a>
+        <button type="submit" class="btn btn-danger">
+            {% if evaluation_count > 0 %}Archive Template{% else %}Delete Template{% endif %}
+        </button>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,840 @@
+{# Partial template containing only the questionnaire content (no extends) #}
+{# This can be included in other templates without causing duplicate headers/sidebars #}
+{% load dict_extras %}
+<style>
+    .sheet-header {
+        border: none;
+        margin-bottom: 0.25rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .sheet-header td {
+        border: none;
+    }
+    .sheet-header-title {
+        font-weight: 600;
+        font-size: 1.05rem;
+        color: #333;
+    }
+    .sheet-header-code {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #333;
+        text-align: right;
+    }
+    .meta-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .meta-table td {
+        border: 1px solid #e0e0e0;
+        padding: 0.4rem 0.5rem;
+        font-size: 12px;
+    }
+    .meta-table td:first-child {
+        font-weight: 600;
+        color: #333;
+        background-color: #f5f5f5;
+        width: 18%;
+    }
+    .meta-table td:nth-child(2) {
+        background-color: #f9f9f9;
+        width: 32%;
+    }
+    .meta-table td:nth-child(3) {
+        font-weight: 600;
+        color: #333;
+        background-color: #f5f5f5;
+        width: 20%;
+    }
+    .meta-table td:nth-child(4) {
+        background-color: #f9f9f9;
+        width: 30%;
+    }
+    .formulas-box {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background-color: #f0f8ff;
+        border: 1px solid #0066cc;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .formulas-title {
+        margin-top: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0066cc;
+        margin-bottom: 0.75rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .formula-item {
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .formula-item:last-child {
+        margin-bottom: 0;
+    }
+    .formula-item strong {
+        color: #0066cc;
+        font-weight: 600;
+    }
+    .sticky-header-table {
+        position: relative;
+    }
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: #e3f2fd;
+    }
+    .sticky-header th {
+        background: #e3f2fd;
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.2);
+    }
+    .section-header {
+        margin-top: 1.5rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.75rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.5rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    table thead th {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        padding: 0.4rem 0.5rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    table thead th.text-center {
+        text-align: center;
+    }
+    table tbody td {
+        border: 1px solid #e0e0e0;
+        padding: 0.3rem 0.5rem;
+        font-size: 12px;
+        color: #333;
+    }
+    table tbody td.text-center {
+        text-align: center;
+    }
+    .driver-header-row {
+        background-color: #f5f5f5;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .group-label-row {
+        background-color: #f9f9f9;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .highest-score-row {
+        background-color: #f0f0f0;
+    }
+    .document-display-section {
+        padding: 0.75rem;
+        background-color: #ffffff;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+    }
+    .document-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+        background-color: #ffffff;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        transition: box-shadow 0.2s ease;
+    }
+    .document-item:hover {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .btn-download {
+        padding: 0.4rem 0.75rem;
+        background-color: #0066cc;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: background-color 0.2s ease;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-download:hover {
+        background-color: #0052a3;
+        color: white;
+        text-decoration: none;
+    }
+    .driver-totals-row {
+        background-color: #e0e0e0;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .section-totals-row {
+        background-color: #d0d0d0;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .overall-totals-row {
+        background-color: #b0b0b0;
+        font-weight: 600;
+        font-size: 12px;
+        border-top: 3px solid #000;
+    }
+    .empty-attribute-row {
+        color: #999;
+        font-style: italic;
+        font-size: 12px;
+    }
+    .selected-option {
+        background-color: #e8f5e9;
+        font-weight: 600;
+    }
+    .calculation-result-box {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background-color: #f0f8ff;
+        border: 2px solid #0066cc;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .calculation-result-title {
+        margin-top: 0;
+        margin-bottom: 1rem;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #0066cc;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .calculation-result-table {
+        width: 100%;
+        margin-bottom: 1rem;
+        border-collapse: collapse;
+    }
+    .calculation-result-table td {
+        padding: 0.75rem;
+        border: 1px solid #e0e0e0;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .calculation-result-table td:first-child {
+        font-weight: 600;
+        color: #333;
+        width: 40%;
+        vertical-align: top;
+    }
+    .current-value {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #0066cc;
+    }
+    .current-label {
+        font-size: 0.85rem;
+        color: #666;
+        margin-left: 0.5rem;
+        font-weight: normal;
+    }
+    .previous-values-section {
+        margin-top: 0.75rem;
+    }
+    .previous-values-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #666;
+        margin-bottom: 0.5rem;
+    }
+    .previous-value-item {
+        margin-top: 0.3rem;
+        font-size: 0.9rem;
+        color: #999;
+        padding-left: 1rem;
+    }
+    .previous-value-timestamp {
+        margin-left: 0.5rem;
+        font-size: 0.85rem;
+        color: #999;
+    }
+    .previous-grade-badge {
+        color: #999;
+        padding: 0.3rem 0.7rem;
+        border: 1px solid #999;
+        border-radius: 3px;
+        display: inline-block;
+        font-size: 0.9rem;
+    }
+    .final-grade {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #0b8457;
+        background-color: #ffffff;
+        padding: 0.5rem 1rem;
+        border: 2px solid #0b8457;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    .grading-scale-section {
+        margin-top: 2rem;
+        page-break-inside: avoid;
+    }
+    .grading-scale-title {
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .grading-scale-table {
+        width: 50%;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .grading-scale-table thead th {
+        background-color: #f5f5f5;
+        border: 1px solid #cbd2e1;
+        text-align: left;
+        padding: 0.4rem 0.5rem;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    .grading-scale-table tbody td {
+        border: 1px solid #cbd2e1;
+        padding: 0.4rem 0.5rem;
+        font-size: 12px;
+        color: #333;
+    }
+    .grading-scale-table tbody td:last-child {
+        font-weight: 600;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+<!-- Sheet header -->
+<table class="sheet-header">
+    <tr>
+        <td class="sheet-header-title">
+            {{ template.name|upper }}
+        </td>
+        <td class="sheet-header-code text-right">
+            {{ template.code }}
+        </td>
+    </tr>
+</table>
+
+<table class="meta-table">
+    <tr>
+        <td>Branch</td>
+        <td>{{ evaluation.branch_name }}</td>
+        <td>Customer Name</td>
+        <td>{{ evaluation.customer_name }}</td>
+    </tr>
+    <tr>
+        <td>Customer ID</td>
+        <td>{{ evaluation.customer_id }}</td>
+        <td class="no-border"></td>
+        <td class="no-border"></td>
+    </tr>
+</table>
+
+<div class="formulas-box">
+    <h3 class="formulas-title">Calculation Formulas (Same for all sections):</h3>
+    <div>
+        <div class="formula-item">
+            <strong>ACTUAL_SCORE:</strong> {{ template.formula_actual_score|default:"ALLOCATED_SCORE" }}
+        </div>
+        <div class="formula-item">
+            <strong>WEIGHTED_SCORE:</strong> {{ template.formula_weighted_score|default:"ACTUAL_SCORE / Highest_Possible_Score * WEIGHT" }}
+        </div>
+        <div class="formula-item">
+            <strong>PROOF:</strong> {{ template.formula_proof|default:"IF(ACTUAL_SCORE = '', '', IF(ACTUAL_SCORE != ALLOCATED_SCORE, 'ERROR', '')) + ALLOCATED_SCORE" }}
+        </div>
+    </div>
+</div>
+
+{% for section in sections %}
+    {% with section_score=section_scores|get_item:section.id %}
+    <h2 class="section-header">{{ section.code }}) {{ section.name|upper }}</h2>
+    <table class="sticky-header-table">
+        <thead class="sticky-header">
+        <tr>
+            <th style="width: 40%;">RISK DRIVERS</th>
+            <th style="width: 12%;" class="text-center">ALLOCATED<br>SCORE</th>
+            <th style="width: 12%;" class="text-center">ACTUAL<br>SCORE</th>
+            <th style="width: 12%;" class="text-center">WEIGHT</th>
+            <th style="width: 12%;" class="text-center">WEIGHTED<br>SCORE</th>
+            <th style="width: 12%;" class="text-center">PROOF</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for driver in drivers_by_section|get_item:section.id %}
+            {% with driver_attrs=attributes_by_driver|get_item:driver.id driver_score=driver_scores|get_item:driver.id %}
+                <!-- Risk Driver Header Row -->
+                <tr class="driver-row driver-header-row" data-driver-id="{{ driver.id }}">
+                    <td colspan="6" class="driver-header">
+                        {{ driver.code }}. {{ driver.name }}
+                    </td>
+                </tr>
+                
+                {% if driver_attrs %}
+                    {% for attribute in driver_attrs %}
+                        {% with attr_response=attribute_responses|get_item:attribute.id %}
+                            <!-- Attribute Group Label Row (e.g., "a) Natural Region I") -->
+                            {% if attribute.group_label %}
+                                <tr class="group-label-row">
+                                    <td colspan="6" style="padding-left: 1rem;">
+                                        {{ attribute.group_label }}
+                                    </td>
+                                </tr>
+                            {% endif %}
+                            
+                            <!-- Individual Options as Rows -->
+                            {% for option in attribute.options.all %}
+                                {% with is_selected=attr_response.option.id|default:0|add:0 is_current_option=option.id|default:0|add:0 %}
+                                <tr class="{% if attr_response.option.id == option.id %}selected-option{% endif %}">
+                                    <td style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %};">
+                                        {% if attr_response.option.id == option.id %}
+                                            {% if evaluation.status == 'approved' %}
+                                                <span style="color: #28a745; font-weight: 700;">✓ APPROVED:</span> {{ option.label }}
+                                            {% else %}
+                                                ✓ {{ option.label }}
+                                            {% endif %}
+                                        {% else %}
+                                            {{ option.label }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ option.allocated_score }}</td>
+                                    <td class="text-center">
+                                        {% if attr_response.option.id == option.id %}{{ attr_response.allocated_score|floatformat:2 }}{% else %}-{% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {{ attribute.weight_percent|floatformat:2 }}%
+                                    </td>
+                                    <td class="text-center">
+                                        {% if attr_response.option.id == option.id %}
+                                            {% with max_score=attribute.options.all|max_score %}
+                                                {% if max_score and max_score > 0 %}
+                                                    {% widthratio attr_response.allocated_score max_score 100 as ratio %}
+                                                    {% widthratio ratio attribute.weight_percent 100 as weighted %}
+                                                    {{ weighted|floatformat:2 }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if attr_response.option.id == option.id and driver_score %}
+                                            {% if driver_score.proof %}{{ driver_score.proof }}{% else %}-{% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% if attr_response.option.id == option.id and attribute.requires_document %}
+                                <!-- Document Display Section for Selected Option -->
+                                <tr class="document-display-row">
+                                    <td colspan="6" style="padding-left: {% if attribute.group_label %}3rem{% else %}2rem{% endif %}; padding-top: 0.75rem; padding-bottom: 0.75rem; background-color: #f9f9f9;">
+                                        <div class="document-display-section">
+                                            <label style="font-weight: 600; font-size: 0.85rem; color: #333; margin-bottom: 0.5rem; display: block;">
+                                                Supporting Documents for "{{ option.label }}":
+                                            </label>
+                                            {% if attr_response.documents.all %}
+                                                <div style="margin-top: 0.5rem;">
+                                                    {% for doc in attr_response.documents.all %}
+                                                        <div class="document-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; margin-bottom: 0.5rem; background-color: #ffffff; border: 1px solid #cbd2e1; border-radius: 4px;">
+                                                            <span style="font-size: 1.2rem;">📎</span>
+                                                            <div style="flex: 1;">
+                                                                <a href="{{ doc.file.url }}" target="_blank" download="{{ doc.file_name }}" style="color: #0066cc; text-decoration: none; font-weight: 500; font-size: 0.9rem;">
+                                                                    {{ doc.file_name }}
+                                                                </a>
+                                                                <div style="font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
+                                                                    Uploaded: {{ doc.uploaded_at|date:"M d, Y H:i" }}
+                                                                    {% if doc.uploaded_by %}
+                                                                        by {{ doc.uploaded_by.email }}
+                                                                    {% endif %}
+                                                                </div>
+                                                            </div>
+                                                            <a href="{{ doc.file.url }}" target="_blank" download="{{ doc.file_name }}" class="btn-download" style="padding: 0.4rem 0.75rem; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px; font-size: 0.85rem; font-weight: 500; transition: background-color 0.2s ease;">
+                                                                Download
+                                                            </a>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            {% else %}
+                                                <div style="color: #999; font-style: italic; font-size: 0.85rem; margin-top: 0.5rem;">
+                                                    No documents uploaded for this option.
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endwith %}
+                            {% endfor %}
+                            
+                            <!-- Highest Possible Score Row for this Attribute -->
+                            <tr class="highest-score-row">
+                                <td style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %};">
+                                    Highest Possible Score
+                                </td>
+                                <td class="text-center">{{ attribute.options.all|max_score }}</td>
+                                <td class="text-center">-</td>
+                                <td class="text-center">-</td>
+                                <td class="text-center">-</td>
+                                <td class="text-center">-</td>
+                            </tr>
+                        {% endwith %}
+                    {% endfor %}
+                    
+                    <!-- Totals Row for this Driver (show after all attributes for each driver) -->
+                    {% if driver_score %}
+                    <tr class="driver-totals-row">
+                        <td style="padding-left: 1rem;">
+                            Totals for {{ driver.name }}
+                        </td>
+                        <td class="text-center">
+                            {{ driver.get_max_score|floatformat:2 }}
+                        </td>
+                        <td class="text-center">
+                            {{ driver_score.raw_score|floatformat:2 }}
+                        </td>
+                        <td class="text-center">
+                            {{ driver.get_total_weight_percent|floatformat:2 }}%
+                        </td>
+                        <td class="text-center">
+                            {{ driver_score.weighted_percent|floatformat:2 }}
+                        </td>
+                        <td class="text-center">-</td>
+                    </tr>
+                    {% endif %}
+                {% else %}
+                    <tr class="empty-attribute-row">
+                        <td colspan="6" style="padding-left: 1rem;">
+                            No attributes configured
+                        </td>
+                    </tr>
+                {% endif %}
+            {% endwith %}
+        {% endfor %}
+        
+        <!-- Section Totals Row (show after all drivers in the section) -->
+        {% if section_score %}
+        <tr class="section-totals-row">
+            <td style="padding-left: 1rem;">
+                Totals for {{ section.name }}
+            </td>
+            <td class="text-center">{{ section.get_total_max_score|floatformat:2 }}</td>
+            <td class="text-center">{{ section_score.raw_score|floatformat:2 }}</td>
+            <td class="text-center">{{ section.get_total_weight_percent|floatformat:2 }}%</td>
+            <td class="text-center">{{ section_score.weighted_percent|floatformat:2 }}%</td>
+            <td class="text-center">-</td>
+        </tr>
+        {% endif %}
+        </tbody>
+    </table>
+    {% endwith %}
+{% endfor %}
+
+<!-- Overall Totals Row (show after all sections) -->
+<div style="margin-top: 2rem;">
+    <table class="sticky-header-table">
+        <thead class="sticky-header">
+        <tr>
+            <th style="width: 40%;">RISK DRIVERS</th>
+            <th style="width: 12%;" class="text-center">ALLOCATED<br>SCORE</th>
+            <th style="width: 12%;" class="text-center">ACTUAL<br>SCORE</th>
+            <th style="width: 12%;" class="text-center">WEIGHT</th>
+            <th style="width: 12%;" class="text-center">WEIGHTED<br>SCORE</th>
+            <th style="width: 12%;" class="text-center">PROOF</th>
+        </tr>
+        </thead>
+        <tbody>
+            <tr class="overall-totals-row">
+                <td style="padding-left: 1rem;">
+                    Overall Totals
+                </td>
+                <td class="text-center">{{ evaluation.total_raw_score|floatformat:2 }}</td>
+                <td class="text-center">{{ evaluation.total_raw_score|floatformat:2 }}</td>
+                <td class="text-center">100.00%</td>
+                <td class="text-center">{{ evaluation.total_weighted_percent|floatformat:2 }}</td>
+                <td class="text-center">-</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Calculation Result and Grade Achieved -->
+<div class="calculation-result-box">
+    <h3 class="calculation-result-title">Calculation Result & Grade Achieved</h3>
+    
+    <table class="calculation-result-table">
+        <tbody>
+            <tr>
+                <td>Total Weighted Score:</td>
+                <td>
+                    {% with current_score=evaluation.get_current_weighted_percent pending_score=evaluation.get_pending_weighted_percent %}
+                    {% if current_score is not None %}
+                    <div class="current-value">
+                        <span>{{ current_score|floatformat:2 }}</span>
+                        <span style="font-size: 0.9rem; font-weight: 600; margin-left: 0.5rem;">%</span>
+                        <span class="current-label">(Current{% if evaluation.status == 'submitted' %} - Last Approved{% endif %})</span>
+                    </div>
+                    {% if pending_score is not None %}
+                    <div style="margin-top: 0.5rem; padding: 0.5rem; background-color: #fff3cd; border-left: 3px solid #ff9800; border-radius: 3px;">
+                        <strong style="color: #ff9800;">Pending:</strong> 
+                        <span style="color: #ff9800; font-weight: 600;">{{ pending_score|floatformat:2 }}%</span>
+                        <span style="color: #666; font-size: 0.85rem;">(Awaiting Approval)</span>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="current-value">
+                        <span>{{ evaluation.total_weighted_percent|floatformat:2 }}</span>
+                        <span style="font-size: 0.9rem; font-weight: 600; margin-left: 0.5rem;">%</span>
+                        <span class="current-label">(Current)</span>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    {% if history_records %}
+                        <div class="previous-values-section">
+                            <div class="previous-values-title">Previous Values:</div>
+                            {% for record in history_records %}
+                                <div class="previous-value-item">
+                                    <span>{{ record.weighted_percent|floatformat:2 }}%</span>
+                                    <span class="previous-value-timestamp">({{ record.recorded_at|date:"Y-m-d H:i" }})</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td>Grade Achieved:</td>
+                <td>
+                    <div>
+                        <span class="final-grade">{{ evaluation.final_grade|default:"-" }}</span>
+                        <span class="current-label">(Current)</span>
+                    </div>
+                    {% if history_records %}
+                        <div class="previous-values-section">
+                            <div class="previous-values-title">Previous Values:</div>
+                            {% for record in history_records %}
+                                <div class="previous-value-item">
+                                    <span class="previous-grade-badge">{{ record.grade|default:"-" }}</span>
+                                    <span class="previous-value-timestamp">({{ record.recorded_at|date:"Y-m-d H:i" }})</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+{% if grade_bands %}
+    <div class="grading-scale-section">
+        <h2 class="grading-scale-title">Grading Scale</h2>
+        <table class="grading-scale-table">
+            <thead>
+                <tr>
+                    <th style="width: 60%;">Score Range</th>
+                    <th style="width: 40%;">Grade</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for band in grade_bands %}
+                    <tr>
+                        <td>
+                            {% if band.min_percent == 0 and band.max_percent == 30.99 %}
+                                Below 31%
+                            {% elif band.min_percent == 85 and band.max_percent == 100 %}
+                                85% & Above
+                            {% else %}
+                                [{{ band.min_percent|floatformat:0 }}% - {{ band.max_percent|floatformat:0 }}%]
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ band.grade_code }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+
+<!-- Version History Section -->
+{% if all_versions %}
+<div style="margin-top: 2rem; padding: 1.5rem; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;">
+    <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1rem; font-weight: 600; color: #333; font-family: 'Calibri', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+        Version History
+    </h3>
+    <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">
+        Complete snapshots of this questionnaire at different points in time. Each edit creates a new version.
+    </p>
+    
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'Calibri', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+        <thead>
+            <tr style="background-color: #e3f2fd;">
+                <th style="padding: 0.5rem; border: 1px solid #bbdefb; text-align: left;">Version</th>
+                <th style="padding: 0.5rem; border: 1px solid #bbdefb; text-align: center;">Score</th>
+                <th style="padding: 0.5rem; border: 1px solid #bbdefb; text-align: center;">Grade</th>
+                <th style="padding: 0.5rem; border: 1px solid #bbdefb; text-align: left;">Created By</th>
+                <th style="padding: 0.5rem; border: 1px solid #bbdefb; text-align: left;">Date & Time</th>
+                <th style="padding: 0.5rem; border: 1px solid #bbdefb; text-align: center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Current Version (not in versions table, it's the current evaluation) -->
+            <tr style="background-color: #e8f5e9;">
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0;">
+                    <strong>Current</strong>
+                </td>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0; text-align: center;">
+                    <strong>{{ evaluation.total_weighted_percent|floatformat:2 }}%</strong>
+                </td>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0; text-align: center;">
+                    <strong style="color: #0b8457;">{{ evaluation.final_grade|default:"-" }}</strong>
+                </td>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0;">
+                    {% if latest_version and latest_version.created_by %}
+                        {{ latest_version.created_by.email }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0;">
+                    {% if latest_version %}
+                        {{ latest_version.created_at|date:"Y-m-d H:i" }}
+                    {% elif evaluation.updated_at %}
+                        {{ evaluation.updated_at|date:"Y-m-d H:i" }}
+                    {% else %}
+                        {{ evaluation.created_at|date:"Y-m-d H:i" }}
+                    {% endif %}
+                </td>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0; text-align: center;">
+                    {% if all_versions %}
+                        <a href="{% url 'scorecard:basel_scores_compare_versions' evaluation_id=evaluation.id %}" 
+                           style="text-decoration: none; color: #0066cc; font-size: 11px;">Compare</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            
+            <!-- Historical Versions -->
+            {% for version in all_versions %}
+            <tr {% if version.is_approved %}style="background-color: #e8f5e9;"{% endif %}>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0;">
+                    Version {{ version.version_number }}
+                    {% if version.is_approved %}
+                        <span style="color: #2e7d32; font-weight: 600; font-size: 10px; margin-left: 0.5rem;">✓ Approved</span>
+                        {% if version.approved_at %}
+                            <br><small style="color: #2e7d32; font-size: 9px;">on {{ version.approved_at|date:"Y-m-d" }}</small>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0; text-align: center;">
+                    {{ version.total_weighted_percent|floatformat:2 }}%
+                </td>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0; text-align: center;">
+                    {{ version.final_grade|default:"-" }}
+                </td>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0;">
+                    {% if version.is_approved and version.approved_by %}
+                        Approved by: {{ version.approved_by.email }}
+                        {% if version.created_by and version.created_by != version.approved_by %}
+                            <br><small style="color: #666; font-size: 10px;">Created by: {{ version.created_by.email }}</small>
+                        {% endif %}
+                    {% elif version.created_by %}
+                        {{ version.created_by.email }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0;">
+                    {% if version.is_approved and version.approved_at %}
+                        <strong style="color: #2e7d32;">{{ version.approved_at|date:"Y-m-d H:i" }}</strong>
+                        <br><small style="color: #666; font-size: 10px;">(Approved)</small>
+                        {% if version.created_at != version.approved_at %}
+                            <br><small style="color: #999; font-size: 9px;">Created: {{ version.created_at|date:"Y-m-d H:i" }}</small>
+                        {% endif %}
+                    {% else %}
+                        {{ version.created_at|date:"Y-m-d H:i" }}
+                        <br><small style="color: #999; font-size: 10px;">(Not approved)</small>
+                    {% endif %}
+                </td>
+                <td style="padding: 0.5rem; border: 1px solid #e0e0e0; text-align: center;">
+                    <a href="{% url 'scorecard:basel_scores_compare_versions' evaluation_id=evaluation.id %}?version1={{ version.id }}" 
+                       style="text-decoration: none; color: #0066cc; font-size: 11px;">Compare</a>
+                </td>
+            </tr>
+            {% if version.change_description %}
+            <tr>
+                <td colspan="6" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0; font-size: 11px; color: #666; font-style: italic;">
+                    <em>{{ version.change_description }}</em>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {% if all_versions|length > 1 %}
+    <div style="margin-top: 1rem; text-align: center;">
+        <a href="{% url 'scorecard:basel_scores_compare_versions' evaluation_id=evaluation.id %}" 
+           class="btn" 
+           style="background: #0066cc; color: white; padding: 0.6rem 1.5rem; text-decoration: none; display: inline-block;">
+            Compare Versions
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{# Back button is handled by the parent template #}
+{# This partial template doesn't include navigation buttons #}

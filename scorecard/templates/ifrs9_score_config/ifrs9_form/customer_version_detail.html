@@ -1,0 +1,476 @@
+﻿{% extends "credit_scoreshifts/base.html" %}
+{% load dict_extras %}
+
+{% block title %}Version {{ version.version_number }} - {{ evaluation.customer_name }}{% endblock %}
+{% block header_title %}Version {{ version.version_number }} Details{% endblock %}
+
+{% block content %}
+<a href="{% url 'scorecard:ifrs9_customer_evaluation_versions' evaluation_id=evaluation.id %}" class="back-link">&larr; Back to Versions</a>
+<style>
+    .sheet-header {
+        border: none;
+        margin-bottom: 0.25rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .sheet-header td {
+        border: none;
+    }
+    .sheet-header-title {
+        font-weight: 600;
+        font-size: 1.05rem;
+        color: #333;
+    }
+    .sheet-header-code {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #333;
+        text-align: right;
+    }
+    .meta-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .meta-table td {
+        border: 1px solid #e0e0e0;
+        padding: 0.4rem 0.5rem;
+        font-size: 12px;
+    }
+    .meta-table td:first-child {
+        font-weight: 600;
+        color: #333;
+        background-color: #f5f5f5;
+        width: 18%;
+    }
+    .meta-table td:nth-child(2) {
+        background-color: #f9f9f9;
+        width: 32%;
+    }
+    .meta-table td:nth-child(3) {
+        font-weight: 600;
+        color: #333;
+        background-color: #f5f5f5;
+        width: 20%;
+    }
+    .meta-table td:nth-child(4) {
+        background-color: #f9f9f9;
+        width: 30%;
+    }
+    .formulas-box {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background-color: #f0f8ff;
+        border: 1px solid #0066cc;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .formulas-title {
+        margin-top: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0066cc;
+        margin-bottom: 0.75rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .formula-item {
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .formula-item:last-child {
+        margin-bottom: 0;
+    }
+    .formula-item strong {
+        color: #0066cc;
+        font-weight: 600;
+    }
+    .sticky-header-table {
+        position: relative;
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+        font-size: 11px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: #e3f2fd;
+    }
+    .sticky-header th {
+        background: #e3f2fd;
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.2);
+        padding: 0.5rem;
+        border: 1px solid #b3d9ff;
+        font-weight: 600;
+        text-align: center;
+        font-size: 10px;
+    }
+    .section-header {
+        margin-top: 1.5rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.25rem;
+        border-bottom: 2px solid #0066cc;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .driver-header-row {
+        background-color: #e8f4f8;
+    }
+    .driver-header {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #0066cc;
+        padding: 0.5rem 1rem;
+    }
+    .group-label-row {
+        background-color: #f5f5f5;
+    }
+    .selected-option {
+        background-color: #d1ecf1 !important;
+        border-left: 3px solid #0066cc !important;
+    }
+    .selected-option td {
+        font-weight: 600;
+        color: #0c5460;
+    }
+    .text-center {
+        text-align: center;
+    }
+    .text-right {
+        text-align: right;
+    }
+    .calculation-result-box {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background-color: #f9f9f9;
+        border: 2px solid #0066cc;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .calculation-result-title {
+        margin-top: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #0066cc;
+        margin-bottom: 1rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .version-info-box {
+        background: #d1ecf1;
+        border: 2px solid #0066cc;
+        border-radius: 4px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .version-info-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #0c5460;
+        margin-bottom: 0.75rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .version-info-row {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 0.5rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 0.9rem;
+    }
+    .version-info-label {
+        font-weight: 600;
+        color: #0c5460;
+        min-width: 150px;
+    }
+    .version-info-value {
+        color: #333;
+    }
+    .back-link {
+        display: inline-block;
+        margin-bottom: 1rem;
+        color: #0066cc;
+        text-decoration: none;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .back-link:hover {
+        text-decoration: underline;
+    }
+    .grading-scale-section {
+        margin-top: 2rem;
+    }
+    .grading-scale-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.75rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .grading-scale-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+    }
+    .grading-scale-table th,
+    .grading-scale-table td {
+        border: 1px solid #ddd;
+        padding: 0.4rem 0.5rem;
+        text-align: center;
+    }
+    .grading-scale-table th {
+        background-color: #e3f2fd;
+        font-weight: 600;
+    }
+</style>
+
+<!-- Version Info Box -->
+<div class="version-info-box">
+    <div class="version-info-title">Version {{ version.version_number }} Information</div>
+    <div class="version-info-row">
+        <span class="version-info-label">Created:</span>
+        <span class="version-info-value">{{ version.created_at|date:"Y-m-d H:i" }}</span>
+    </div>
+    {% if version.created_by %}
+    <div class="version-info-row">
+        <span class="version-info-label">Created By:</span>
+        <span class="version-info-value">{{ version.created_by.email }}</span>
+    </div>
+    {% endif %}
+    <div class="version-info-row">
+        <span class="version-info-label">Status:</span>
+        {% if version.is_approved %}
+            <span class="version-info-value" style="color: #28a745; font-weight: 600;">&#10003; Approved</span>
+        {% else %}
+            <span class="version-info-value" style="color: #856404; font-weight: 600;">Submitted / Pending Review</span>
+        {% endif %}
+    </div>
+    {% if version.is_approved %}
+        {% if version.approved_at %}
+        <div class="version-info-row">
+            <span class="version-info-label">Approved At:</span>
+            <span class="version-info-value">{{ version.approved_at|date:"Y-m-d H:i" }}</span>
+        </div>
+        {% endif %}
+        {% if version.approved_by %}
+        <div class="version-info-row">
+            <span class="version-info-label">Approved By:</span>
+            <span class="version-info-value">{{ version.approved_by.email }}</span>
+        </div>
+        {% endif %}
+    {% endif %}
+    {% if version.change_description %}
+    <div class="version-info-row">
+        <span class="version-info-label">Change Description:</span>
+        <span class="version-info-value">{{ version.change_description }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Sheet header -->
+<table class="sheet-header">
+    <tr>
+        <td class="sheet-header-title">
+            {{ template.name|upper }}
+        </td>
+        <td class="sheet-header-code text-right">
+            {{ template.code }}
+        </td>
+    </tr>
+</table>
+
+<!-- Meta information table -->
+<table class="meta-table">
+    <tr>
+        <td>Customer Name:</td>
+        <td>{{ evaluation.customer_name|default:"-" }}</td>
+        <td>Customer ID:</td>
+        <td>{{ evaluation.customer_id|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td>Branch Name:</td>
+        <td>{{ evaluation.branch_name|default:"-" }}</td>
+        <td>Evaluation Period:</td>
+        <td>{{ evaluation.evaluation_period|date:"Y-m-d"|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td>Version:</td>
+        <td>
+            Version {{ version.version_number }}
+            {% if version.is_approved %}
+                <span style="color: #28a745; font-weight: 600; margin-left: 0.5rem;">&#10003; Approved</span>
+            {% endif %}
+        </td>
+        <td>Created:</td>
+        <td>{{ version.created_at|date:"Y-m-d H:i"|default:"-" }}</td>
+    </tr>
+</table>
+
+
+<!-- Sections and Attributes -->
+{% for section in sections %}
+    {% with section_score=section_scores|get_item:section.id %}
+    <h2 class="section-header">{{ section.code }}) {{ section.name|upper }}</h2>
+    <table class="sticky-header-table">
+        <thead class="sticky-header">
+        <tr>
+            <th style="width: 40%;">RISK DRIVERS</th>
+            <th style="width: 12%;" class="text-center">ALLOCATED<br>SCORE</th>
+            <th style="width: 12%;" class="text-center">ACTUAL<br>SCORE</th>
+            <th style="width: 12%;" class="text-center">WEIGHT</th>
+            <th style="width: 12%;" class="text-center">WEIGHTED<br>SCORE %</th>
+            <th style="width: 12%;" class="text-center">PROOF</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for driver in drivers_by_section|get_item:section.id %}
+            {% with driver_attrs=attributes_by_driver|get_item:driver.id driver_score=driver_scores|get_item:driver.id %}
+                <!-- Risk Driver Header Row -->
+                <tr class="driver-row driver-header-row" data-driver-id="{{ driver.id }}">
+                    <td colspan="6" class="driver-header">
+                        {{ driver.code }}. {{ driver.name }}
+                    </td>
+                </tr>
+                
+                {% if driver_attrs %}
+                    {% for attribute in driver_attrs %}
+                        {% with attr_response=attribute_responses|get_item:attribute.id %}
+                            <!-- Attribute label row mirrors the template view before selectable options. -->
+                            <tr class="group-label-row">
+                                <td colspan="6" style="padding-left: 1rem;">
+                                    {{ attribute.group_label|default:attribute.label }}
+                                </td>
+                            </tr>
+                            
+                            <!-- Individual Options as Rows -->
+                            {% for option in attribute.options.all %}
+                                {% with is_selected=attr_response|response_has_option:option.id %}
+                                <tr class="{% if is_selected %}selected-option{% endif %}">
+                                    <td style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %};">
+                                        {% if is_selected %}
+                                            <span style="color: #0066cc; font-weight: 700;">&#10003; SELECTED:</span> {{ option.label }}
+                                        {% else %}
+                                            {{ option.label }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ option.allocated_score }}</td>
+                                    <td class="text-center">
+                                        {% if is_selected %}
+                                            {% if attribute.input_type == 'checkbox' %}
+                                                {{ option.allocated_score|floatformat:2 }}
+                                            {% else %}
+                                                {{ attr_response.allocated_score|floatformat:2 }}
+                                            {% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {{ attribute.weight_percent|floatformat:2 }}%
+                                    </td>
+                                    <td class="text-center">
+                                        {% if is_selected %}
+                                            {% with max_score=attribute.options.all|max_score %}
+                                                {% if max_score and max_score > 0 %}
+                                                    {% widthratio option.allocated_score max_score 100 as ratio %}
+                                                    {% widthratio ratio 100 attribute.weight_percent as weighted %}
+                                                    {{ weighted|floatformat:2 }}%
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if is_selected %}
+                                            {% if attribute.input_type == 'checkbox' %}
+                                                {{ option.allocated_score|floatformat:2 }}
+                                            {% else %}
+                                                {{ attr_response.allocated_score|floatformat:2 }}
+                                            {% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endwith %}
+                            {% endfor %}
+                        {% endwith %}
+                    {% endfor %}
+                    
+                    {% if driver_score %}
+                    <tr class="driver-totals-row">
+                        <td style="padding-left: 1rem;">
+                            Totals for {{ driver.name }}
+                        </td>
+                        <td class="text-center">
+                            {{ driver.get_max_score|floatformat:2 }}
+                        </td>
+                        <td class="text-center">
+                            {% if driver_score.raw_score %}{{ driver_score.raw_score|floatformat:2 }}{% else %}-{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {{ driver.get_total_weight_percent|floatformat:2 }}%
+                        </td>
+                        <td class="text-center">
+                            {% if driver_score.weighted_percent %}{{ driver_score.weighted_percent|floatformat:2 }}{% else %}-{% endif %}
+                        </td>
+                        <td class="text-center">-</td>
+                    </tr>
+                    {% endif %}
+                {% else %}
+                    <tr class="empty-attribute-row">
+                        <td colspan="6" style="padding-left: 1rem;">
+                            No attributes configured
+                        </td>
+                    </tr>
+                {% endif %}
+            {% endwith %}
+        {% endfor %}
+        
+        <!-- Section Totals Row -->
+        {% if section_score %}
+        <tr class="section-totals-row">
+            <td style="padding-left: 1rem;">
+                Totals for {{ section.name }}
+            </td>
+            <td class="text-center">{{ section.get_total_max_score|floatformat:2 }}</td>
+            <td class="text-center">{% if section_score.raw_score %}{{ section_score.raw_score|floatformat:2 }}{% else %}-{% endif %}</td>
+            <td class="text-center">{{ section.get_total_weight_percent|floatformat:2 }}%</td>
+            <td class="text-center">{% if section_score.weighted_percent %}{{ section_score.weighted_percent|floatformat:2 }}%{% else %}-{% endif %}</td>
+            <td class="text-center">-</td>
+        </tr>
+        {% endif %}
+        </tbody>
+    </table>
+    {% endwith %}
+{% endfor %}
+
+<!-- Calculation Result -->
+<div class="calculation-result-box">
+    <h3 class="calculation-result-title">Calculation Result</h3>
+    
+    <div style="padding: 1rem; background-color: #d1ecf1; border: 2px solid #0066cc; border-radius: 4px;">
+        <div style="font-size: 0.9rem; font-weight: 600; color: #0c5460; margin-bottom: 0.5rem;">Version {{ version.version_number }} Score</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #0066cc;">
+            {% if display_weighted_percent %}
+                {{ display_weighted_percent|floatformat:2 }}%
+            {% else %}
+                -
+            {% endif %}
+        </div>
+        {% if version.total_raw_score %}
+        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">
+            Total Raw Score: {{ version.total_raw_score|floatformat:2 }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

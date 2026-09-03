@@ -1,0 +1,1254 @@
+{% extends "credit_scoreshifts/base.html" %}
+{% load dict_extras %}
+
+{% block title %}Basel II Template Builder - {{ template.code }}{% endblock %}
+{% block header_title %}Basel II Template Builder: {{ template.code }}{% endblock %}
+
+{% block content %}
+<style>
+    .builder-shell {
+        display: grid;
+        gap: 1.25rem;
+    }
+    .hero-card,
+    .builder-card {
+        background: #fff;
+        border: 1px solid #dbe6f2;
+        border-radius: 20px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    .hero-card {
+        padding: 1.5rem 1.75rem;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 1rem;
+        align-items: start;
+    }
+    .eyebrow {
+        font-size: 0.72rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #1d5fa7;
+        font-weight: 700;
+        margin-bottom: 0.55rem;
+    }
+    .hero-title {
+        margin: 0;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #17324d;
+    }
+    .hero-copy {
+        margin: 0.55rem 0 0;
+        max-width: 70ch;
+        color: #56708a;
+        line-height: 1.55;
+    }
+    .hero-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+    .builder-btn {
+        border: 1px solid #c9d9ea;
+        background: linear-gradient(180deg, #ffffff 0%, #eef4fb 100%);
+        color: #17324d;
+        padding: 0.7rem 1.15rem;
+        border-radius: 999px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .builder-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(29, 95, 167, 0.15);
+    }
+    .builder-btn-primary {
+        background: linear-gradient(135deg, #0f7a6d 0%, #12a594 100%);
+        border-color: #119b8b;
+        color: #fff;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.85rem;
+    }
+    .summary-stat {
+        padding: 1rem 1.1rem;
+    }
+    .summary-stat h3 {
+        margin: 0 0 0.35rem;
+        font-size: 0.82rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #6f88a1;
+    }
+    .summary-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #17324d;
+    }
+    .summary-note {
+        color: #5c7590;
+        font-size: 0.9rem;
+        margin-top: 0.2rem;
+    }
+    .builder-card {
+        padding: 1.25rem 1.35rem;
+    }
+    .builder-card h2,
+    .builder-card h3,
+    .builder-card h4 {
+        margin: 0;
+        color: #17324d;
+    }
+    .builder-card h2 {
+        font-size: 1.2rem;
+        margin-bottom: 0.3rem;
+    }
+    .builder-subtitle {
+        color: #5c7590;
+        font-size: 0.95rem;
+        line-height: 1.55;
+        margin: 0.35rem 0 0;
+    }
+    .builder-steps {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.8rem;
+    }
+    .step-card {
+        padding: 0.95rem 1rem;
+    }
+    .step-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.9rem;
+        height: 1.9rem;
+        border-radius: 999px;
+        background: #0f7a6d;
+        color: #fff;
+        font-weight: 700;
+        margin-bottom: 0.55rem;
+    }
+    .section-stack {
+        display: grid;
+        gap: 1rem;
+    }
+    .driver-card,
+    .attribute-card,
+    .options-card {
+        border: 1px solid #dce7f2;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ffffff 0%, #f9fbfe 100%);
+        overflow: hidden;
+    }
+    .driver-card {
+        margin-top: 0.9rem;
+        margin-left: 1rem;
+    }
+    .attribute-card {
+        margin-top: 0.85rem;
+        margin-left: 1rem;
+    }
+    .options-card {
+        margin-top: 0.95rem;
+    }
+    .entity-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: start;
+        flex-wrap: wrap;
+    }
+    .entity-code {
+        display: inline-flex;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: #e8f1fb;
+        color: #1d5fa7;
+        font-weight: 700;
+        font-size: 0.8rem;
+        margin-bottom: 0.45rem;
+    }
+    .entity-summary-title {
+        font-size: 1.04rem;
+        font-weight: 700;
+        color: #17324d;
+    }
+    .entity-meta {
+        display: flex;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
+        color: #58718b;
+        font-size: 0.88rem;
+    }
+.entity-links {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.entity-links form {
+    margin: 0;
+}
+.action-popover {
+    position: relative;
+    display: inline-flex;
+}
+.action-popover summary {
+    list-style: none;
+    border: 1px solid #c8d8ea;
+    background: #fff;
+    color: #0f6fc6;
+    border-radius: 999px;
+    padding: 0.28rem 0.7rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1.2;
+}
+.action-popover summary::-webkit-details-marker {
+    display: none;
+}
+.action-popover summary:hover {
+    background: #eef5fb;
+}
+.action-popover[open] > form.inline-form {
+    position: absolute;
+    top: calc(100% + 0.45rem);
+    right: 0;
+    z-index: 20;
+    margin-top: 0;
+    width: min(420px, 78vw);
+    box-shadow: 0 18px 32px rgba(23, 50, 77, 0.16);
+}
+.builder-shell.modal-blurred {
+    filter: blur(4px);
+    pointer-events: none;
+    user-select: none;
+}
+.builder-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(15, 23, 42, 0.32);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1200;
+}
+.builder-modal-backdrop.is-open {
+    display: flex;
+}
+.builder-modal {
+    width: min(640px, 100%);
+    max-height: min(88vh, 900px);
+    overflow: auto;
+    border-radius: 22px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    border: 1px solid #d7e4f1;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, 0.24);
+    padding: 1.2rem 1.2rem 1.1rem;
+}
+.builder-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.9rem;
+}
+.builder-modal-title {
+    margin: 0;
+    font-size: 1.05rem;
+    color: #17324d;
+}
+.builder-modal-close {
+    border: 1px solid #c8d8ea;
+    background: #fff;
+    color: #557089;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 999px;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.builder-modal-close:hover {
+    background: #eef5fb;
+    color: #17324d;
+}
+.builder-modal .inline-form {
+    margin-top: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+}
+.entity-links a {
+    font-size: 0.86rem;
+    text-decoration: none;
+    color: #0f6fc6;
+    font-weight: 600;
+    }
+    .icon-btn {
+        border: 1px solid #c8d8ea;
+        background: #fff;
+        color: #17324d;
+        border-radius: 999px;
+        padding: 0.28rem 0.7rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .icon-btn:hover {
+        background: #eef5fb;
+    }
+    .entity-links a.delete-link {
+        color: #c94747;
+    }
+    .inline-form {
+        margin-top: 0.95rem;
+        padding: 0.8rem 0.9rem;
+        border-radius: 14px;
+        background: #f6fafd;
+        border: 1px dashed #c9dae9;
+    }
+    .compact-form {
+        background: #f9fbfe;
+    }
+    .builder-create-panel {
+        position: relative;
+        background: linear-gradient(180deg, #f3fbf8 0%, #ecf8f4 100%);
+        border: 1px solid #bfe3da;
+        border-left: 4px solid #12a594;
+        box-shadow: 0 10px 24px rgba(18, 165, 148, 0.08);
+    }
+    .builder-create-panel::before {
+        content: "Create next step";
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-bottom: 0.55rem;
+        padding: 0.26rem 0.65rem;
+        border-radius: 999px;
+        background: rgba(18, 165, 148, 0.12);
+        color: #0f7a6d;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .builder-create-panel h4 {
+        color: #0f4f67;
+        margin-bottom: 0.35rem;
+    }
+    .builder-create-panel .form-hint {
+        color: #4f7187;
+        margin-bottom: 0.65rem;
+    }
+    .builder-create-panel .builder-btn:not(.builder-btn-primary) {
+        background: linear-gradient(135deg, #0f7a6d 0%, #12a594 100%);
+        border-color: #119b8b;
+        color: #fff;
+    }
+    .builder-create-panel .builder-btn:not(.builder-btn-primary):hover {
+        box-shadow: 0 10px 22px rgba(18, 165, 148, 0.18);
+    }
+    .inline-form h4 {
+        margin-bottom: 0.75rem;
+        font-size: 0.98rem;
+    }
+    .form-hint {
+        margin: -0.35rem 0 0.85rem;
+        color: #6b8299;
+        font-size: 0.88rem;
+        line-height: 1.5;
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.8rem;
+        align-items: start;
+    }
+    .field-wrap {
+        display: grid;
+        gap: 0.35rem;
+    }
+    .field-wrap label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #5c7590;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .field-wrap input,
+    .field-wrap textarea,
+    .field-wrap select {
+        width: 100%;
+        border: 1px solid #c8d8ea;
+        border-radius: 12px;
+        padding: 0.7rem 0.8rem;
+        font-size: 0.95rem;
+        background: #fff;
+        box-sizing: border-box;
+    }
+    .field-wrap input[type="checkbox"] {
+        width: auto;
+        padding: 0;
+    }
+    .field-wrap .helptext {
+        font-size: 0.8rem;
+        color: #6d849c;
+        line-height: 1.45;
+    }
+    .field-wrap .errorlist {
+        margin: 0;
+        padding-left: 1rem;
+        color: #c94747;
+        font-size: 0.82rem;
+    }
+    .form-actions {
+        margin-top: 0.65rem;
+        display: flex;
+        justify-content: flex-end;
+    }
+    .options-list {
+        margin-top: 0.85rem;
+        display: grid;
+        gap: 0.6rem;
+    }
+    .option-row,
+    .band-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 1rem;
+        align-items: center;
+        padding: 0.7rem 0.85rem;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid #dce7f2;
+    }
+    .option-score {
+        font-weight: 700;
+        color: #0f7a6d;
+    }
+    .empty-state {
+        padding: 1rem 1.1rem;
+        border-radius: 14px;
+        background: #f8fbff;
+        border: 1px dashed #cfdeec;
+        color: #5f7891;
+    }
+    .accordion-card,
+    .driver-card,
+    .attribute-card,
+    .options-card {
+        border: 1px solid #dce7f2;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ffffff 0%, #f9fbfe 100%);
+        overflow: hidden;
+    }
+    .accordion-card[open],
+    .driver-card[open],
+    .attribute-card[open],
+    .options-card[open] {
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    .accordion-summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 1rem 1rem 1.05rem;
+    }
+    .accordion-summary::-webkit-details-marker {
+        display: none;
+    }
+    .accordion-body {
+        padding: 0 1rem 1rem;
+    }
+    .accordion-heading {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .accordion-toggle {
+        width: 2.1rem;
+        height: 2.1rem;
+        border-radius: 999px;
+        background: #e8f1fb;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .accordion-toggle::before {
+        content: "";
+        width: 0.62rem;
+        height: 0.62rem;
+        border-right: 2px solid #1d5fa7;
+        border-bottom: 2px solid #1d5fa7;
+        transform: rotate(45deg) translateY(-1px);
+        transition: transform 0.2s ease;
+    }
+    details[open] > summary .accordion-toggle::before {
+        transform: rotate(-135deg) translate(-1px, -1px);
+    }
+    .hidden-field {
+        display: none;
+    }
+    .section-summary {
+        display: grid;
+        gap: 0.35rem;
+    }
+    .summary-title-row {
+        display: flex;
+        gap: 0.55rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .summary-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.6rem;
+        border-radius: 999px;
+        background: #edf4fb;
+        color: #557089;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .guide-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.85rem;
+    }
+    .guide-item {
+        padding: 0.95rem 1rem;
+        border-radius: 16px;
+        border: 1px solid #dce7f2;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+    .guide-item strong {
+        display: block;
+        color: #17324d;
+        margin-bottom: 0.35rem;
+    }
+    .guide-item span {
+        color: #5f7891;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+    .grade-band-grid {
+        display: grid;
+        gap: 0.75rem;
+        margin-top: 0.95rem;
+    }
+    @media (max-width: 980px) {
+        .hero-card {
+            grid-template-columns: 1fr;
+        }
+        .hero-actions {
+            justify-content: flex-start;
+        }
+        .driver-card,
+        .attribute-card {
+            margin-left: 0;
+        }
+    }
+</style>
+
+<div class="builder-shell">
+    <section class="hero-card">
+        <div>
+            <div class="eyebrow">Basel II Template Builder</div>
+            <h1 class="hero-title">{{ template.code }} - {{ template.name }}</h1>
+            <p class="hero-copy">
+                Build the full Basel II scorecard in one workspace. Add section/demographics, risk drivers,
+                attributes, options, and grading bands without jumping through multiple setup screens.
+            </p>
+        </div>
+        <div class="hero-actions">
+            <a href="{% url 'scorecard:basel_template_detail' template.id %}" class="builder-btn">View Approved Layout</a>
+            <a href="{% url 'scorecard:basel_template_edit' template.id %}" class="builder-btn">Edit Template Header</a>
+            <a href="{% url 'scorecard:basel_template_list' %}" class="builder-btn">Back to Templates</a>
+        </div>
+    </section>
+
+    <section class="summary-grid">
+        <div class="builder-card summary-stat">
+            <h3>Section/Demographics</h3>
+            <div class="summary-value">{{ section_count }}</div>
+            <div class="summary-note">Top-level Basel scorecard blocks</div>
+        </div>
+        <div class="builder-card summary-stat">
+            <h3>Risk Drivers</h3>
+            <div class="summary-value">{{ driver_count }}</div>
+            <div class="summary-note">Drivers nested under the sections</div>
+        </div>
+        <div class="builder-card summary-stat">
+            <h3>Attributes</h3>
+            <div class="summary-value">{{ attribute_count }}</div>
+            <div class="summary-note">Questions and weighted measures</div>
+        </div>
+        <div class="builder-card summary-stat">
+            <h3>Options</h3>
+            <div class="summary-value">{{ option_count }}</div>
+            <div class="summary-note">Selectable outcomes with allocated scores</div>
+        </div>
+        <div class="builder-card summary-stat">
+            <h3>Grade Bands</h3>
+            <div class="summary-value">{{ grade_band_count }}</div>
+            <div class="summary-note">Basel grading thresholds for final score output</div>
+        </div>
+    </section>
+
+    <section class="builder-card">
+        <h2>Start with the top-level section/demographics</h2>
+        <p class="summary-note">Section/demographics stay collapsed by default so large templates remain easy to scan.</p>
+        <form method="post" class="inline-form compact-form builder-create-panel" id="add-section">
+            {% csrf_token %}
+            <input type="hidden" name="builder_action" value="add_section">
+            <h4>Add Section/Demographics</h4>
+            <div class="form-hint">Enter the section/demographics name only. The section code and order are handled automatically.</div>
+            <div class="form-grid">
+                <div class="field-wrap">
+                    <label for="{{ section_form.name.id_for_label }}">{{ section_form.name.label }}</label>
+                    {{ section_form.name }}
+                    {{ section_form.name.errors }}
+                </div>
+            </div>
+            <div class="hidden-field">{{ section_form.display_order }}</div>
+            <div class="form-actions">
+                <button type="submit" class="builder-btn builder-btn-primary">Add Section/Demographics</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="section-stack">
+        {% if sections %}
+            {% for section in sections %}
+                <details class="accordion-card" id="section-{{ section.id }}">
+                    <summary class="accordion-summary">
+                        <div class="accordion-heading">
+                            <div class="section-summary">
+                                <div class="summary-title-row">
+                                    <div class="entity-summary-title">{{ section.name }}</div>
+                                    <span class="summary-chip">Section/Demographics {{ section.code }}</span>
+                                </div>
+                                <div class="entity-meta">
+                                    <span>{{ section.sorted_risk_drivers|length }} risk driver{{ section.sorted_risk_drivers|length|pluralize }}</span>
+                                </div>
+                            </div>
+                            <span class="accordion-toggle" aria-hidden="true"></span>
+                        </div>
+                    </summary>
+                    <div class="accordion-body">
+                        <div class="entity-head">
+                            <div class="summary-note">Open this section/demographics block to add drivers and manage the items already inside it.</div>
+                            <div class="entity-links">
+                                <details class="action-popover">
+                                    <summary>Edit</summary>
+                                    {% with edit_form=section_edit_forms|get_item:section.id %}
+                                    <form method="post" class="inline-form compact-form" style="margin-top:0.5rem; min-width:320px;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="builder_action" value="update_section">
+                                        <input type="hidden" name="section_id" value="{{ section.id }}">
+                                        <div class="form-grid">
+                                            <div class="field-wrap">
+                                                <label for="{{ edit_form.name.id_for_label }}">{{ edit_form.name.label }}</label>
+                                                {{ edit_form.name }}
+                                                {{ edit_form.name.errors }}
+                                            </div>
+                                        </div>
+                                        <div class="hidden-field">{{ edit_form.display_order }}</div>
+                                        <div class="form-actions">
+                                            <button type="submit" class="builder-btn">Save Section/Demographics</button>
+                                        </div>
+                                    </form>
+                                    {% endwith %}
+                                </details>
+                                <form method="post" onsubmit="return confirm('Delete this section and its nested items from the builder?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="builder_action" value="delete_section">
+                                    <input type="hidden" name="section_id" value="{{ section.id }}">
+                                    <button type="submit" class="icon-btn" style="color:#c94747;">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <form method="post" class="inline-form compact-form builder-create-panel" id="add-driver-{{ section.id }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="builder_action" value="add_driver">
+                            <input type="hidden" name="section_id" value="{{ section.id }}">
+                            <h4>Add Risk Driver to {{ section.name }}</h4>
+                            <div class="form-hint">Only the driver name is needed here. Code and ordering are handled automatically.</div>
+                            {% with driver_form=driver_forms|get_item:section.id %}
+                                <div class="form-grid">
+                                    <div class="field-wrap">
+                                        <label for="{{ driver_form.name.id_for_label }}">{{ driver_form.name.label }}</label>
+                                        {{ driver_form.name }}
+                                        {{ driver_form.name.errors }}
+                                    </div>
+                                </div>
+                                <div class="hidden-field">{{ driver_form.display_order }}</div>
+                            {% endwith %}
+                            <div class="form-actions">
+                                <button type="submit" class="builder-btn">Add Risk Driver</button>
+                            </div>
+                        </form>
+
+                        {% if section.sorted_risk_drivers %}
+                            {% for driver in section.sorted_risk_drivers %}
+                                <details class="driver-card" id="driver-{{ driver.id }}">
+                                    <summary class="accordion-summary">
+                                        <div class="accordion-heading">
+                                            <div class="section-summary">
+                                                <div class="summary-title-row">
+                                                    <div class="entity-summary-title">{{ driver.name }}</div>
+                                                    <span class="summary-chip">Driver {{ driver.code }}</span>
+                                                </div>
+                                                <div class="entity-meta">
+                                                    <span>{{ driver.sorted_attributes|length }} attribute{{ driver.sorted_attributes|length|pluralize }}</span>
+                                                </div>
+                                            </div>
+                                            <span class="accordion-toggle" aria-hidden="true"></span>
+                                        </div>
+                                    </summary>
+                                    <div class="accordion-body">
+                                        <div class="entity-head">
+                                            <div class="summary-note">Attributes and options for this driver are managed inside this block.</div>
+                                            <div class="entity-links">
+                                                <details class="action-popover">
+                                                    <summary>Edit</summary>
+                                                    {% with edit_form=driver_edit_forms|get_item:driver.id %}
+                                                    <form method="post" class="inline-form compact-form" style="margin-top:0.5rem; min-width:320px;">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="builder_action" value="update_driver">
+                                                        <input type="hidden" name="driver_id" value="{{ driver.id }}">
+                                                        <div class="form-grid">
+                                                            <div class="field-wrap">
+                                                                <label for="{{ edit_form.name.id_for_label }}">{{ edit_form.name.label }}</label>
+                                                                {{ edit_form.name }}
+                                                                {{ edit_form.name.errors }}
+                                                            </div>
+                                                        </div>
+                                                        <div class="hidden-field">{{ edit_form.display_order }}</div>
+                                                        <div class="form-actions">
+                                                            <button type="submit" class="builder-btn">Save Risk Driver</button>
+                                                        </div>
+                                                    </form>
+                                                    {% endwith %}
+                                                </details>
+                                                <form method="post" onsubmit="return confirm('Delete this risk driver and its nested items from the builder?');">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="builder_action" value="delete_driver">
+                                                    <input type="hidden" name="driver_id" value="{{ driver.id }}">
+                                                    <button type="submit" class="icon-btn" style="color:#c94747;">Delete</button>
+                                                </form>
+                                            </div>
+                                        </div>
+
+                                        <form method="post" class="inline-form compact-form builder-create-panel" id="add-attribute-{{ driver.id }}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="builder_action" value="add_attribute">
+                                            <input type="hidden" name="driver_id" value="{{ driver.id }}">
+                                            <h4>Add Attribute to {{ driver.name }}</h4>
+                                            <div class="form-hint">Add the group label shown on the template view, its weight, and whether the attribute should require supporting documents.</div>
+                                            {% with attribute_form=attribute_forms|get_item:driver.id %}
+                                                <div class="form-grid">
+                                                    <div class="field-wrap">
+                                                        <label for="{{ attribute_form.label.id_for_label }}">Group Label</label>
+                                                        {{ attribute_form.label }}
+                                                        {{ attribute_form.label.errors }}
+                                                    </div>
+                                                    <div class="field-wrap">
+                                                        <label for="{{ attribute_form.scoring_rule.id_for_label }}">{{ attribute_form.scoring_rule.label }}</label>
+                                                        {{ attribute_form.scoring_rule }}
+                                                        {% if attribute_form.scoring_rule.help_text %}
+                                                            <small style="display:block; margin-top:0.35rem; color:#666;">{{ attribute_form.scoring_rule.help_text }}</small>
+                                                        {% endif %}
+                                                        <small class="scoring-rule-note" data-note-for="{{ attribute_form.scoring_rule.id_for_label }}" style="display:none; margin-top:0.4rem; color:#d62828; font-weight:600;"></small>
+                                                        {{ attribute_form.scoring_rule.errors }}
+                                                    </div>
+                                                    <div class="field-wrap">
+                                                        <label for="{{ attribute_form.input_type.id_for_label }}">{{ attribute_form.input_type.label }}</label>
+                                                        {{ attribute_form.input_type }}
+                                                        {% if attribute_form.input_type.help_text %}
+                                                            <small style="display:block; margin-top:0.35rem; color:#666;">{{ attribute_form.input_type.help_text }}</small>
+                                                        {% endif %}
+                                                        {{ attribute_form.input_type.errors }}
+                                                    </div>
+                                                    <div class="field-wrap">
+                                                        <label for="{{ attribute_form.weight_percent.id_for_label }}">{{ attribute_form.weight_percent.label }}</label>
+                                                        {{ attribute_form.weight_percent }}
+                                                        {{ attribute_form.weight_percent.errors }}
+                                                    </div>
+                                                </div>
+                                                <div class="field-wrap" style="margin-top: 0.85rem;">
+                                                    <label for="{{ attribute_form.requires_document.id_for_label }}" style="display:flex; align-items:center; gap:0.5rem;">
+                                                        {{ attribute_form.requires_document }}
+                                                        <span>Require Document Upload</span>
+                                                    </label>
+                                                    {% if attribute_form.requires_document.help_text %}
+                                                        <small style="display:block; margin-top:0.35rem; color:#666;">{{ attribute_form.requires_document.help_text }}</small>
+                                                    {% endif %}
+                                                    {{ attribute_form.requires_document.errors }}
+                                                </div>
+                                                <div class="hidden-field">{{ attribute_form.help_text }}</div>
+                                                <div class="hidden-field">{{ attribute_form.group_label }}</div>
+                                                <div class="hidden-field">{{ attribute_form.display_order }}</div>
+                                            {% endwith %}
+                                            <div class="form-actions">
+                                                <button type="submit" class="builder-btn">Add Attribute</button>
+                                            </div>
+                                        </form>
+
+                                        {% with attributes=driver.sorted_attributes %}
+                                            {% if attributes %}
+                                                {% for attribute in attributes %}
+                                                    <details class="attribute-card" id="attribute-{{ attribute.id }}">
+                                                        <summary class="accordion-summary">
+                                                            <div class="accordion-heading">
+                                                                <div class="section-summary">
+                                                                    <div class="summary-title-row">
+                                                                        <div class="entity-summary-title">{{ attribute.label }}</div>
+                                                                        <span class="summary-chip">{{ attribute.code }}</span>
+                                                                    </div>
+                                                                    <div class="entity-meta">
+                                                                        <span>Input: {{ attribute.get_input_type_display }}</span>
+                                                                        <span>Weight: {{ attribute.weight_percent }}%</span>
+                                                                        {% if attribute.scoring_rule %}<span>{{ attribute.get_scoring_rule_display }}</span>{% endif %}
+                                                                        {% if attribute.requires_document %}<span>Requires document upload</span>{% endif %}
+                                                                    </div>
+                                                                </div>
+                                                                <span class="accordion-toggle" aria-hidden="true"></span>
+                                                            </div>
+                                                        </summary>
+                                                        <div class="accordion-body">
+                                                            <div class="entity-head">
+                                                                <div>
+                                                                    <div class="summary-note">Open this attribute to manage its scoring options.</div>
+                                                                    {% if attribute.help_text %}
+                                                                        <div class="summary-note" style="margin-top:0.35rem;">{{ attribute.help_text }}</div>
+                                                                    {% endif %}
+                                                                    {% if attribute.scoring_rule %}
+                                                                        <div class="summary-note" style="margin-top:0.35rem; color:#d62828; font-weight:600;">{{ attribute.get_scoring_rule_note }}</div>
+                                                                    {% endif %}
+                                                                </div>
+                                                                <div class="entity-links">
+                                                                    <details class="action-popover">
+                                                                        <summary>Edit</summary>
+                                                                        {% with edit_form=attribute_edit_forms|get_item:attribute.id %}
+                                                                        <form method="post" class="inline-form compact-form" style="margin-top:0.5rem; min-width:360px;">
+                                                                            {% csrf_token %}
+                                                                            <input type="hidden" name="builder_action" value="update_attribute">
+                                                                            <input type="hidden" name="attribute_id" value="{{ attribute.id }}">
+                                                                            <div class="form-grid">
+                                                                                <div class="field-wrap">
+                                                                                    <label for="{{ edit_form.label.id_for_label }}">Group Label</label>
+                                                                                    {{ edit_form.label }}
+                                                                                    {{ edit_form.label.errors }}
+                                                                                </div>
+                                                                                <div class="field-wrap">
+                                                                                    <label for="{{ edit_form.scoring_rule.id_for_label }}">{{ edit_form.scoring_rule.label }}</label>
+                                                                                    {{ edit_form.scoring_rule }}
+                                                                                    {% if edit_form.scoring_rule.help_text %}
+                                                                                        <small style="display:block; margin-top:0.35rem; color:#666;">{{ edit_form.scoring_rule.help_text }}</small>
+                                                                                    {% endif %}
+                                                                                    <small class="scoring-rule-note" data-note-for="{{ edit_form.scoring_rule.id_for_label }}" style="display:none; margin-top:0.4rem; color:#d62828; font-weight:600;"></small>
+                                                                                    {{ edit_form.scoring_rule.errors }}
+                                                                                </div>
+                                                                                <div class="field-wrap">
+                                                                                    <label for="{{ edit_form.input_type.id_for_label }}">{{ edit_form.input_type.label }}</label>
+                                                                                    {{ edit_form.input_type }}
+                                                                                    {% if edit_form.input_type.help_text %}
+                                                                                        <small style="display:block; margin-top:0.35rem; color:#666;">{{ edit_form.input_type.help_text }}</small>
+                                                                                    {% endif %}
+                                                                                    {{ edit_form.input_type.errors }}
+                                                                                </div>
+                                                                                <div class="field-wrap">
+                                                                                    <label for="{{ edit_form.weight_percent.id_for_label }}">{{ edit_form.weight_percent.label }}</label>
+                                                                                    {{ edit_form.weight_percent }}
+                                                                                    {{ edit_form.weight_percent.errors }}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="field-wrap" style="margin-top: 0.85rem;">
+                                                                                <label for="{{ edit_form.requires_document.id_for_label }}" style="display:flex; align-items:center; gap:0.5rem;">
+                                                                                    {{ edit_form.requires_document }}
+                                                                                    <span>Require Document Upload</span>
+                                                                                </label>
+                                                                                {% if edit_form.requires_document.help_text %}
+                                                                                    <small style="display:block; margin-top:0.35rem; color:#666;">{{ edit_form.requires_document.help_text }}</small>
+                                                                                {% endif %}
+                                                                                {{ edit_form.requires_document.errors }}
+                                                                            </div>
+                                                                            <div class="hidden-field">{{ edit_form.help_text }}</div>
+                                                                            <div class="hidden-field">{{ edit_form.group_label }}</div>
+                                                                            <div class="hidden-field">{{ edit_form.display_order }}</div>
+                                                                            <div class="form-actions">
+                                                                                <button type="submit" class="builder-btn">Save Attribute</button>
+                                                                            </div>
+                                                                        </form>
+                                                                        {% endwith %}
+                                                                    </details>
+                                                                    <form method="post" onsubmit="return confirm('Delete this attribute and its options from the builder?');">
+                                                                        {% csrf_token %}
+                                                                        <input type="hidden" name="builder_action" value="delete_attribute">
+                                                                        <input type="hidden" name="attribute_id" value="{{ attribute.id }}">
+                                                                        <button type="submit" class="icon-btn" style="color:#c94747;">Delete</button>
+                                                                    </form>
+                                                                </div>
+                                                            </div>
+
+                                                            {% with options=attribute.sorted_options %}
+                                                                <details class="options-card" id="options-{{ attribute.id }}">
+                                                                    <summary class="accordion-summary">
+                                                                        <div class="accordion-heading">
+                                                                            <div class="section-summary">
+                                                                                <div class="summary-title-row">
+                                                                                    <div class="entity-summary-title">Options</div>
+                                                                                    <span class="summary-chip">{{ options|length }} option{{ options|length|pluralize }}</span>
+                                                                                </div>
+                                                                                <div class="entity-meta">
+                                                                                    <span>Scores available for {{ attribute.label }}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <span class="accordion-toggle" aria-hidden="true"></span>
+                                                                        </div>
+                                                                    </summary>
+                                                                    <div class="accordion-body">
+                                                                        {% if options %}
+                                                                            <div class="options-list">
+                                                                                {% for option in options %}
+                                                                                    <div class="option-row">
+                                                                                        <div>
+                                                                                            <strong>{{ option.label }}</strong>
+                                                                                            {% if option.is_default %}<div class="summary-note">Default option</div>{% endif %}
+                                                                                        </div>
+                                                                                        <div class="entity-links">
+                                                                                            <span class="option-score">{{ option.allocated_score }}</span>
+                                                                                            <details class="action-popover">
+                                                                                                <summary>Edit</summary>
+                                                                                                {% with edit_form=option_edit_forms|get_item:option.id %}
+                                                                                                <form method="post" class="inline-form compact-form" style="margin-top:0.5rem; min-width:320px;">
+                                                                                                    {% csrf_token %}
+                                                                                                    <input type="hidden" name="builder_action" value="update_option">
+                                                                                                    <input type="hidden" name="option_id" value="{{ option.id }}">
+                                                                                                    <div class="form-grid">
+                                                                                                        <div class="field-wrap">
+                                                                                                            <label for="{{ edit_form.label.id_for_label }}">{{ edit_form.label.label }}</label>
+                                                                                                            {{ edit_form.label }}
+                                                                                                            {{ edit_form.label.errors }}
+                                                                                                        </div>
+                                                                                                        <div class="field-wrap">
+                                                                                                            <label for="{{ edit_form.allocated_score.id_for_label }}">{{ edit_form.allocated_score.label }}</label>
+                                                                                                            {{ edit_form.allocated_score }}
+                                                                                                            {{ edit_form.allocated_score.errors }}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                    <div class="hidden-field">{{ edit_form.display_order }}</div>
+                                                                                                    <div class="hidden-field"><input type="hidden" name="{{ edit_form.is_default.html_name }}" value=""></div>
+                                                                                                    <div class="form-actions">
+                                                                                                        <button type="submit" class="builder-btn">Save Option</button>
+                                                                                                    </div>
+                                                                                                </form>
+                                                                                                {% endwith %}
+                                                                                            </details>
+                                                                                            <form method="post" onsubmit="return confirm('Delete this option from the builder?');">
+                                                                                                {% csrf_token %}
+                                                                                                <input type="hidden" name="builder_action" value="delete_option">
+                                                                                                <input type="hidden" name="option_id" value="{{ option.id }}">
+                                                                                                <button type="submit" class="icon-btn" style="color:#c94747;">Delete</button>
+                                                                                            </form>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                {% endfor %}
+                                                                            </div>
+                                                                        {% else %}
+                                                                            <div class="empty-state">No options added yet for this attribute.</div>
+                                                                        {% endif %}
+
+                                                                        <form method="post" class="inline-form compact-form builder-create-panel" id="add-option-{{ attribute.id }}">
+                                                                            {% csrf_token %}
+                                                                            <input type="hidden" name="builder_action" value="add_option">
+                                                                            <input type="hidden" name="attribute_id" value="{{ attribute.id }}">
+                                                                            <h4>Add Option to {{ attribute.label }}</h4>
+                                                                            <div class="form-hint">Enter the option label and score only. Value, order, and default state are handled behind the scenes here.</div>
+                                                                            {% with option_form=option_forms|get_item:attribute.id %}
+                                                                                <div class="form-grid">
+                                                                                    <div class="field-wrap">
+                                                                                        <label for="{{ option_form.label.id_for_label }}">{{ option_form.label.label }}</label>
+                                                                                        {{ option_form.label }}
+                                                                                        {{ option_form.label.errors }}
+                                                                                    </div>
+                                                                                    <div class="field-wrap">
+                                                                                        <label for="{{ option_form.allocated_score.id_for_label }}">{{ option_form.allocated_score.label }}</label>
+                                                                                        {{ option_form.allocated_score }}
+                                                                                        {{ option_form.allocated_score.errors }}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div class="hidden-field">{{ option_form.display_order }}</div>
+                                                                                <div class="hidden-field"><input type="hidden" name="{{ option_form.is_default.html_name }}" value=""></div>
+                                                                            {% endwith %}
+                                                                            <div class="form-actions">
+                                                                                <button type="submit" class="builder-btn">Add Option</button>
+                                                                            </div>
+                                                                        </form>
+                                                                    </div>
+                                                                </details>
+                                                            {% endwith %}
+                                                        </div>
+                                                    </details>
+                                                {% endfor %}
+                                            {% else %}
+                                                <div class="empty-state" style="margin-top: 0.9rem;">No attributes yet for this risk driver.</div>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </div>
+                                </details>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state" style="margin-top: 0.9rem;">No risk drivers yet for this section.</div>
+                        {% endif %}
+                    </div>
+                </details>
+            {% endfor %}
+        {% else %}
+            <section class="builder-card">
+                <div class="empty-state">This template has no sections yet. Add the first section above to begin building the hierarchy.</div>
+            </section>
+        {% endif %}
+    </section>
+
+    <details class="builder-card accordion-card" id="grade-bands">
+        <summary class="accordion-summary">
+            <div class="accordion-heading">
+                <div class="section-summary">
+                    <div class="summary-title-row">
+                        <div class="entity-summary-title">Basel Grade Bands</div>
+                        <span class="summary-chip">{{ grade_band_count }} band{{ grade_band_count|pluralize }}</span>
+                    </div>
+                    <div class="entity-meta">
+                        <span>These thresholds control the final Basel II grade once a weighted score has been calculated.</span>
+                    </div>
+                </div>
+                <span class="accordion-toggle" aria-hidden="true"></span>
+            </div>
+        </summary>
+        <div class="accordion-body">
+            <form method="post" class="inline-form compact-form builder-create-panel">
+                {% csrf_token %}
+                <input type="hidden" name="builder_action" value="add_grade_band">
+                <h4>Add Grade Band</h4>
+                <div class="form-hint">Add the grade code and score range. Description and ordering are handled automatically here.</div>
+                <div class="form-grid">
+                    <div class="field-wrap">
+                        <label for="{{ grade_band_form.grade_code.id_for_label }}">{{ grade_band_form.grade_code.label }}</label>
+                        {{ grade_band_form.grade_code }}
+                        {{ grade_band_form.grade_code.errors }}
+                    </div>
+                    <div class="field-wrap">
+                        <label for="{{ grade_band_form.min_percent.id_for_label }}">{{ grade_band_form.min_percent.label }}</label>
+                        {{ grade_band_form.min_percent }}
+                        {{ grade_band_form.min_percent.errors }}
+                    </div>
+                    <div class="field-wrap">
+                        <label for="{{ grade_band_form.max_percent.id_for_label }}">{{ grade_band_form.max_percent.label }}</label>
+                        {{ grade_band_form.max_percent }}
+                        {{ grade_band_form.max_percent.errors }}
+                    </div>
+                </div>
+                <div class="hidden-field">{{ grade_band_form.description }}</div>
+                <div class="hidden-field">{{ grade_band_form.display_order }}</div>
+                <div class="form-actions">
+                    <button type="submit" class="builder-btn builder-btn-primary">Add Grade Band</button>
+                </div>
+            </form>
+
+            {% if grade_bands %}
+                <div class="grade-band-grid">
+                    {% for band in grade_bands %}
+                        <div class="band-row">
+                            <div>
+                                <strong>{{ band.grade_code }}</strong>
+                                <div class="summary-note">{{ band.min_percent }}% to {{ band.max_percent }}%</div>
+                            </div>
+                            <div class="entity-links">
+                                <details class="action-popover">
+                                    <summary>Edit</summary>
+                                    {% with edit_form=grade_band_edit_forms|get_item:band.id %}
+                                    <form method="post" class="inline-form compact-form" style="margin-top:0.5rem; min-width:360px;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="builder_action" value="update_grade_band">
+                                        <input type="hidden" name="grade_band_id" value="{{ band.id }}">
+                                        <div class="form-grid">
+                                            <div class="field-wrap">
+                                                <label for="{{ edit_form.grade_code.id_for_label }}">{{ edit_form.grade_code.label }}</label>
+                                                {{ edit_form.grade_code }}
+                                                {{ edit_form.grade_code.errors }}
+                                            </div>
+                                            <div class="field-wrap">
+                                                <label for="{{ edit_form.min_percent.id_for_label }}">{{ edit_form.min_percent.label }}</label>
+                                                {{ edit_form.min_percent }}
+                                                {{ edit_form.min_percent.errors }}
+                                            </div>
+                                            <div class="field-wrap">
+                                                <label for="{{ edit_form.max_percent.id_for_label }}">{{ edit_form.max_percent.label }}</label>
+                                                {{ edit_form.max_percent }}
+                                                {{ edit_form.max_percent.errors }}
+                                            </div>
+                                        </div>
+                                        <div class="hidden-field">{{ edit_form.description }}</div>
+                                        <div class="hidden-field">{{ edit_form.display_order }}</div>
+                                        <div class="form-actions">
+                                            <button type="submit" class="builder-btn">Save Grade Band</button>
+                                        </div>
+                                    </form>
+                                    {% endwith %}
+                                </details>
+                                <form method="post" onsubmit="return confirm('Delete this grade band from the builder?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="builder_action" value="delete_grade_band">
+                                    <input type="hidden" name="grade_band_id" value="{{ band.id }}">
+                                    <button type="submit" class="icon-btn" style="color:#c94747;">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state" style="margin-top: 0.95rem;">No grade bands have been defined yet.</div>
+            {% endif %}
+        </div>
+    </details>
+</div>
+
+<div class="builder-modal-backdrop" id="builder-edit-modal" aria-hidden="true">
+    <div class="builder-modal" role="dialog" aria-modal="true" aria-labelledby="builder-modal-title">
+        <div class="builder-modal-header">
+            <h3 class="builder-modal-title" id="builder-modal-title">Edit</h3>
+            <button type="button" class="builder-modal-close" id="builder-modal-close" aria-label="Close edit dialog">×</button>
+        </div>
+        <div id="builder-modal-body"></div>
+    </div>
+</div>
+
+<script>
+    window.addEventListener("load", function () {
+        const builderShell = document.querySelector(".builder-shell");
+        const modalBackdrop = document.getElementById("builder-edit-modal");
+        const modalTitle = document.getElementById("builder-modal-title");
+        const modalBody = document.getElementById("builder-modal-body");
+        const modalClose = document.getElementById("builder-modal-close");
+        const scoringRuleNotes = {
+            retail_liquidity_combo: "Multivalue scores - d(i) or d(ii) plus d(iii). But d(iv) is cored alone",
+            retail_inventory_combo: "score i to iii as appropriate or score iv or v only"
+        };
+
+        function syncScoringRuleNotes(root) {
+            (root || document).querySelectorAll("select[id$='scoring_rule']").forEach(function (select) {
+                const note = (root || document).querySelector(`.scoring-rule-note[data-note-for="${select.id}"]`);
+                if (!note) {
+                    return;
+                }
+                const message = scoringRuleNotes[select.value] || "";
+                note.textContent = message;
+                note.style.display = message ? "block" : "none";
+                if (!select.dataset.scoringRuleBound) {
+                    select.addEventListener("change", function () {
+                        syncScoringRuleNotes(root || document);
+                    });
+                    select.dataset.scoringRuleBound = "true";
+                }
+            });
+        }
+
+        function closeEditModal() {
+            modalBackdrop.classList.remove("is-open");
+            modalBackdrop.setAttribute("aria-hidden", "true");
+            builderShell.classList.remove("modal-blurred");
+            modalBody.innerHTML = "";
+        }
+
+        document.querySelectorAll(".action-popover > summary").forEach(function (summary) {
+            summary.addEventListener("click", function (event) {
+                event.preventDefault();
+                const popover = summary.parentElement;
+                const form = popover ? popover.querySelector("form.inline-form") : null;
+                if (!form) {
+                    return;
+                }
+                modalTitle.textContent = summary.textContent.trim() || "Edit";
+                modalBody.innerHTML = form.outerHTML;
+                modalBackdrop.classList.add("is-open");
+                modalBackdrop.setAttribute("aria-hidden", "false");
+                builderShell.classList.add("modal-blurred");
+                syncScoringRuleNotes(modalBody);
+                const firstField = modalBody.querySelector("input:not([type='hidden']), select, textarea, button");
+                if (firstField) {
+                    window.setTimeout(function () {
+                        firstField.focus();
+                    }, 40);
+                }
+            });
+        });
+
+        modalClose.addEventListener("click", closeEditModal);
+        modalBackdrop.addEventListener("click", function (event) {
+            if (event.target === modalBackdrop) {
+                closeEditModal();
+            }
+        });
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && modalBackdrop.classList.contains("is-open")) {
+                closeEditModal();
+            }
+        });
+
+        const activeAnchor = "{{ active_anchor|default:''|escapejs }}";
+        const hashAnchor = window.location.hash ? decodeURIComponent(window.location.hash.slice(1)) : "";
+        const targetId = hashAnchor || activeAnchor;
+        if (!targetId) {
+            return;
+        }
+
+        const target = document.getElementById(targetId);
+        if (!target) {
+            return;
+        }
+
+        let current = target;
+        while (current) {
+            if (current.tagName && current.tagName.toLowerCase() === "details") {
+                current.open = true;
+            }
+            current = current.parentElement;
+        }
+
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        const focusTarget = target.matches("input, select, textarea, button")
+            ? target
+            : target.querySelector("input:not([type='hidden']), select, textarea, button");
+        if (focusTarget) {
+            window.setTimeout(function () {
+                focusTarget.focus({ preventScroll: true });
+            }, 250);
+        }
+
+        syncScoringRuleNotes(document);
+    });
+</script>
+{% endblock %}

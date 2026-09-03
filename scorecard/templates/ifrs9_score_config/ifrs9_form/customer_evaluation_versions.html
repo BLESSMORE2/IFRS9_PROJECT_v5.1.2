@@ -1,0 +1,272 @@
+﻿{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Versions for {{ evaluation.customer_name }}{% endblock %}
+{% block header_title %}Versions for {{ evaluation.customer_name }}{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .table-container {
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    .table-header-section {
+        padding: 1rem 1.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .evaluation-info-box {
+        background: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .evaluation-info-row {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 0.5rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .evaluation-info-label {
+        font-weight: 600;
+        color: #333;
+        min-width: 120px;
+    }
+    .evaluation-info-value {
+        color: #666;
+    }
+    .version-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        padding: 1rem 1.5rem;
+        transition: box-shadow 0.2s ease;
+    }
+    .version-card:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .version-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .version-info {
+        flex: 1;
+    }
+    .version-number {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .version-meta {
+        font-size: 0.9rem;
+        color: #666;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .version-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    .badge-approved {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+    .version-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+    .version-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #f0f0f0;
+    }
+    .version-detail-item {
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .version-detail-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+    }
+    .version-detail-value {
+        color: #666;
+    }
+    .back-link {
+        display: inline-block;
+        margin-bottom: 1rem;
+        color: #0066cc;
+        text-decoration: none;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .back-link:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<div class="page-header">
+    <a href="{% url 'scorecard:ifrs9_customer_versions_list' %}" class="back-link">← Back to Customer Versions</a>
+    <h1 class="page-title">Versions for {{ evaluation.customer_name }}</h1>
+</div>
+
+<div class="table-container">
+    <div class="table-header-section">
+        <div>
+            <h2 style="margin: 0; font-size: 1.1rem; color: #333; font-family: 'Calibri', sans-serif;">IFRS9 score form Versions</h2>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #666; font-family: 'Calibri', sans-serif;">
+                Template: {{ evaluation.template.name }} ({{ evaluation.template.code }})
+            </p>
+        </div>
+    </div>
+    
+    <div style="padding: 1.5rem;">
+        <div class="evaluation-info-box">
+            <div class="evaluation-info-row">
+                <span class="evaluation-info-label">Customer:</span>
+                <span class="evaluation-info-value">{{ evaluation.customer_name|default:"-" }}</span>
+            </div>
+            <div class="evaluation-info-row">
+                <span class="evaluation-info-label">Customer ID:</span>
+                <span class="evaluation-info-value">{{ evaluation.customer_id|default:"-" }}</span>
+            </div>
+            <div class="evaluation-info-row">
+                <span class="evaluation-info-label">Branch:</span>
+                <span class="evaluation-info-value">{{ evaluation.branch_name|default:"-" }}</span>
+            </div>
+            <div class="evaluation-info-row">
+                <span class="evaluation-info-label">Status:</span>
+                <span class="evaluation-info-value">
+                    {% if evaluation.status == 'approved' %}
+                        <span style="color: #28a745; font-weight: 600;">✓ Approved</span>
+                    {% elif evaluation.status == 'submitted' %}
+                        <span style="color: #ff9800; font-weight: 600;">⏳ Submitted</span>
+                    {% elif evaluation.status == 'returned' %}
+                        <span style="color: #ff9800; font-weight: 600;">⚠️ Returned</span>
+                    {% else %}
+                        {{ evaluation.get_status_display }}
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        
+        {% if all_versions %}
+            {% for version in all_versions %}
+            <div class="version-card">
+                <div class="version-header">
+                    <div class="version-info">
+                        <div class="version-number">
+                            Version {{ version.version_number }}
+                            {% if version.is_approved %}
+                                <span class="version-badge badge-approved">&#10003; Approved</span>
+                            {% else %}
+                                <span class="version-badge" style="background:#fff3cd; color:#856404;">Submitted / Pending Review</span>
+                            {% endif %}
+                        </div>
+                        <div class="version-meta">
+                            Created: {{ version.created_at|date:"Y-m-d H:i" }}
+                            {% if version.created_by %}
+                                by {{ version.created_by.email }}
+                            {% endif %}
+                            {% if version.is_approved and version.approved_at %}
+                                | Approved: {{ version.approved_at|date:"Y-m-d H:i" }}
+                                {% if version.approved_by %}
+                                    by {{ version.approved_by.email }}
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="version-actions">
+                        <a href="{% url 'scorecard:ifrs9_customer_version_detail' version_id=version.id %}" class="btn btn-primary">
+                            View Full Details
+                        </a>
+                    </div>
+                </div>
+                {% if version.change_description %}
+                <div style="margin-top: 0.75rem; padding: 0.75rem; background: #f0f8ff; border-left: 3px solid #0066cc; border-radius: 3px; font-size: 0.9rem; color: #333; font-family: 'Calibri', sans-serif;">
+                    <strong>Change Description:</strong> {{ version.change_description }}
+                </div>
+                {% endif %}
+                <div class="version-details">
+                    <div class="version-detail-item">
+                        <div class="version-detail-label">Total Weighted Score:</div>
+                        <div class="version-detail-value">
+                            {% if version.total_weighted_percent %}
+                                {{ version.total_weighted_percent|floatformat:2 }}%
+                            {% else %}
+                                -
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="version-detail-item">
+                        <div class="version-detail-label">Total Raw Score:</div>
+                        <div class="version-detail-value">
+                            {% if version.total_raw_score %}
+                                {{ version.total_raw_score|floatformat:2 }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 3rem 1rem; color: #666; font-family: 'Calibri', sans-serif;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
+                <h3 style="margin: 0 0 0.5rem 0; color: #333;">No Versions Found</h3>
+                <p style="margin: 0; color: #666;">This IFRS9 score form has no versions yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

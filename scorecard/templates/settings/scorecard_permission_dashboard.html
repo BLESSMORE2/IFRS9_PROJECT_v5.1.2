@@ -1,0 +1,362 @@
+{% extends 'settings/scorecard_settings_base.html' %}
+
+{% block settings_title %}Permission Dashboard{% endblock %}
+{% block settings_subtitle %}Review how the scorecard app is secured, how many permission roles exist, which workspaces are already covered by route protection, and where related control pages now live.{% endblock %}
+
+{% block settings_content %}
+<div class="settings-grid mb-3">
+  <div class="settings-main-card p-3">
+    <div class="settings-section-eyebrow">Overview</div>
+    <h2 class="settings-section-title">Permission coverage at a glance</h2>
+    <p class="settings-section-copy">This workspace centralizes scorecard permissions, route coverage, scorecard-only role assignment, and the permission matrix. Workflow Rules and Audit Trail now stand on their own under the main Settings dropdown with their own roles.</p>
+
+    <div class="settings-stat-grid">
+      <div class="settings-stat-card">
+        <div class="settings-stat-label">Users</div>
+        <div class="settings-stat-value">{{ total_users }}</div>
+      </div>
+      <div class="settings-stat-card">
+        <div class="settings-stat-label">Scorecard Roles</div>
+        <div class="settings-stat-value">{{ total_scorecard_roles }}</div>
+      </div>
+      <div class="settings-stat-card">
+        <div class="settings-stat-label">Custom Permissions</div>
+        <div class="settings-stat-value">{{ total_permissions }}</div>
+      </div>
+      <div class="settings-stat-card">
+        <div class="settings-stat-label">Protected Routes</div>
+        <div class="settings-stat-value">{{ secured_routes }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-surface p-3">
+    <div class="settings-section-eyebrow">Quick Access</div>
+    <h3 class="settings-panel-title">What we can manage here</h3>
+    <div class="settings-quick-list">
+      <a href="{% url 'scorecard:settings_user_roles' %}" class="settings-quick-link">
+        <span class="settings-quick-icon">UR</span>
+        <span>
+          <strong>User Roles</strong>
+          <small>Assign scorecard permission roles to users without touching unrelated platform roles.</small>
+        </span>
+      </a>
+      <a href="{% url 'scorecard:settings_permission_matrix' %}" class="settings-quick-link">
+        <span class="settings-quick-icon">PM</span>
+        <span>
+          <strong>Permission Matrix</strong>
+          <small>See each scorecard area side by side with its view, work, approve, and admin roles.</small>
+        </span>
+      </a>
+    </div>
+  </div>
+
+  <div class="settings-surface p-3">
+    <div class="settings-section-eyebrow">Related Settings</div>
+    <h3 class="settings-panel-title">Standalone control pages</h3>
+    <div class="settings-quick-list">
+      <a href="{% url 'scorecard:settings_audit_trail' %}" class="settings-quick-link">
+        <span class="settings-quick-icon">AT</span>
+        <span>
+          <strong>Audit Trail</strong>
+          <small>Review scorecard-wide activity including builder changes, workflow decisions, imports, email administration, and API actions.</small>
+        </span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="settings-surface p-3 mb-3">
+  <div class="settings-section-head">
+    <div>
+      <div class="settings-section-eyebrow">Modules</div>
+      <h3 class="settings-panel-title">Protected scorecard areas</h3>
+      <p class="settings-section-copy mb-0">Each module shows the route coverage, the business-friendly roles that apply, and the permissions that drive access.</p>
+    </div>
+  </div>
+
+  <div class="settings-module-grid">
+    {% for module in module_summary %}
+    <article class="settings-module-card">
+      <div class="settings-module-top">
+        <div>
+          <div class="settings-module-name">{{ module.label }}</div>
+          <div class="settings-module-meta">{{ module.route_count }} route{{ module.route_count|pluralize }} | {{ module.permission_count }} permission{{ module.permission_count|pluralize }}</div>
+        </div>
+        <div class="settings-module-badge">Covered</div>
+      </div>
+      <p class="settings-module-copy">{{ module.notes }}</p>
+
+      <div class="settings-module-role-list">
+        {% for role in module.roles %}
+        <div class="settings-module-role">
+          <div class="settings-module-role-head">
+            <strong>{{ role.label }}</strong>
+            <span class="settings-role-badge settings-role-badge-{{ role.badge_style }}">{{ role.level_label }}</span>
+          </div>
+          <div class="settings-module-role-copy">{{ role.description }}</div>
+          {% if role.action_summary %}
+          <div class="settings-role-badge-list">
+            {% for action in role.action_summary %}
+            <span class="settings-inline-badge">{{ action }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="settings-permission-chip-list">
+        {% for permission in module.permissions %}
+        <span class="settings-permission-chip settings-permission-chip-{{ permission.badge_key }}">{{ permission.badge_label }}: {{ permission.label }}</span>
+        {% endfor %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="settings-surface p-3">
+  <div class="settings-section-head">
+    <div>
+      <div class="settings-section-eyebrow">Role Library</div>
+      <h3 class="settings-panel-title">Business-friendly role guide</h3>
+      <p class="settings-section-copy mb-0">These are the assignable scorecard roles, grouped by business area so administrators can understand them quickly.</p>
+    </div>
+  </div>
+
+  <div class="settings-role-library">
+    {% for group in role_library %}
+    <section class="settings-role-library-group">
+      <div class="settings-role-library-title">{{ group.module_label }}</div>
+      <div class="settings-role-library-grid">
+        {% for role in group.roles %}
+        <article class="settings-role-library-card">
+          <div class="settings-role-library-head">
+            <strong>{{ role.label }}</strong>
+            <span class="settings-role-badge settings-role-badge-{{ role.badge_style }}">{{ role.level_label }}</span>
+          </div>
+          <p class="settings-role-library-copy">{{ role.description }}</p>
+          <div class="settings-role-badge-list">
+            {% for badge in role.access_badges %}
+            <span class="settings-inline-badge">{{ badge }}</span>
+            {% endfor %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+  .settings-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+    gap: 1rem;
+  }
+  .settings-section-eyebrow,
+  .settings-stat-label {
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #0f766e;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+  .settings-section-title,
+  .settings-panel-title,
+  .settings-module-name {
+    color: #0f172a;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+  .settings-section-title {
+    font-size: 0.94rem;
+    margin-bottom: 0.25rem;
+  }
+  .settings-panel-title {
+    font-size: 0.82rem;
+    margin-bottom: 0.25rem;
+  }
+  .settings-section-copy,
+  .settings-module-copy,
+  .settings-module-meta,
+  .settings-quick-link small,
+  .settings-module-role-copy,
+  .settings-role-library-copy {
+    color: #64748b;
+    font-size: 0.69rem;
+    line-height: 1.45;
+  }
+  .settings-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.7rem;
+    margin-top: 0.9rem;
+  }
+  .settings-stat-card,
+  .settings-module-card,
+  .settings-quick-link,
+  .settings-module-role,
+  .settings-role-library-card {
+    border-radius: 14px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: #f8fafc;
+  }
+  .settings-stat-card {
+    padding: 0.8rem 0.85rem;
+  }
+  .settings-stat-value {
+    font-size: 1.04rem;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .settings-quick-list {
+    display: grid;
+    gap: 0.6rem;
+  }
+  .settings-quick-link {
+    display: flex;
+    gap: 0.7rem;
+    padding: 0.8rem;
+    text-decoration: none;
+    color: #0f172a;
+  }
+  .settings-quick-link:hover {
+    text-decoration: none;
+    color: #0f172a;
+    transform: translateY(-1px);
+  }
+  .settings-quick-link strong {
+    display: block;
+    font-size: 0.74rem;
+    margin-bottom: 0.1rem;
+  }
+  .settings-quick-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(23, 84, 148, 0.08);
+    color: #175494;
+    font-size: 0.62rem;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .settings-section-head {
+    margin-bottom: 0.9rem;
+  }
+  .settings-module-grid,
+  .settings-role-library-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 0.85rem;
+  }
+  .settings-module-card {
+    padding: 0.85rem;
+  }
+  .settings-module-top,
+  .settings-module-role-head,
+  .settings-role-library-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .settings-module-top {
+    margin-bottom: 0.45rem;
+  }
+  .settings-module-name {
+    font-size: 0.76rem;
+    margin-bottom: 0.12rem;
+  }
+  .settings-module-badge {
+    padding: 0.22rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+    font-size: 0.58rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .settings-module-copy {
+    margin: 0 0 0.65rem;
+  }
+  .settings-module-role-list,
+  .settings-role-library {
+    display: grid;
+    gap: 0.7rem;
+  }
+  .settings-module-role,
+  .settings-role-library-card {
+    padding: 0.74rem;
+    background: #fff;
+  }
+  .settings-module-role-head strong,
+  .settings-role-library-head strong,
+  .settings-role-library-title {
+    color: #0f172a;
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+  .settings-role-library-title {
+    margin-bottom: 0.55rem;
+  }
+  .settings-role-badge-list,
+  .settings-permission-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .settings-role-badge-list {
+    margin-top: 0.45rem;
+  }
+  .settings-inline-badge,
+  .settings-role-badge,
+  .settings-permission-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22rem 0.46rem;
+    border-radius: 999px;
+    font-size: 0.58rem;
+    font-weight: 700;
+  }
+  .settings-inline-badge,
+  .settings-role-badge-view,
+  .settings-permission-chip-view {
+    background: rgba(23, 84, 148, 0.08);
+    color: #175494;
+  }
+  .settings-role-badge-work,
+  .settings-permission-chip-work {
+    background: rgba(14, 116, 144, 0.11);
+    color: #0f766e;
+  }
+  .settings-role-badge-approve,
+  .settings-permission-chip-approve {
+    background: rgba(217, 119, 6, 0.12);
+    color: #b45309;
+  }
+  .settings-role-badge-admin,
+  .settings-permission-chip-admin {
+    background: rgba(127, 29, 29, 0.1);
+    color: #991b1b;
+  }
+  .settings-permission-chip-assign {
+    background: rgba(88, 28, 135, 0.12);
+    color: #7e22ce;
+  }
+  @media (max-width: 991px) {
+    .settings-grid {
+      grid-template-columns: 1fr;
+    }
+    .settings-stat-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,431 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Import Result{% endblock %}
+{% block header_title %}Import Result{% endblock %}
+
+{% block content %}
+<style>
+    .upload-shell {
+        --upload-primary: #0b63ce;
+        --upload-primary-dark: #094ea1;
+        --upload-ink: #122033;
+        --upload-muted: #61748b;
+        --upload-line: #d7e1ec;
+        --upload-soft-blue: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%);
+        --upload-soft-warn: #fff9f1;
+        --upload-warn-line: #f0d4a7;
+        --upload-soft-success: #f3fbf6;
+        --upload-success-line: #bfe3cb;
+        --upload-shadow: 0 18px 45px rgba(15, 40, 75, 0.08);
+        --upload-radius: 18px;
+    }
+    .stepbar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-bottom: 1rem;
+    }
+    .stepbar-item {
+        background: #fff;
+        border: 1px solid var(--upload-line);
+        border-radius: 14px;
+        padding: 0.95rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        box-shadow: 0 8px 24px rgba(15, 40, 75, 0.04);
+    }
+    .stepbar-item.is-current {
+        background: var(--upload-soft-blue);
+        border-color: #b6d0ef;
+    }
+    .stepbar-number {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #e8f1fd;
+        color: var(--upload-primary-dark);
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+    .stepbar-item.is-current .stepbar-number {
+        background: var(--upload-primary);
+        color: #fff;
+    }
+    .stepbar-label {
+        font-size: 0.92rem;
+        line-height: 1.35;
+    }
+    .hero {
+        background: var(--upload-soft-blue);
+        border: 1px solid #dbe8f5;
+        border-radius: var(--upload-radius);
+        padding: 1.35rem 1.5rem;
+        box-shadow: var(--upload-shadow);
+        margin-bottom: 1rem;
+    }
+    .hero h2 {
+        margin-bottom: 0.45rem;
+        font-size: 1.5rem;
+    }
+    .muted {
+        color: var(--upload-muted);
+        font-size: 0.94rem;
+        line-height: 1.55;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    .stat-card,
+    .card {
+        background: #fff;
+        border: 1px solid var(--upload-line);
+        border-radius: var(--upload-radius);
+        box-shadow: var(--upload-shadow);
+    }
+    .stat-card {
+        padding: 1rem 1.05rem;
+    }
+    .stat-card span {
+        display: block;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #6a8098;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+    }
+    .stat-card strong {
+        display: block;
+        font-size: 1.35rem;
+        color: var(--upload-ink);
+    }
+    .layout {
+        display: grid;
+        grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+        gap: 1rem;
+    }
+    .card {
+        padding: 1.25rem 1.3rem;
+    }
+    .card h3 {
+        font-size: 1.08rem;
+        margin-bottom: 0.4rem;
+    }
+    .result-banner {
+        margin-top: 0.9rem;
+        padding: 0.95rem 1rem;
+        border-radius: 14px;
+        border: 1px solid var(--upload-success-line);
+        background: var(--upload-soft-success);
+        color: #245b38;
+        line-height: 1.5;
+    }
+    .result-banner.warning {
+        border-color: var(--upload-warn-line);
+        background: var(--upload-soft-warn);
+        color: #8a5a12;
+    }
+    .result-banner.failed {
+        border-color: #f0b8b8;
+        background: #fff4f4;
+        color: #a42323;
+    }
+    .result-banner.running {
+        border-color: #b6d0ef;
+        background: #eef6ff;
+        color: #174f8f;
+    }
+    .progress-track {
+        height: 0.65rem;
+        margin-top: 0.8rem;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #d9e7f6;
+    }
+    .progress-bar {
+        height: 100%;
+        min-width: 4%;
+        border-radius: inherit;
+        background: var(--upload-primary);
+        animation: import-pulse 1.4s ease-in-out infinite alternate;
+    }
+    @keyframes import-pulse {
+        from { opacity: 0.65; }
+        to { opacity: 1; }
+    }
+    .error-summary {
+        display: grid;
+        gap: 0.65rem;
+        margin-top: 1rem;
+    }
+    .error-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.8rem 0.9rem;
+        border-radius: 14px;
+        background: #fff8ef;
+        border: 1px solid #f0d4a7;
+        font-size: 0.91rem;
+    }
+    .error-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2rem;
+        height: 2rem;
+        padding: 0 0.55rem;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid #efc679;
+        color: #8a5a12;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+    .actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.15rem;
+        flex-wrap: wrap;
+    }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        border: none;
+        border-radius: 12px;
+        padding: 0.82rem 1.2rem;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    .btn:hover {
+        transform: translateY(-1px);
+    }
+    .btn-primary {
+        background: var(--upload-primary);
+        color: #fff;
+        box-shadow: 0 14px 24px rgba(11, 99, 206, 0.2);
+    }
+    .btn-primary:hover {
+        background: var(--upload-primary-dark);
+    }
+    .btn-secondary {
+        background: #e6edf5;
+        color: #203148;
+    }
+    .table-wrap {
+        margin-top: 1rem;
+        overflow: auto;
+        border: 1px solid #e2eaf2;
+        border-radius: 16px;
+        background: #fff;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 720px;
+    }
+    th, td {
+        padding: 0.72rem 0.8rem;
+        border-bottom: 1px solid #edf2f7;
+        text-align: left;
+        vertical-align: top;
+        font-size: 0.9rem;
+    }
+    thead th {
+        position: sticky;
+        top: 0;
+        background: #f8fbfe;
+        color: #395069;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    tbody tr:nth-child(even) {
+        background: #fbfdff;
+    }
+    @media (max-width: 980px) {
+        .summary-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+        .layout {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 720px) {
+        .stepbar,
+        .summary-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="upload-shell">
+    <div class="stepbar">
+        <div class="stepbar-item">
+            <span class="stepbar-number">1</span>
+            <div class="stepbar-label"><strong>Upload</strong><br>Workbook prepared</div>
+        </div>
+        <div class="stepbar-item">
+            <span class="stepbar-number">2</span>
+            <div class="stepbar-label"><strong>Map</strong><br>Columns aligned</div>
+        </div>
+        <div class="stepbar-item is-current">
+            <span class="stepbar-number">3</span>
+            <div class="stepbar-label">
+                <strong>Import Result</strong><br>
+                Final outcome and validation report
+            </div>
+        </div>
+    </div>
+
+    <section class="hero">
+        <h2>
+            {% if result.status == "running" %}
+                Import is running in the background.
+            {% elif result.status == "failed" %}
+                Import could not be completed.
+            {% else %}
+                Import completed with a full validation report.
+            {% endif %}
+        </h2>
+        <div class="muted">
+            {% if result.status == "running" %}
+                You can leave this page while the validated rows are loaded. The result will refresh automatically without holding an IIS web request open.
+            {% elif result.status == "failed" %}
+                The importer stopped before it could finish. Review the message below, correct the source file or mapping, and try again.
+            {% else %}
+                This result screen shows what was loaded, what was rejected, and the main validation reasons so the upload can be corrected quickly when needed.
+            {% endif %}
+        </div>
+    </section>
+
+    <div class="summary-grid">
+        <div class="stat-card">
+            <span>Source file</span>
+            <strong>{{ result.file_name }}</strong>
+        </div>
+        <div class="stat-card">
+            <span>Target table</span>
+            <strong>{{ result.target_table }}</strong>
+        </div>
+        <div class="stat-card">
+            <span>Loaded rows</span>
+            <strong>{{ result.inserted_rows }}</strong>
+        </div>
+        <div class="stat-card">
+            <span>Skipped rows</span>
+            <strong>{{ result.skipped_rows }}</strong>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="card">
+            <h3>Import summary</h3>
+            <div class="muted">
+                Sheet: <strong>{{ result.sheet_name }}</strong><br>
+                {% if result.imported_at %}Imported at: <strong>{{ result.imported_at }}</strong><br>{% endif %}
+                Status: <strong>{{ result.status|default:"completed"|title }}</strong>
+            </div>
+
+            {% if result.status == "failed" %}
+                <div class="result-banner failed">
+                    {{ result.message|default:"The import failed before completion." }}
+                </div>
+            {% elif result.status == "running" %}
+                <div class="result-banner running">
+                    {{ result.message }}
+                    {% if result.total_rows %}
+                        <br><strong>{{ result.processed_rows|default:0 }}</strong> of <strong>{{ result.total_rows }}</strong> validated rows processed.
+                    {% endif %}
+                    <div class="progress-track"><div class="progress-bar"></div></div>
+                </div>
+            {% endif %}
+
+            {% if result.inserted_rows > 0 %}
+                <div class="result-banner">
+                    <strong>{{ result.inserted_rows }}</strong> row{{ result.inserted_rows|pluralize }} loaded successfully into {{ result.target_table }}.
+                </div>
+            {% endif %}
+
+            {% if result.skipped_rows > 0 %}
+                <div class="result-banner warning">
+                    <strong>{{ result.skipped_rows }}</strong> row{{ result.skipped_rows|pluralize }} were skipped because they failed validation.
+                </div>
+            {% endif %}
+
+            {% if result.error_summary %}
+                <div class="error-summary">
+                    {% for item in result.error_summary %}
+                        <div class="error-item">
+                            <div>{{ item.reason }}</div>
+                            <span class="error-count">{{ item.count }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="actions">
+                {% if result.status != "running" %}<a class="btn btn-primary" href="{% url 'scorecard:upload_start' upload_kind=upload_kind %}">Start New Import</a>{% endif %}
+                <a class="btn btn-secondary" href="{% url 'scorecard:upload_home' %}">Back To Import Home</a>
+            </div>
+        </aside>
+
+        <section class="card">
+            <h3>Skipped rows details</h3>
+            <div class="muted">
+                These are sample rows that were rejected during import, together with the exact validation reason.
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Row</th>
+                            {% if config.is_historical_scores %}<th>Reporting Date</th>{% endif %}
+                            <th>Branch</th>
+                            <th>Customer Number</th>
+                            <th>Customer Name</th>
+                            <th>Why it failed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in result.skipped_preview %}
+                            <tr>
+                                <td>{{ row.row_number }}</td>
+                                {% if config.is_historical_scores %}<td>{{ row.reporting_date }}</td>{% endif %}
+                                <td>{{ row.branch_name }}</td>
+                                <td>{{ row.customer_id }}</td>
+                                <td>{{ row.customer_name }}</td>
+                                <td>{{ row.errors_display }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="{% if config.is_historical_scores %}6{% else %}5{% endif %}">No skipped rows were recorded for this import.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+{% if result.status == "running" %}
+<script>
+    window.setTimeout(function () {
+        window.location.reload();
+    }, 2500);
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,411 @@
+{% extends 'settings/scorecard_settings_base.html' %}
+
+{% block settings_title %}Workflow Rules{% endblock %}
+{% block settings_subtitle %}Control front-end workflow behavior for score approval, customer scoring locks, customer without-score list sources, and scheduled score auto-updates.{% endblock %}
+{% block settings_toolbar %}{% endblock %}
+
+{% block settings_content %}
+<div class="settings-surface p-3 mb-3">
+  <div class="workflow-header">
+    <div>
+      <div class="workflow-eyebrow">Approval Policy</div>
+      <h2 class="workflow-title">Scorecard workflow controls</h2>
+      <p class="workflow-copy mb-0">These settings are live workflow rules. Auto-approval rules control checker routing, scoring locks control duplicate work, without-score source rules control missing-score lists, and auto-update controls schedule refreshes from the latest API data.</p>
+      {% if workflow_settings.updated_by %}
+      <div class="workflow-meta">Last saved by {{ workflow_updated_by_label|default:"System" }} on {{ workflow_settings.updated_at|date:"Y-m-d H:i" }}</div>
+      {% elif has_saved_configuration %}
+      <div class="workflow-meta">These workflow rules were already saved and are currently shown in view mode.</div>
+      {% else %}
+      <div class="workflow-meta">No saved workflow-rule update has been recorded yet. Review the rules below and save when ready.</div>
+      {% endif %}
+    </div>
+    <div class="workflow-header-side">
+      <div class="workflow-summary-badge">
+        <strong>{{ workflow_summary.enabled_count }}/{{ workflow_summary.total_count }}</strong>
+        <small>Rules enabled</small>
+      </div>
+      <div class="workflow-actions workflow-actions-top">
+        <a href="{% url 'scorecard:scorecard_dashboard' %}" class="workflow-secondary-btn">Back to Dashboard</a>
+        {% if can_manage and has_saved_configuration and not is_edit_mode %}
+        <a href="{% url 'scorecard:settings_workflow_approvals' %}?edit=1" class="workflow-primary-btn">Edit Workflow Rules</a>
+        {% endif %}
+        {% if can_manage and is_edit_mode %}
+        <button type="submit" form="workflow-rules-form" class="workflow-primary-btn">
+          {% if has_saved_configuration %}Save Changes{% else %}Save Workflow Rules{% endif %}
+        </button>
+        {% endif %}
+        {% if can_manage and has_saved_configuration and is_edit_mode %}
+        <a href="{% url 'scorecard:settings_workflow_approvals' %}" class="workflow-secondary-btn">Cancel</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if can_manage and has_saved_configuration and not is_edit_mode %}
+<div class="settings-surface p-3 mb-3">
+  <div class="workflow-mode-banner">
+    <div>
+      <div class="workflow-eyebrow">View Mode</div>
+      <h3 class="workflow-section-title">Saved workflow rules</h3>
+      <p class="workflow-copy mb-0">The current rules are shown below in read-only mode. Use <strong>Edit Workflow Rules</strong> when you want to change the saved behavior.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<form method="post" class="workflow-form-stack" id="workflow-rules-form">
+  {% csrf_token %}
+
+  {% for section in workflow_summary.sections %}
+  <section class="settings-surface p-3">
+    <div class="workflow-section-head">
+      <div>
+        <div class="workflow-eyebrow">{{ section.label }}</div>
+        <h3 class="workflow-section-title">{{ section.title }}</h3>
+        <p class="workflow-copy mb-0">{{ section.copy }}</p>
+      </div>
+      <span class="workflow-section-chip">{{ section.enabled_count }} / {{ section.total_count }} enabled</span>
+    </div>
+
+    <div class="workflow-toggle-grid">
+      {% for row in section.rows %}
+      <label class="workflow-toggle-card {% if row.is_enabled %}is-enabled{% endif %}">
+        <div class="workflow-toggle-main">
+          <input
+            type="checkbox"
+            name="{{ row.name }}"
+            {% if row.is_enabled %}checked{% endif %}
+            {% if not can_manage or not is_edit_mode %}disabled{% endif %}
+          >
+          <div>
+            <div class="workflow-toggle-label">{{ row.label }}</div>
+            <div class="workflow-toggle-copy">{{ row.copy }}</div>
+          </div>
+        </div>
+        <span class="workflow-toggle-state {% if row.is_enabled %}is-enabled{% else %}is-disabled{% endif %}">
+          {% if row.is_enabled %}Enabled{% else %}Disabled{% endif %}
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+
+  <section class="settings-surface p-3">
+    <div class="workflow-section-head">
+      <div>
+        <div class="workflow-eyebrow">Score Auto-Update</div>
+        <h3 class="workflow-section-title">Auto-update scored forms from latest API data</h3>
+        <p class="workflow-copy mb-0">When enabled, the scheduler can refresh existing Basel and IFRS9 scores whose auto-filled fields changed, create a new approved version, and keep the process outside normal manual approval.</p>
+      </div>
+      <span class="workflow-section-chip">{% if workflow_summary.auto_refresh.is_enabled %}1{% else %}0{% endif %} / 1 enabled</span>
+    </div>
+
+    <div class="workflow-schedule-card {% if workflow_summary.auto_refresh.is_enabled %}is-enabled{% endif %}">
+      <label class="workflow-toggle-card workflow-toggle-card-schedule {% if workflow_summary.auto_refresh.is_enabled %}is-enabled{% endif %}">
+        <div class="workflow-toggle-main">
+          <input
+            type="checkbox"
+            name="auto_refresh_autofilled_scores_enabled"
+            {% if workflow_summary.auto_refresh.is_enabled %}checked{% endif %}
+            {% if not can_manage or not is_edit_mode %}disabled{% endif %}
+          >
+          <div>
+            <div class="workflow-toggle-label">Enable automatic score refresh</div>
+            <div class="workflow-toggle-copy">Use this when score forms should be updated automatically from the latest customer and loan data without checker approval.</div>
+          </div>
+        </div>
+        <span class="workflow-toggle-state {% if workflow_summary.auto_refresh.is_enabled %}is-enabled{% else %}is-disabled{% endif %}">
+          {% if workflow_summary.auto_refresh.is_enabled %}Enabled{% else %}Disabled{% endif %}
+        </span>
+      </label>
+
+      <div class="workflow-schedule-grid">
+        <label class="workflow-field">
+          <span>Frequency</span>
+          <select name="auto_refresh_autofilled_scores_frequency" {% if not can_manage or not is_edit_mode %}disabled{% endif %}>
+            {% for choice in workflow_summary.auto_refresh.frequency_choices %}
+            <option value="{{ choice.value }}" {% if choice.selected %}selected{% endif %}>{{ choice.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="workflow-field">
+          <span>Run time</span>
+          <input
+            type="time"
+            name="auto_refresh_autofilled_scores_time"
+            value="{{ workflow_summary.auto_refresh.time_value }}"
+            {% if not can_manage or not is_edit_mode %}disabled{% endif %}
+          >
+        </label>
+        <label class="workflow-field">
+          <span>Weekly day</span>
+          <select name="auto_refresh_autofilled_scores_weekday" {% if not can_manage or not is_edit_mode %}disabled{% endif %}>
+            {% for choice in workflow_summary.auto_refresh.weekday_choices %}
+            <option value="{{ choice.value }}" {% if choice.selected %}selected{% endif %}>{{ choice.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="workflow-field">
+          <span>Monthly day</span>
+          <select name="auto_refresh_autofilled_scores_month_day" {% if not can_manage or not is_edit_mode %}disabled{% endif %}>
+            {% for choice in workflow_summary.auto_refresh.month_day_choices %}
+            <option value="{{ choice.value }}" {% if choice.selected %}selected{% endif %}>{{ choice.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="workflow-schedule-note">
+        <strong>Current schedule:</strong>
+        {{ workflow_summary.auto_refresh.frequency_label }} at {{ workflow_summary.auto_refresh.time_value }}
+        {% if workflow_summary.auto_refresh.frequency == "weekly" %}
+          on {{ workflow_summary.auto_refresh.weekday_label }}.
+        {% elif workflow_summary.auto_refresh.frequency == "monthly" %}
+          on day {{ workflow_summary.auto_refresh.month_day }} of the month.
+        {% else %}
+          every day.
+        {% endif %}
+        <span>Last completed: {{ workflow_summary.auto_refresh.last_run_at|date:"Y-m-d H:i"|default:"Never" }}</span>
+      </div>
+    </div>
+  </section>
+</form>
+
+<style>
+  .workflow-form-stack {
+    display: grid;
+    gap: 1rem;
+  }
+  .workflow-header,
+  .workflow-section-head,
+  .workflow-footer {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .workflow-eyebrow {
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #0f766e;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+  .workflow-title,
+  .workflow-section-title,
+  .workflow-toggle-label {
+    color: #0f172a;
+    font-weight: 800;
+  }
+  .workflow-title {
+    font-size: 0.94rem;
+    margin: 0 0 0.2rem;
+  }
+  .workflow-section-title {
+    font-size: 0.82rem;
+    margin: 0 0 0.2rem;
+  }
+  .workflow-copy,
+  .workflow-toggle-copy {
+    color: #64748b;
+    font-size: 0.69rem;
+    line-height: 1.5;
+  }
+  .workflow-meta {
+    margin-top: 0.45rem;
+    color: #475569;
+    font-size: 0.67rem;
+    line-height: 1.45;
+  }
+  .workflow-header-side {
+    display: grid;
+    gap: 0.75rem;
+    justify-items: end;
+  }
+  .workflow-summary-badge,
+  .workflow-section-chip {
+    border-radius: 999px;
+    background: rgba(23, 84, 148, 0.08);
+    color: #175494;
+    padding: 0.5rem 0.75rem;
+    min-width: 110px;
+    text-align: center;
+  }
+  .workflow-summary-badge strong {
+    display: block;
+    font-size: 1rem;
+  }
+  .workflow-summary-badge small,
+  .workflow-section-chip {
+    font-size: 0.62rem;
+    font-weight: 700;
+  }
+  .workflow-toggle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.85rem;
+    margin-top: 0.9rem;
+  }
+  .workflow-schedule-card {
+    display: grid;
+    gap: 0.95rem;
+    margin-top: 0.9rem;
+    border-radius: 16px;
+    border: 1px solid #dce7f2;
+    background: #f8fafc;
+    padding: 1rem;
+  }
+  .workflow-schedule-card.is-enabled {
+    border-color: rgba(14, 116, 144, 0.28);
+    background: rgba(240, 253, 250, 0.95);
+  }
+  .workflow-schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.85rem;
+  }
+  .workflow-field {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+  }
+  .workflow-field span {
+    color: #64748b;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+  }
+  .workflow-field select,
+  .workflow-field input {
+    min-height: 42px;
+    border: 1px solid #cfe0f2;
+    border-radius: 10px;
+    background: #fff;
+    color: #0f172a;
+    font-size: 0.78rem;
+    padding: 0.55rem 0.7rem;
+  }
+  .workflow-field select:disabled,
+  .workflow-field input:disabled {
+    background: #eef4fb;
+    color: #475569;
+    opacity: 1;
+  }
+  .workflow-toggle-card-schedule {
+    margin-top: 0;
+  }
+  .workflow-schedule-note {
+    border-radius: 12px;
+    background: rgba(23, 84, 148, 0.07);
+    color: #475569;
+    font-size: 0.68rem;
+    line-height: 1.55;
+    padding: 0.75rem 0.85rem;
+  }
+  .workflow-schedule-note strong {
+    color: #0f172a;
+  }
+  .workflow-schedule-note span {
+    display: block;
+    margin-top: 0.25rem;
+  }
+  .workflow-toggle-card {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-radius: 14px;
+    border: 1px solid #dce7f2;
+    background: #f8fafc;
+    padding: 0.9rem;
+    cursor: pointer;
+    margin: 0;
+  }
+  .workflow-toggle-card.is-enabled {
+    border-color: rgba(14, 116, 144, 0.28);
+    background: rgba(240, 253, 250, 0.95);
+  }
+  .workflow-toggle-card:has(input[disabled]) {
+    cursor: default;
+  }
+  .workflow-toggle-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+  .workflow-toggle-main input[type="checkbox"] {
+    margin-top: 0.2rem;
+    width: 16px;
+    height: 16px;
+  }
+  .workflow-toggle-label {
+    font-size: 0.74rem;
+    margin-bottom: 0.14rem;
+  }
+  .workflow-toggle-state {
+    padding: 0.22rem 0.46rem;
+    border-radius: 999px;
+    font-size: 0.58rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .workflow-toggle-state.is-enabled {
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+  }
+  .workflow-toggle-state.is-disabled {
+    background: rgba(23, 84, 148, 0.08);
+    color: #175494;
+  }
+  .workflow-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .workflow-actions-top {
+    justify-content: flex-end;
+  }
+  .workflow-primary-btn,
+  .workflow-secondary-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 0.68rem 1rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid transparent;
+  }
+  .workflow-primary-btn {
+    background: linear-gradient(135deg, #1766a6 0%, #1b79c2 100%);
+    color: #fff;
+  }
+  .workflow-secondary-btn {
+    background: #fff;
+    border-color: #dce7f2;
+    color: #175494;
+  }
+  .workflow-mode-banner {
+    border-radius: 14px;
+    border: 1px solid rgba(23, 84, 148, 0.12);
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(241, 245, 249, 0.98) 100%);
+    padding: 0.15rem 0;
+  }
+  @media (max-width: 900px) {
+    .workflow-header-side {
+      justify-items: stretch;
+      width: 100%;
+    }
+    .workflow-actions-top {
+      justify-content: flex-start;
+    }
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,475 @@
+{% extends "credit_scoreshifts/base.html" %}
+{% load dict_extras %}
+{# 
+TEMPLATE: template_maker_view.html
+PURPOSE: Review current/pending template information before submitting for approval
+USAGE: Used by template_maker_view (from maker drafts "Submit" action)
+DISPLAYS: CURRENT/PENDING template structure, metadata, and formulas (what's being submitted)
+NOTES: This template shows pending changes waiting for approval. Different from basel_template_detail.html.
+#}
+
+{% block title %}{% if is_pending_template_review %}Review and Submit Template{% else %}Template View{% endif %}{% endblock %}
+
+{% block content %}
+    <style>
+        .view-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .view-header {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #333;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .status-draft {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-in-progress {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .status-submitted {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+        .status-approved {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-returned {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e0e0e0;
+        }
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .template-content {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .workflow-history {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+        .history-item {
+            padding: 0.75rem;
+            border-left: 3px solid #0066cc;
+            margin-bottom: 0.5rem;
+            background: #f8f9fa;
+        }
+        .history-item strong {
+            color: #0066cc;
+        }
+    </style>
+    
+    <div class="view-container">
+        <div class="view-header">
+            <h2 style="margin-top: 0; margin-bottom: 0.35rem; color: #333;">
+                {% if is_pending_template_review %}Review and Submit Template{% else %}Template View{% endif %}: {{ template.code }}
+            </h2>
+            <p style="margin-top: 0; margin-bottom: 1rem; color: #516783; font-size: 0.95rem;">
+                {% if is_pending_template_review %}
+                    Review the current draft below, use <strong>Builder</strong> if the structure still needs changes, or choose <strong>Submit for Review</strong> when it is ready for checker approval.
+                {% else %}
+                    This template is already approved. Open <strong>Builder</strong> only when you need to prepare a new change for future approval.
+                {% endif %}
+            </p>
+            
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Name:</span>
+                    <span>{{ template.name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Status:</span>
+                    <span class="status-badge 
+                        {% if template.status == 'draft' %}status-draft
+                        {% elif template.status == 'in_progress' %}status-in-progress
+                        {% elif template.status == 'submitted' %}status-submitted
+                        {% elif template.status == 'approved' %}status-approved
+                        {% elif template.status == 'returned' %}status-returned
+                        {% endif %}">
+                        {{ template.get_status_display }}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Version:</span>
+                    <span>{{ template.version|default:"-" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Maker:</span>
+                    <span>{{ template.maker.email|default:"Not assigned" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Checker:</span>
+                    <span>{{ template.checker.email|default:"Not assigned" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Last Updated:</span>
+                    <span>{{ template.updated_at|date:"Y-m-d H:i" }}</span>
+                </div>
+            </div>
+            
+            {% if template.status == 'returned' and template.return_reason %}
+            <div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+                <strong>Return Reason:</strong> {{ template.return_reason }}
+            </div>
+            {% endif %}
+            
+            <div class="action-buttons">
+                {% if can_edit %}
+                <a href="{% url 'scorecard:ifrs9_template_builder' template_id=template.id %}" class="btn btn-primary">Builder</a>
+                {% if template.status in 'draft,in_progress,returned' %}
+                <a href="{% url 'scorecard:ifrs9_template_submit' template_id=template.id %}" class="btn btn-success">Submit for Review</a>
+                {% endif %}
+                {% endif %}
+                {% if back_to_submissions %}
+                <a href="{% url 'scorecard:ifrs9_template_maker_submitted_list' %}" class="btn btn-secondary">Back to Submissions</a>
+                {% else %}
+                <a href="{% url 'scorecard:ifrs9_template_maker_draft_list' %}" class="btn btn-secondary">Back to Drafts</a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Template Summary Information -->
+        <div style="background: white; border-radius: 4px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); padding: 1rem 1.5rem; margin-bottom: 1rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem 2rem;">
+                <div>
+                    <div style="font-weight: 600; color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Template Code</div>
+                    <div style="color: #333; font-size: 0.9rem;">{{ template.code }}</div>
+                </div>
+                <div>
+                    <div style="font-weight: 600; color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Name</div>
+                    <div style="color: #333; font-size: 0.9rem;">{{ template.name }}</div>
+                </div>
+                <div>
+                    <div style="font-weight: 600; color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Version</div>
+                    <div style="color: #333; font-size: 0.9rem;">{{ template.version|default:"N/A" }}</div>
+                </div>
+                <div>
+                    <div style="font-weight: 600; color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Status</div>
+                    <div style="color: #333; font-size: 0.9rem;">{% if template.is_active %}Active{% else %}Inactive{% endif %}</div>
+                </div>
+            </div>
+            {% if template.description %}
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e0e0e0;">
+                <div style="font-weight: 600; color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;">Description</div>
+                <div style="color: #333; font-size: 0.9rem;">{{ template.description }}</div>
+            </div>
+            {% endif %}
+        </div>
+        
+        {# Show comparison if there's an approved version #}
+        {% if show_pending_comparison %}
+        <div style="margin-top: 1rem; padding: 1rem; background-color: #fff3cd; border: 2px solid #ff9800; border-radius: 4px; margin-bottom: 1rem;">
+            <h3 style="margin-top: 0; font-size: 1rem; font-weight: 600; color: #856404; margin-bottom: 0.5rem;">
+                📝 Changes Summary (Pending Approval)
+            </h3>
+            <p style="margin: 0; color: #856404; font-size: 0.9rem;">
+                This template has changes compared to the approved version (Version {{ latest_approved_version.version_number }}). 
+                Review the changes below before submitting for approval.
+            </p>
+        </div>
+        {% endif %}
+        
+        <!-- Calculation Formulas -->
+        {% if show_pending_comparison %}
+        <!-- Comparison view for formulas -->
+        <div style="margin-top: 1rem; padding: 1rem; background-color: #f0f8ff; border: 1px solid #0066cc; border-radius: 4px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); margin-bottom: 1rem;">
+            <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: 600; color: #0066cc; margin-bottom: 0.75rem;">Calculation Formulas:</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                <thead>
+                    <tr style="background: #e3f2fd;">
+                        <th style="width: 20%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; font-size: 12px; color: #333;">FORMULA</th>
+                        <th style="width: 30%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">APPROVED<br>(Current)</th>
+                        <th style="width: 30%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">YOUR CHANGES<br>(Pending)</th>
+                        <th style="width: 20%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">STATUS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% with actual=formula_comparison.actual_score %}
+                    <tr style="background: {% if actual.status == 'changed' %}#fff3cd{% elif actual.status == 'new' %}#cfe2ff{% else %}#f8f9fa{% endif %};">
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; font-weight: 600; color: #0066cc;">
+                            ACTUAL_SCORE
+                        </td>
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; text-align: center;">
+                            {% if actual.approved %}<span style="color: #28a745;">✓ {{ actual.approved }}{% else %}-{% endif %}</span>
+                        </td>
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; text-align: center;">
+                            <span style="color: #ff9800;">✓ {{ actual.pending }}</span>
+                        </td>
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; text-align: center;">
+                            {% if actual.status == 'changed' %}
+                                <span style="display: inline-block; padding: 0.2rem 0.5rem; background: #ffc107; color: #856404; border-radius: 3px; font-size: 0.8rem; font-weight: 600;">CHANGED</span>
+                            {% elif actual.status == 'new' %}
+                                <span style="display: inline-block; padding: 0.2rem 0.5rem; background: #0d6efd; color: white; border-radius: 3px; font-size: 0.8rem; font-weight: 600;">NEW</span>
+                            {% else %}
+                                <span style="display: inline-block; padding: 0.2rem 0.5rem; background: #6c757d; color: white; border-radius: 3px; font-size: 0.8rem; font-weight: 600;">SAME</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% with weighted=formula_comparison.weighted_score %}
+                    <tr style="background: {% if weighted.status == 'changed' %}#fff3cd{% elif weighted.status == 'new' %}#cfe2ff{% else %}#f8f9fa{% endif %};">
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; font-weight: 600; color: #0066cc;">
+                            WEIGHTED_SCORE
+                        </td>
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; text-align: center;">
+                            {% if weighted.approved %}<span style="color: #28a745;">✓ {{ weighted.approved }}{% else %}-{% endif %}</span>
+                        </td>
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; text-align: center;">
+                            <span style="color: #ff9800;">✓ {{ weighted.pending }}</span>
+                        </td>
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; text-align: center;">
+                            {% if weighted.status == 'changed' %}
+                                <span style="display: inline-block; padding: 0.2rem 0.5rem; background: #ffc107; color: #856404; border-radius: 3px; font-size: 0.8rem; font-weight: 600;">CHANGED</span>
+                            {% elif weighted.status == 'new' %}
+                                <span style="display: inline-block; padding: 0.2rem 0.5rem; background: #0d6efd; color: white; border-radius: 3px; font-size: 0.8rem; font-weight: 600;">NEW</span>
+                            {% else %}
+                                <span style="display: inline-block; padding: 0.2rem 0.5rem; background: #6c757d; color: white; border-radius: 3px; font-size: 0.8rem; font-weight: 600;">SAME</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% with proof=formula_comparison.proof %}
+                    <tr style="background: {% if proof.status == 'changed' %}#fff3cd{% elif proof.status == 'new' %}#cfe2ff{% else %}#f8f9fa{% endif %};">
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; font-weight: 600; color: #0066cc;">
+                            PROOF
+                        </td>
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; text-align: center;">
+                            {% if proof.approved %}<span style="color: #28a745;">✓ {{ proof.approved }}{% else %}-{% endif %}</span>
+                        </td>
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; text-align: center;">
+                            <span style="color: #ff9800;">✓ {{ proof.pending }}</span>
+                        </td>
+                        <td style="border: 1px solid #e0e0e0; padding: 0.5rem 0.75rem; text-align: center;">
+                            {% if proof.status == 'changed' %}
+                                <span style="display: inline-block; padding: 0.2rem 0.5rem; background: #ffc107; color: #856404; border-radius: 3px; font-size: 0.8rem; font-weight: 600;">CHANGED</span>
+                            {% elif proof.status == 'new' %}
+                                <span style="display: inline-block; padding: 0.2rem 0.5rem; background: #0d6efd; color: white; border-radius: 3px; font-size: 0.8rem; font-weight: 600;">NEW</span>
+                            {% else %}
+                                <span style="display: inline-block; padding: 0.2rem 0.5rem; background: #6c757d; color: white; border-radius: 3px; font-size: 0.8rem; font-weight: 600;">SAME</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <!-- Simple view when no approved version -->
+        <div style="margin-top: 1rem; padding: 1rem; background-color: #f0f8ff; border: 1px solid #0066cc; border-radius: 4px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); margin-bottom: 1rem;">
+            <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: 600; color: #0066cc; margin-bottom: 0.75rem;">Calculation Formulas (Same for all sections):</h3>
+            <div>
+                <div style="margin-bottom: 0.5rem; font-size: 0.9rem; color: #333;">
+                    <strong style="color: #0066cc; font-weight: 600;">ACTUAL_SCORE:</strong> {{ template.formula_actual_score|default:"ALLOCATED_SCORE" }}
+                </div>
+                <div style="margin-bottom: 0.5rem; font-size: 0.9rem; color: #333;">
+                    <strong style="color: #0066cc; font-weight: 600;">WEIGHTED_SCORE:</strong> {{ template.formula_weighted_score|default:"ACTUAL_SCORE / Highest_Possible_Score * WEIGHT" }}
+                </div>
+                <div style="margin-bottom: 0; font-size: 0.9rem; color: #333;">
+                    <strong style="color: #0066cc; font-weight: 600;">PROOF:</strong> {{ template.formula_proof|default:"IF(ACTUAL_SCORE = '', '', IF(ACTUAL_SCORE != ALLOCATED_SCORE, 'ERROR', '')) + ALLOCATED_SCORE" }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="template-content">
+            {% if not sections %}
+                <div style="text-align: center; padding: 3rem 1rem; color: #999; font-style: italic;">
+                    <h3>⚠️ No Sections Configured</h3>
+                    <p>This template has no sections, risk drivers, or attributes configured yet.</p>
+                </div>
+            {% elif show_pending_comparison %}
+                {# Show comparison view when there's an approved version #}
+                {% include "maker_checker/ifrs9scores_templates/_template_maker_comparison_content.html" %}
+            {% else %}
+                {# Show simple view when no approved version exists #}
+                {% for section in sections %}
+                    <h2 style="margin-top: 1.5rem; margin-bottom: 0.75rem; font-size: 1.2rem; font-weight: 600; color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 0.5rem;">
+                        {{ section.code }}) {{ section.name|upper }}
+                    </h2>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem; font-size: 12px; font-family: 'Calibri', sans-serif;">
+                        <thead>
+                            <tr style="background: #e3f2fd;">
+                                <th style="width: 40%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; font-size: 12px; color: #333;">RISK DRIVERS</th>
+                                <th style="width: 12%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">ALLOCATED<br>SCORE</th>
+                                <th style="width: 12%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">ACTUAL<br>SCORE</th>
+                                <th style="width: 12%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">WEIGHT</th>
+                 <th style="width: 12%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">WEIGHTED<br>SCORE %</th>
+                                <th style="width: 12%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">PROOF</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for driver in drivers_by_section|get_item:section.id %}
+                                {% with driver_attrs=attributes_by_driver|get_item:driver.id %}
+                                    <!-- Risk Driver Header Row -->
+                                    <tr style="background: #f0f8ff;">
+                                        <td colspan="6" style="padding: 0.4rem 0.5rem; border: 1px solid #e0e0e0; font-weight: 600;">
+                                            {{ driver.code }}. {{ driver.name }}
+                                        </td>
+                                    </tr>
+                                    
+                                    {% if driver_attrs %}
+                                        {% for attribute in driver_attrs %}
+                                            <!-- Attribute Group Label Row (e.g., "a) Natural Region I") -->
+                                            {% if attribute.group_label %}
+                                                <tr style="background: #f8f9fa;">
+                                                    <td colspan="6" style="padding: 0.35rem 0.5rem; padding-left: 1rem; border: 1px solid #e0e0e0; font-style: italic;">
+                                                        {{ attribute.group_label }}
+                                                    </td>
+                                                </tr>
+                                            {% endif %}
+                                            
+                                            <!-- Attribute Label Row -->
+                                            <tr>
+                                                <td style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %}; padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0; font-weight: 500;">
+                                                    {{ attribute.label }} (Weight: {{ attribute.weight_percent }}%)
+                                                </td>
+                                                <td class="text-center" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                                <td class="text-center" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                                <td class="text-center" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">{{ attribute.weight_percent }}%</td>
+                                                <td class="text-center" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                                <td class="text-center" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                            </tr>
+                                            
+                                            <!-- Individual Options as Rows -->
+                                            {% for option in attribute.options.all %}
+                                                <tr>
+                                                    <td style="padding-left: {% if attribute.group_label %}2.5rem{% else %}1.5rem{% endif %}; padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">
+                                                        {{ option.label }}
+                                                    </td>
+                                                    <td class="text-center" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">
+                                                        {{ option.allocated_score }}
+                                                    </td>
+                                                    <td class="text-center" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                                    <td class="text-center" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                                    <td class="text-center" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                                    <td class="text-center" style="padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                                </tr>
+                                            {% endfor %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="6" style="padding-left: 1rem; padding: 0.3rem 0.5rem; border: 1px solid #e0e0e0; color: #999; font-style: italic;">
+                                                No attributes configured
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endfor %}
+                            <tr style="background: #f5f5f5; font-weight: 600;">
+                                <td style="padding-left: 1rem; padding: 0.4rem 0.5rem; border: 1px solid #e0e0e0;">
+                                    Totals for {{ section.name }}
+                                </td>
+                                <td class="text-center" style="padding: 0.4rem 0.5rem; border: 1px solid #e0e0e0;">{{ section_totals|get_item:section.id|get_item:"allocated"|floatformat:2 }}</td>
+                                <td class="text-center" style="padding: 0.4rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                <td class="text-center" style="padding: 0.4rem 0.5rem; border: 1px solid #e0e0e0;">{{ section_totals|get_item:section.id|get_item:"weight"|floatformat:2 }}%</td>
+                                <td class="text-center" style="padding: 0.4rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                <td class="text-center" style="padding: 0.4rem 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                {% endfor %}
+                <div style="margin-top: 2rem;">
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem; font-size: 12px; font-family: 'Calibri', sans-serif;">
+                        <thead>
+                            <tr style="background: #e3f2fd;">
+                                <th style="width: 40%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; font-size: 12px; color: #333;">RISK DRIVERS</th>
+                                <th style="width: 12%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">ALLOCATED<br>SCORE</th>
+                                <th style="width: 12%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">ACTUAL<br>SCORE</th>
+                                <th style="width: 12%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">WEIGHT</th>
+                 <th style="width: 12%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">WEIGHTED<br>SCORE %</th>
+                                <th style="width: 12%; border: 1px solid #bbdefb; padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; font-size: 12px; color: #333;">PROOF</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background: #f5f5f5; font-weight: 600;">
+                                <td style="padding-left: 1rem; padding: 0.5rem; border: 1px solid #e0e0e0;">Overall Totals</td>
+                                <td class="text-center" style="padding: 0.5rem; border: 1px solid #e0e0e0;">{{ overall_totals.allocated|floatformat:2 }}</td>
+                                <td class="text-center" style="padding: 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                <td class="text-center" style="padding: 0.5rem; border: 1px solid #e0e0e0;">{{ overall_totals.weight|floatformat:2 }}%</td>
+                                <td class="text-center" style="padding: 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                                <td class="text-center" style="padding: 0.5rem; border: 1px solid #e0e0e0;">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+        
+        {% if workflow_history %}
+        <div class="workflow-history">
+            <h3 style="margin-top: 0;">Workflow History</h3>
+            {% for history in workflow_history %}
+            <div class="history-item">
+                <strong>{{ history.get_action_display }}</strong> 
+                ({{ history.from_status|default:"-" }} → {{ history.to_status }})
+                by {{ history.performed_by.email }} on {{ history.performed_at|date:"Y-m-d H:i" }}
+                {% if history.comments %}
+                <div style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;">{{ history.comments }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+{% endblock %}

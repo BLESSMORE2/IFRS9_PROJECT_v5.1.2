@@ -1,0 +1,371 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Email Module{% endblock %}
+
+{% block content %}
+<style>
+    .email-module {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .email-header {
+        background: linear-gradient(135deg, #0f4c81 0%, #1766a6 100%);
+        border-radius: 14px;
+        padding: 1.5rem 1.75rem;
+        color: #fff;
+        box-shadow: 0 14px 28px rgba(15, 76, 129, 0.18);
+    }
+    .email-header h1 {
+        margin: 0 0 0.45rem;
+        font-size: 1.7rem;
+        font-weight: 700;
+    }
+    .email-header p {
+        margin: 0;
+        max-width: 760px;
+        font-size: 0.93rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.92);
+    }
+    .email-toolbar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
+        align-items: stretch;
+        padding: 0.35rem;
+        background: linear-gradient(180deg, #f4f9fd 0%, #eef5fb 100%);
+        border: 1px solid #d9e6f2;
+        border-radius: 16px;
+    }
+    .email-nav-card {
+        display: block;
+        text-decoration: none;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        padding: 0.9rem 1rem;
+        min-height: 58px;
+        transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+    .email-nav-card:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.72);
+        border-color: #c1d7ea;
+        box-shadow: 0 8px 18px rgba(17, 60, 102, 0.08);
+    }
+    .email-nav-card.active {
+        border-color: #1766a6;
+        background: linear-gradient(135deg, #1766a6 0%, #1b79c2 100%);
+        box-shadow: 0 12px 24px rgba(23, 102, 166, 0.2);
+    }
+    .email-nav-title {
+        font-size: 1.16rem;
+        font-weight: 700;
+        color: #16324f;
+        margin-bottom: 0;
+        line-height: 1.2;
+        letter-spacing: 0.01em;
+        font-family: "Segoe UI Semibold", "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .email-nav-card.active .email-nav-title {
+        color: #fff;
+    }
+    .email-summary {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .email-summary-card {
+        background: #fff;
+        border: 1px solid #dce7f2;
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 8px 18px rgba(17, 60, 102, 0.05);
+    }
+    .email-summary-label {
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #7b8da0;
+        margin-bottom: 0.4rem;
+    }
+    .email-summary-value {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #16324f;
+        word-break: break-word;
+    }
+    .email-summary-subtext {
+        margin-top: 0.35rem;
+        font-size: 0.82rem;
+        line-height: 1.5;
+        color: #627587;
+    }
+    .email-panel {
+        background: #fff;
+        border: 1px solid #dce7f2;
+        border-radius: 14px;
+        padding: 1.25rem;
+        box-shadow: 0 12px 24px rgba(17, 60, 102, 0.06);
+    }
+    .email-panel h2 {
+        margin: 0 0 0.3rem;
+        font-size: 1.1rem;
+        color: #16324f;
+    }
+    .email-panel p {
+        margin: 0 0 1rem;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: #607385;
+    }
+    .email-status-banner {
+        padding: 0.95rem 1rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+    .email-status-banner.ready {
+        background: #e7f8ef;
+        border: 1px solid #ccefdc;
+        color: #127749;
+    }
+    .email-status-banner.not-ready {
+        background: #fff4df;
+        border: 1px solid #f0dfb6;
+        color: #8a5a13;
+    }
+    .email-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .email-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+    .email-field.full {
+        grid-column: 1 / -1;
+    }
+    .email-field label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6d8094;
+    }
+    .email-field input[type="email"],
+    .email-field input[type="text"],
+    .email-field textarea {
+        width: 100%;
+        padding: 0.82rem 0.9rem;
+        border-radius: 10px;
+        border: 1px solid #cfdeea;
+        background: #fcfeff;
+        color: #18334f;
+        font-size: 0.9rem;
+        font-family: inherit;
+    }
+    .email-field textarea {
+        min-height: 130px;
+        resize: vertical;
+    }
+    .email-field small {
+        font-size: 0.78rem;
+        line-height: 1.45;
+        color: #6d8094;
+    }
+    .email-checkbox-field {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.7rem;
+        padding-top: 1.9rem;
+    }
+    .email-checkbox-field input {
+        width: 18px;
+        height: 18px;
+        margin-top: 0.05rem;
+    }
+    .email-checkbox-field label {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #18334f;
+        text-transform: none;
+        letter-spacing: 0;
+    }
+    .email-readonly {
+        background: #f8fbff;
+        border: 1px solid #d8e5f2;
+        border-radius: 12px;
+        padding: 0.95rem 1rem;
+        color: #526b83;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+    .email-readonly strong {
+        color: #17324d;
+    }
+    .email-button-row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+    .email-button {
+        border: none;
+        border-radius: 10px;
+        padding: 0.8rem 1rem;
+        font-size: 0.87rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .email-button.primary {
+        background: #1766a6;
+        color: #fff;
+    }
+    .email-button.primary:hover {
+        background: #0f548b;
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(23, 102, 166, 0.22);
+    }
+    .email-button.secondary {
+        background: #edf4fb;
+        color: #28547b;
+        border: 1px solid #d4e3f0;
+    }
+    .email-button.secondary:hover {
+        background: #dcecf9;
+        color: #16324f;
+        transform: translateY(-1px);
+    }
+    .email-table-wrap {
+        overflow-x: auto;
+    }
+    .email-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.87rem;
+    }
+    .email-table th,
+    .email-table td {
+        padding: 0.8rem 0.75rem;
+        border-bottom: 1px solid #e7eef5;
+        text-align: left;
+        vertical-align: top;
+    }
+    .email-table th {
+        font-size: 0.76rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #70839a;
+        background: #f8fbfd;
+    }
+    .email-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.28rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 700;
+    }
+    .email-status.success {
+        background: #e7f7ef;
+        color: #166f4c;
+    }
+    .email-page-messages {
+        display: grid;
+        gap: 0.6rem;
+    }
+    .email-page-message {
+        padding: 0.95rem 1rem;
+        border-radius: 12px;
+        border: 1px solid #bee5eb;
+        background: #e8f6fb;
+        color: #0c5460;
+        font-size: 0.92rem;
+        font-weight: 600;
+    }
+    .email-page-message.success {
+        border-color: #bfe8cf;
+        background: #e6f7ed;
+        color: #126b45;
+    }
+    .email-page-message.error {
+        border-color: #f0c4ca;
+        background: #fdecef;
+        color: #8b1c28;
+    }
+    .email-page-message.warning {
+        border-color: #f0dfaa;
+        background: #fff6df;
+        color: #7a5410;
+    }
+    .email-status.neutral {
+        background: #edf2f7;
+        color: #506579;
+    }
+    @media (max-width: 1200px) {
+        .email-summary,
+        .email-form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 900px) {
+        .email-toolbar {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="email-module">
+    <section class="email-header">
+        <h1>{% block email_title %}Email Module{% endblock %}</h1>
+        <p>{% block email_intro %}Manage the built-in system mailbox and the scorecard email wording from one place.{% endblock %}</p>
+    </section>
+
+    <section class="email-toolbar">
+        {% for item in email_navigation %}
+            <a href="{{ item.url }}" class="email-nav-card {% if email_current_page == item.key %}active{% endif %}">
+                <div class="email-nav-title">{{ item.label }}</div>
+            </a>
+        {% endfor %}
+    </section>
+
+    {% if messages %}
+        <section class="email-page-messages">
+            {% for message in messages %}
+                <div class="email-page-message {{ message.tags|default:'info' }}">{{ message }}</div>
+            {% endfor %}
+        </section>
+    {% endif %}
+
+    {% block email_summary_section %}
+        <section class="email-summary">
+            <div class="email-summary-card">
+                <div class="email-summary-label">System Sender</div>
+                <div class="email-summary-value">{% if email_configuration %}{{ email_configuration.from_email_override }}{% else %}Not set{% endif %}</div>
+                <div class="email-summary-subtext">Built-in mailbox used for scorecard communication.</div>
+            </div>
+            <div class="email-summary-card">
+                <div class="email-summary-label">Connection Status</div>
+                <div class="email-summary-value">{% if email_summary.transport_ready %}Ready{% else %}Needs Check{% endif %}</div>
+                <div class="email-summary-subtext">Use the test action on the configuration page to confirm delivery.</div>
+            </div>
+        </section>
+    {% endblock %}
+
+    {% block email_body %}{% endblock %}
+</div>
+{% endblock %}

@@ -1,0 +1,308 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Draft IFRS9 Score Forms{% endblock %}
+{% block header_title %}Draft IFRS9 Score Forms{% endblock %}
+
+{% block content %}
+    <style>
+        .page-header {
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .table-container {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .table-header-section {
+            padding: 1rem 1.5rem;
+            border-bottom: 2px solid #0066cc;
+        }
+        .table-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        .table-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .table-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .search-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .search-input {
+            border: 1px solid #cbd2e1;
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            width: 250px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .data-table thead {
+            background: #e3f2fd;
+        }
+        .data-table thead th {
+            border: 1px solid #bbdefb;
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            color: #333;
+        }
+        .data-table thead th.text-center {
+            text-align: center;
+        }
+        .data-table tbody td {
+            border: 1px solid #e0e0e0;
+            padding: 0.5rem 0.75rem;
+            font-size: 12px;
+            color: #333;
+        }
+        .data-table tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .status-draft {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-in-progress {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .btn {
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0052a3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #999;
+            font-style: italic;
+        }
+    </style>
+    
+    <div class="page-header">
+        <div class="page-title">Draft IFRS9 Score Forms</div>
+    </div>
+    
+    <div class="table-container">
+        <div class="table-header-section">
+            <div class="table-header-top">
+                <div class="table-header-left">
+                    <h2 style="margin: 0; font-size: 1.1rem; color: #333; font-family: Calibri, sans-serif;">In Progress / Draft IFRS9 Score Forms</h2>
+                    <p style="margin: 0; font-size: 0.9rem; color: #666; font-family: Calibri, sans-serif;">
+                        Continue working on IFRS9 score forms that haven't been submitted yet.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-controls">
+            <div class="search-control">
+                <label for="search-input" style="font-size: 0.9rem; color: #333;">Search:</label>
+                <input type="text" 
+                       id="search-input" 
+                       class="search-input" 
+                       value="{{ search_query|default:'' }}"
+                       placeholder="Search by customer name, code, template...">
+            </div>
+            <div class="search-control">
+                <span style="font-size: 0.9rem; color: #333;">Show</span>
+                <select id="entries-per-page" class="search-input" style="width: 90px;">
+                    <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+                </select>
+                <span style="font-size: 0.9rem; color: #333;">entries</span>
+            </div>
+        </div>
+        
+        {% if evaluations %}
+            <table class="data-table" id="draft-table">
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">#</th>
+                        <th style="width: 15%;">Template</th>
+                        <th style="width: 15%;">Customer Code</th>
+                        <th style="width: 20%;">Customer Name</th>
+                        <th style="width: 15%;">Branch</th>
+                        <th style="width: 10%;" class="text-center">Status</th>
+                        <th style="width: 10%;" class="text-center">Last Updated</th>
+                        <th style="width: 10%;" class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for evaluation in evaluations %}
+                        <tr class="draft-row" 
+                            data-template="{% if evaluation.template %}{{ evaluation.template.code|lower }} {{ evaluation.template.name|lower }}{% else %}external import template not assigned{% endif %}"
+                            data-customer-code="{{ evaluation.customer_id|lower }}"
+                            data-customer-name="{{ evaluation.customer_name|lower }}"
+                            data-branch="{{ evaluation.branch_name|lower }}">
+                            <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                            <td>
+                                {% if evaluation.template %}
+                                    {{ evaluation.template.code }}
+                                {% else %}
+                                    <span style="display: inline-flex; align-items: center; padding: 0.2rem 0.55rem; border-radius: 999px; background: #fff4d9; color: #8a6116; font-size: 0.78rem; font-weight: 600;">Not Assigned</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ evaluation.customer_id }}</td>
+                            <td>{{ evaluation.customer_name }}</td>
+                            <td>{{ evaluation.branch_name }}</td>
+                            <td class="text-center">
+                                <span class="status-badge {% if evaluation.total_weighted_percent is None %}status-draft{% else %}status-in-progress{% endif %}">
+                                    {% if evaluation.total_weighted_percent is None %}Incomplete{% else %}In Progress{% endif %}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                {{ evaluation.updated_at|date:"M d, Y" }}<br>
+                                <small style="color: #666;">{{ evaluation.updated_at|date:"H:i" }}</small>
+                            </td>
+                            <td class="text-center">
+                                {% if evaluation.template %}
+                                    <a href="{% url 'scorecard:ifrs9_scores_edit' evaluation.id %}" class="btn btn-primary">
+                                        Continue
+                                    </a>
+                                    <a href="{% url 'scorecard:ifrs9_scores_template_assignment' evaluation.id %}" class="btn btn-secondary" style="margin-top: 0.45rem;">
+                                        Change Template
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'scorecard:ifrs9_scores_template_assignment' evaluation.id %}" class="btn btn-primary">
+                                        Assign Template
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.85rem 1.5rem; background:#f8f9fa; border-top:1px solid #dee2e6;">
+                <div style="font-size:12px; color:#666;">Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} entries</div>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    {% if page_obj.has_previous %}
+                    <a href="?p={{ page_obj.previous_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="btn btn-secondary">Previous</a>
+                    {% else %}
+                    <span class="btn btn-secondary" style="opacity:0.5; cursor:not-allowed;">Previous</span>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                    <a href="?p={{ page_obj.next_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="btn btn-secondary">Next</a>
+                    {% else %}
+                    <span class="btn btn-secondary" style="opacity:0.5; cursor:not-allowed;">Next</span>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>No draft IFRS9 score forms found.</p>
+                <a href="{% url 'scorecard:ifrs9_scores_template_select' %}" class="btn btn-primary" style="margin-top: 1rem;">Create New IFRS9 Score Form</a>
+            </div>
+        {% endif %}
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('search-input');
+        const entriesSelect = document.getElementById('entries-per-page');
+        let searchTimeout = null;
+
+        function buildListUrl(overrides) {
+            const url = new URL(window.location.href);
+            const params = url.searchParams;
+            const currentSearch = (searchInput.value || '').trim();
+            const currentPageSize = entriesSelect ? entriesSelect.value : '20';
+
+            params.set('page_size', currentPageSize);
+            if (currentSearch) {
+                params.set('q', currentSearch);
+            } else {
+                params.delete('q');
+            }
+            params.delete('p');
+
+            Object.entries(overrides || {}).forEach(([key, value]) => {
+                if (value === null || value === undefined || value === '') {
+                    params.delete(key);
+                } else {
+                    params.set(key, value);
+                }
+            });
+            return `${url.pathname}?${params.toString()}`;
+        }
+        
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                }
+                searchTimeout = setTimeout(function() {
+                    window.location.href = buildListUrl({ p: 1 });
+                }, 300);
+            });
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    this.value = '';
+                    window.location.href = buildListUrl({ q: null, p: 1 });
+                }
+            });
+        }
+        if (entriesSelect) {
+            entriesSelect.addEventListener('change', function() {
+                window.location.href = buildListUrl({ page_size: this.value, p: 1 });
+            });
+        }
+    });
+</script>
+{% endblock %}

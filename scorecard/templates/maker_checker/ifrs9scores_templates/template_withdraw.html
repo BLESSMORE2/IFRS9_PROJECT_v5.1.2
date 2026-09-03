@@ -1,0 +1,111 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Withdraw IFRS9 Template{% endblock %}
+
+{% block content %}
+    <style>
+        .confirmation-box {
+            max-width: 600px;
+            margin: 2rem auto;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+        .warning-box {
+            padding: 1rem;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            color: #856404;
+        }
+        .info-section {
+            margin-bottom: 1.5rem;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #cbd2e1;
+            border-radius: 4px;
+            font-family: "Calibri", sans-serif;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+    </style>
+    
+    <div class="confirmation-box">
+        <h2 style="margin-top: 0; color: #333;">Withdraw IFRS9 Template</h2>
+        
+        <div class="warning-box">
+            <strong>⚠️ Warning:</strong> This will withdraw the template from review and return it to "In Progress" status. You can edit and resubmit it later.
+        </div>
+        
+        <div class="info-section">
+            <div class="info-row">
+                <span class="info-label">Template Code:</span>
+                <span>{{ template.code }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Template Name:</span>
+                <span>{{ template.name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Version:</span>
+                <span>{{ template.version|default:"-" }}</span>
+            </div>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="comments">Reason for Withdrawal (Optional):</label>
+                <textarea id="comments" name="comments" rows="3" placeholder="Explain why you're withdrawing this template..."></textarea>
+            </div>
+            
+            <div class="btn-group">
+                <button type="submit" class="btn btn-warning">Withdraw Template</button>
+                <a href="{% url 'scorecard:ifrs9_template_maker_submitted_list' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

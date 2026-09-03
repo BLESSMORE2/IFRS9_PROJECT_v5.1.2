@@ -1,0 +1,1249 @@
+{% load static %}
+<style>
+    .page-header {
+        padding: 1rem 0 0.9rem;
+        margin-bottom: 1.1rem;
+        border-bottom: 2px solid #0b6ed0;
+    }
+    .page-title {
+        font-size: 1.7rem;
+        font-weight: 700;
+        color: #172433;
+        margin: 0 0 0.25rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page-subtitle {
+        font-size: 0.9rem;
+        color: #667085;
+        margin: 0;
+    }
+    .dashboard-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.3rem;
+    }
+    .quick-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    .quick-action-btn {
+        padding: 0.58rem 1rem;
+        background: #0b6ed0;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.86rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition: background 0.2s ease, transform 0.2s ease;
+    }
+    .quick-action-btn:hover {
+        background: #0958a8;
+        transform: translateY(-1px);
+        color: #fff;
+    }
+    .quick-action-btn.secondary {
+        background: #eef4fb;
+        color: #214a75;
+        border: 1px solid #d5e3f3;
+    }
+    .quick-action-btn.secondary:hover {
+        background: #e4eef9;
+        color: #17324f;
+    }
+    .dashboard-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.85rem;
+    }
+    .dashboard-section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1f2937;
+        padding-bottom: 0.45rem;
+        border-bottom: 2px solid #e8eef5;
+    }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    @media (max-width: 1240px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @media (max-width: 720px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    .stat-card {
+        display: flex;
+        overflow: hidden;
+        border-radius: 10px;
+        background: #fff;
+        border: 1px solid #e7edf5;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    }
+    .stat-card-left {
+        width: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .stat-card-left.blue { background: #1f6fd1; }
+    .stat-card-left.green { background: #169b62; }
+    .stat-card-left.orange { background: #f08c2e; }
+    .stat-card-left.purple { background: #7d56d8; }
+    .stat-card-left.teal { background: #0f9d8a; }
+    .stat-card-left.slate { background: #5c6b7a; }
+    .stat-card-left.red { background: #dc3545; }
+    .stat-card-icon {
+        color: #fff;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .stat-card-content {
+        flex: 1;
+        padding: 0.95rem 1rem;
+    }
+    .stat-label {
+        font-size: 0.73rem;
+        color: #667085;
+        margin-bottom: 0.35rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .stat-value {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #101828;
+        line-height: 1.2;
+    }
+    .stat-sub-value {
+        margin-top: 0.3rem;
+        color: #667085;
+        font-size: 0.82rem;
+    }
+    .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    @media (max-width: 1280px) {
+        .charts-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @media (max-width: 980px) {
+        .charts-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    .content-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+        gap: 1rem;
+    }
+    @media (max-width: 1100px) {
+        .content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    .chart-container,
+    .info-container {
+        background: #fff;
+        border: 1px solid #e7edf5;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+        overflow: hidden;
+    }
+    .chart-header,
+    .info-header {
+        padding: 0.85rem 1rem;
+        background: linear-gradient(180deg, #f8fbff 0%, #f1f7fe 100%);
+        border-bottom: 1px solid #e4edf7;
+        font-weight: 700;
+        font-size: 0.93rem;
+        color: #1d2939;
+    }
+    .card-body {
+        padding: 1rem;
+    }
+    .chart-wrapper {
+        position: relative;
+        height: 260px;
+        padding: 1rem;
+    }
+    .activity-table,
+    .mini-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.84rem;
+    }
+    .activity-table th,
+    .activity-table td,
+    .mini-table th,
+    .mini-table td {
+        padding: 0.7rem 0.6rem;
+        border-bottom: 1px solid #edf2f7;
+        text-align: left;
+        vertical-align: middle;
+    }
+    .activity-table th,
+    .mini-table th {
+        color: #667085;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .activity-table tbody tr:hover,
+    .mini-table tbody tr:hover {
+        background: #fafcff;
+    }
+    .grade-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.22rem 0.55rem;
+        border-radius: 999px;
+        background: #dceeff;
+        color: #0b6ed0;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .status-pill.success {
+        background: #e8f7ee;
+        color: #127a43;
+    }
+    .status-pill.failed {
+        background: #fdecec;
+        color: #c0392b;
+    }
+    .status-pill.running {
+        background: #ecf3ff;
+        color: #1f5fbf;
+    }
+    .status-pill.neutral {
+        background: #eef2f6;
+        color: #475467;
+    }
+    .info-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .info-item {
+        display: block;
+        padding: 0.8rem 0.9rem;
+        background: #f9fbfd;
+        border: 1px solid #edf2f7;
+        border-left: 3px solid #0b6ed0;
+        border-radius: 8px;
+        text-decoration: none;
+        color: inherit;
+    }
+    .info-item-label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.2rem;
+    }
+    .info-item-value {
+        font-size: 0.84rem;
+        color: #667085;
+    }
+    .score-range-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 0.85rem;
+        background: #f9fbfd;
+        border: 1px solid #edf2f7;
+        border-radius: 8px;
+    }
+    .score-range-label {
+        font-size: 0.84rem;
+        font-weight: 600;
+        color: #1f2937;
+    }
+    .score-range-count {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0b6ed0;
+    }
+    .summary-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 0.85rem;
+        background: #f9fbfd;
+        border: 1px solid #edf2f7;
+        border-radius: 8px;
+    }
+    .summary-row-title {
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.18rem;
+    }
+    .summary-row-note {
+        font-size: 0.82rem;
+        color: #667085;
+    }
+    .empty-state {
+        padding: 1.8rem 1rem;
+        color: #98a2b3;
+        font-style: italic;
+        text-align: center;
+    }
+    .template-performance {
+        margin-top: 0.15rem;
+        padding: 1rem;
+        background: linear-gradient(135deg, #f8fbff 0%, #f2f7fc 100%);
+        border: 1px solid #dce8f5;
+        border-radius: 12px;
+    }
+    .template-performance-heading {
+        margin-bottom: 0.85rem;
+    }
+    .template-performance-title {
+        color: #17324f;
+        font-size: 0.94rem;
+        font-weight: 700;
+    }
+    .template-performance-note {
+        margin-top: 0.18rem;
+        color: #667085;
+        font-size: 0.8rem;
+    }
+    .template-performance-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.8rem;
+    }
+    .template-performance-card {
+        min-width: 0;
+        padding: 0.9rem 1rem;
+        background: #fff;
+        border: 1px solid #e1eaf4;
+        border-radius: 10px;
+        box-shadow: 0 5px 16px rgba(31, 76, 122, 0.05);
+    }
+    .template-performance-code {
+        color: #0b6ed0;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .template-performance-name {
+        min-height: 2.5em;
+        margin: 0.25rem 0 0.7rem;
+        color: #1f2937;
+        font-size: 0.87rem;
+        font-weight: 700;
+        line-height: 1.25;
+    }
+    .template-performance-metrics {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding-top: 0.65rem;
+        border-top: 1px solid #edf2f7;
+    }
+    .template-performance-count {
+        color: #101828;
+        font-size: 1.35rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+    .template-performance-label,
+    .template-performance-forms {
+        color: #667085;
+        font-size: 0.76rem;
+    }
+    .template-performance-forms {
+        text-align: right;
+    }
+    @media (max-width: 1100px) {
+        .template-performance-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @media (max-width: 720px) {
+        .template-performance-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="page-header">
+    <div class="page-title">Dashboard</div>
+    {% if current_branch %}
+        <p class="page-subtitle">
+            Branch: <strong>{% if all_branches_selected %}ALL ASSIGNED BRANCHES{% elif current_branch %}{{ current_branch.branch_name }}{% else %}-{% endif %}</strong> &bull;
+            Bank: <strong>{{ current_branch.bank_name }}</strong>
+            {% if current_branch.branch_code %}
+                &bull; Code: <strong>{{ current_branch.branch_code }}</strong>
+            {% endif %}
+        </p>
+    {% else %}
+        <p class="page-subtitle">System overview</p>
+    {% endif %}
+</div>
+
+{% if expiry_message %}
+<div class="alert {% if 'expired' in expiry_message %}alert-danger{% elif 'remaining' in expiry_message %}alert-warning{% else %}alert-success{% endif %} mb-3" role="alert">
+    <strong>Notice:</strong> {{ expiry_message }}
+</div>
+{% endif %}
+
+<div class="dashboard-container">
+    {% if dashboard_access.quick_actions %}
+    <div class="quick-actions">
+        {% if dashboard_access.quick_add_customer %}<a href="{% url 'scorecard:add_customer' %}" class="quick-action-btn">Add Customer</a>{% endif %}
+        {% if dashboard_access.quick_new_basel %}<a href="{% url 'scorecard:basel_scores_template_select' %}" class="quick-action-btn">New Basel II Score</a>{% endif %}
+        {% if dashboard_access.quick_new_ifrs9 %}<a href="{% url 'scorecard:ifrs9_scores_template_select' %}" class="quick-action-btn">New IFRS9 Score Form</a>{% endif %}
+        {% if dashboard_access.quick_all_customers %}<a href="{% url 'scorecard:customer_list' %}" class="quick-action-btn secondary">All Customers</a>{% endif %}
+        {% if dashboard_access.quick_api_workspace %}<a href="{% url 'scorecard:api_dashboard' %}" class="quick-action-btn secondary">API Workspace</a>{% endif %}
+        {% if dashboard_access.quick_documents %}<a href="{% url 'scorecard:document_list' %}" class="quick-action-btn secondary">Evaluation Documents</a>{% endif %}
+    </div>
+    {% endif %}
+
+    {% if not dashboard_access.any_section %}
+    <div class="info-container">
+        <div class="card-body">
+            <div class="empty-state">No dashboard modules are available for your current scorecard permissions.</div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if dashboard_access.customers %}
+    <div class="dashboard-section">
+        <div class="dashboard-section-title">Customers</div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-left red"><div class="stat-card-icon">NPL</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">NPL Ratio</div>
+                    <div class="stat-value">{{ npl_ratio }}%</div>
+                    <div class="stat-sub-value">{{ npl_customer_count }} C/D/E of {{ npl_denominator }} active-loan customers</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left blue"><div class="stat-card-icon">CU</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Total Customers</div>
+                    <div class="stat-value">{{ total_customers }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left slate"><div class="stat-card-icon">CT</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Total Contracts</div>
+                    <div class="stat-value">{{ total_contracts }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left green"><div class="stat-card-icon">B+</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">With Basel II Scores</div>
+                    <div class="stat-value">{{ customers_with_questionnaires }}</div>
+                    <div class="stat-sub-value">{{ questionnaire_coverage }}% coverage</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left orange"><div class="stat-card-icon">B-</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Without Basel II Scores</div>
+                    <div class="stat-value">{{ customers_without_questionnaires }}</div>
+                    <div class="stat-sub-value">{{ pending_coverage }}% pending</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left green"><div class="stat-card-icon">I+</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">With IFRS9 Score Forms</div>
+                    <div class="stat-value">{{ customers_with_ifrs9 }}</div>
+                    <div class="stat-sub-value">{{ ifrs9_coverage }}% coverage</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left orange"><div class="stat-card-icon">I-</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Without IFRS9 Score Forms</div>
+                    <div class="stat-value">{{ customers_without_ifrs9 }}</div>
+                    <div class="stat-sub-value">{{ ifrs9_pending_coverage }}% pending</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if dashboard_access.basel_scores %}
+    <div class="dashboard-section">
+        <div class="dashboard-section-title">Basel II Scores</div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-left blue"><div class="stat-card-icon">BS</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Total Basel II Scores</div>
+                    <div class="stat-value">{{ total_questionnaires }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left green"><div class="stat-card-icon">MO</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">This Month</div>
+                    <div class="stat-value">{{ questionnaires_this_month }}</div>
+                    <div class="stat-sub-value">scores submitted</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left green"><div class="stat-card-icon">YR</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">This Year</div>
+                    <div class="stat-value">{{ questionnaires_this_year }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left orange"><div class="stat-card-icon">PD</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Pending Review</div>
+                    <div class="stat-value">{{ basel_pending_review }}</div>
+                    <div class="stat-sub-value">awaiting checker</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left purple"><div class="stat-card-icon">DR</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Drafts / Returned</div>
+                    <div class="stat-value">{{ basel_drafts }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left teal"><div class="stat-card-icon">AP</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Approved</div>
+                    <div class="stat-value">{{ basel_approved }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="template-performance">
+            <div class="template-performance-heading">
+                <div class="template-performance-title">Customers Scored by Basel II Template</div>
+                <div class="template-performance-note">Distinct customers within the selected branch scope.</div>
+            </div>
+            {% if basel_customers_by_template %}
+            <div class="template-performance-grid">
+                {% for item in basel_customers_by_template %}
+                <div class="template-performance-card">
+                    <div class="template-performance-code">{{ item.template__code|default:"Template" }}</div>
+                    <div class="template-performance-name">{{ item.template__name|default:"Unnamed Basel II template" }}</div>
+                    <div class="template-performance-metrics">
+                        <div>
+                            <div class="template-performance-count">{{ item.customer_count }}</div>
+                            <div class="template-performance-label">customer{{ item.customer_count|pluralize }}</div>
+                        </div>
+                        <div class="template-performance-forms">{{ item.count }} score form{{ item.count|pluralize }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">No Basel II customers have been scored in this branch scope.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if dashboard_access.ifrs9_scores %}
+    <div class="dashboard-section">
+        <div class="dashboard-section-title">IFRS9 Score Forms</div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-left blue"><div class="stat-card-icon">IF</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Total IFRS9 Score Forms</div>
+                    <div class="stat-value">{{ total_ifrs9 }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left green"><div class="stat-card-icon">MO</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">This Month</div>
+                    <div class="stat-value">{{ ifrs9_this_month }}</div>
+                    <div class="stat-sub-value">forms submitted</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left green"><div class="stat-card-icon">YR</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">This Year</div>
+                    <div class="stat-value">{{ ifrs9_this_year }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left orange"><div class="stat-card-icon">PD</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Pending Review</div>
+                    <div class="stat-value">{{ ifrs9_pending_review }}</div>
+                    <div class="stat-sub-value">awaiting checker</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left purple"><div class="stat-card-icon">DR</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Drafts / Returned</div>
+                    <div class="stat-value">{{ ifrs9_drafts }}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-left teal"><div class="stat-card-icon">AP</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Approved</div>
+                    <div class="stat-value">{{ ifrs9_approved }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="template-performance">
+            <div class="template-performance-heading">
+                <div class="template-performance-title">Customers Scored by IFRS9 Template</div>
+                <div class="template-performance-note">Distinct customers within the selected branch scope.</div>
+            </div>
+            {% if ifrs9_customers_by_template %}
+            <div class="template-performance-grid">
+                {% for item in ifrs9_customers_by_template %}
+                <div class="template-performance-card">
+                    <div class="template-performance-code">{{ item.template__code|default:"Template" }}</div>
+                    <div class="template-performance-name">{{ item.template__name|default:"Unnamed IFRS9 template" }}</div>
+                    <div class="template-performance-metrics">
+                        <div>
+                            <div class="template-performance-count">{{ item.customer_count }}</div>
+                            <div class="template-performance-label">customer{{ item.customer_count|pluralize }}</div>
+                        </div>
+                        <div class="template-performance-forms">{{ item.count }} score form{{ item.count|pluralize }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">No IFRS9 customers have been scored in this branch scope.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if dashboard_access.templates %}
+    <div class="dashboard-section">
+        <div class="dashboard-section-title">Templates</div>
+        <div class="stats-grid">
+            {% if dashboard_access.basel_templates %}
+            <div class="stat-card">
+                <div class="stat-card-left blue"><div class="stat-card-icon">BT</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Active Basel Templates</div>
+                    <div class="stat-value">{{ active_basel_templates }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% if dashboard_access.ifrs9_templates %}
+            <div class="stat-card">
+                <div class="stat-card-left purple"><div class="stat-card-icon">IT</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Active IFRS9 Templates</div>
+                    <div class="stat-value">{{ active_ifrs9_templates }}</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if dashboard_access.operations %}
+    <div class="dashboard-section">
+        <div class="dashboard-section-title">Operations</div>
+        <div class="stats-grid">
+            {% if dashboard_access.operations_documents %}
+            <div class="stat-card">
+                <div class="stat-card-left teal"><div class="stat-card-icon">ED</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Evaluation Documents</div>
+                    <div class="stat-value">{{ evaluation_documents_count }}</div>
+                    <div class="stat-sub-value">Basel and IFRS9 supporting files</div>
+                </div>
+            </div>
+            {% endif %}
+            {% if dashboard_access.operations_library_documents %}
+            <div class="stat-card">
+                <div class="stat-card-left slate"><div class="stat-card-icon">SD</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Scorecard Library Documents</div>
+                    <div class="stat-value">{{ scorecard_documents_count }}</div>
+                    <div class="stat-sub-value">shared reference documents</div>
+                </div>
+            </div>
+            {% endif %}
+            {% if dashboard_access.operations_historical %}
+            <div class="stat-card">
+                <div class="stat-card-left blue"><div class="stat-card-icon">HS</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Latest Historical Snapshot</div>
+                    <div class="stat-value">
+                        {% if latest_historical_reporting_date %}
+                            {{ latest_historical_reporting_date|date:"Y-m-d" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                    <div class="stat-sub-value">{{ latest_historical_rows }} records captured</div>
+                </div>
+            </div>
+            {% endif %}
+            {% if dashboard_access.operations_api %}
+            <div class="stat-card">
+                <div class="stat-card-left green"><div class="stat-card-icon">OK</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">API Imports Success (7d)</div>
+                    <div class="stat-value">{{ api_success_last_7_days }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% if dashboard_access.operations_api %}
+            <div class="stat-card">
+                <div class="stat-card-left orange"><div class="stat-card-icon">ER</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">API Imports Failed (7d)</div>
+                    <div class="stat-value">{{ api_failed_last_7_days }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% if dashboard_access.operations_api %}
+            <div class="stat-card">
+                <div class="stat-card-left purple"><div class="stat-card-icon">MS</div></div>
+                <div class="stat-card-content">
+                    <div class="stat-label">Main Sync Success / Failed (7d)</div>
+                    <div class="stat-value">{{ main_sync_success_last_7_days }} / {{ main_sync_failed_last_7_days }}</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if dashboard_access.charts %}
+    <div class="charts-grid">
+        {% if dashboard_access.charts_basel %}
+        <div class="chart-container">
+            <div class="chart-header">Basel II scores submitted - monthly</div>
+            <div class="chart-wrapper">
+                <canvas id="questionnairesChart"></canvas>
+            </div>
+        </div>
+        {% endif %}
+        {% if dashboard_access.charts_basel %}
+        <div class="chart-container">
+            <div class="chart-header">Customers evaluated (Basel) - monthly</div>
+            <div class="chart-wrapper">
+                <canvas id="customersChart"></canvas>
+            </div>
+        </div>
+        {% endif %}
+        {% if dashboard_access.charts_api %}
+        <div class="chart-container">
+            <div class="chart-header">API imports success vs failure - monthly</div>
+            <div class="chart-wrapper">
+                <canvas id="apiImportsChart"></canvas>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if dashboard_access.content_grid %}
+    <div class="content-grid">
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            {% if dashboard_access.recent_basel %}
+            <div class="info-container">
+                <div class="info-header">Recent Basel II Score Activity</div>
+                <div class="card-body">
+                    {% if recent_activity %}
+                        <table class="activity-table">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Template</th>
+                                    <th>Grade</th>
+                                    <th>Score</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for evaluation in recent_activity %}
+                                    <tr>
+                                        <td>{{ evaluation.customer_name|truncatewords:3 }}</td>
+                                        <td>{% if evaluation.template %}{{ evaluation.template.code }}{% else %}-{% endif %}</td>
+                                        <td>
+                                            {% if evaluation.final_grade %}
+                                                <span class="grade-badge">{{ evaluation.final_grade }}</span>
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if evaluation.total_weighted_percent %}
+                                                {{ evaluation.total_weighted_percent|floatformat:2 }}%
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ evaluation.created_at|date:"M d, Y" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <div style="margin-top: 0.85rem;">
+                            <a href="{% url 'scorecard:basel_scores_submitted_list' %}" class="quick-action-btn secondary">View all Basel II scores &rarr;</a>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">No recent Basel II score activity</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if dashboard_access.recent_ifrs9 %}
+            <div class="info-container">
+                <div class="info-header">Recent IFRS9 Score Form Activity</div>
+                <div class="card-body">
+                    {% if recent_ifrs9 %}
+                        <table class="activity-table">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Template</th>
+                                    <th>Score</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for evaluation in recent_ifrs9 %}
+                                    <tr>
+                                        <td>{{ evaluation.customer_name|truncatewords:3 }}</td>
+                                        <td>{% if evaluation.template %}{{ evaluation.template.code }}{% else %}-{% endif %}</td>
+                                        <td>
+                                            {% if evaluation.total_weighted_percent %}
+                                                {{ evaluation.total_weighted_percent|floatformat:2 }}%
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ evaluation.created_at|date:"M d, Y" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <div style="margin-top: 0.85rem;">
+                            <a href="{% url 'scorecard:ifrs9_scores_submitted_list' %}" class="quick-action-btn secondary">View all IFRS9 score forms &rarr;</a>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">No recent IFRS9 score form activity</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if dashboard_access.recent_api %}
+            <div class="info-container">
+                <div class="info-header">Recent API Import Activity</div>
+                <div class="card-body">
+                    {% if recent_import_runs %}
+                        <table class="mini-table">
+                            <thead>
+                                <tr>
+                                    <th>Endpoint</th>
+                                    <th>Status</th>
+                                    <th>Fetched</th>
+                                    <th>Started</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for run in recent_import_runs %}
+                                    <tr>
+                                        <td>{{ run.endpoint.name }}</td>
+                                        <td>
+                                            <span class="status-pill {% if run.status == 'success' %}success{% elif run.status == 'failed' %}failed{% elif run.status == 'running' %}running{% else %}neutral{% endif %}">
+                                                {{ run.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ run.fetched }}</td>
+                                        <td>{{ run.started_at|date:"M d, Y H:i" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <div style="margin-top: 0.85rem;">
+                            <a href="{% url 'scorecard:api_import' %}" class="quick-action-btn secondary">Open API imports &rarr;</a>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">No API import history available yet</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            {% if dashboard_access.grade_distribution %}
+            <div class="info-container">
+                <div class="info-header">Basel Score Distribution by Grade</div>
+                <div class="card-body">
+                    {% if score_distribution_by_grade %}
+                        <div class="info-list">
+                            {% for grade_data in score_distribution_by_grade %}
+                                <div class="score-range-item">
+                                    <div class="score-range-label">
+                                        Grade {{ grade_data.grade_code }}
+                                        {% if grade_data.min_percent == grade_data.max_percent %}
+                                            ({{ grade_data.min_percent|floatformat:0 }}%)
+                                        {% elif grade_data.max_percent >= 100 %}
+                                            ({{ grade_data.min_percent|floatformat:0 }}%+)
+                                        {% else %}
+                                            ({{ grade_data.min_percent|floatformat:0 }}-{{ grade_data.max_percent|floatformat:0 }}%)
+                                        {% endif %}
+                                    </div>
+                                    <div class="score-range-count">{{ grade_data.count }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">No grade data available</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if dashboard_access.top_templates and top_templates %}
+                <div class="info-container">
+                    <div class="info-header">Top Basel Templates</div>
+                    <div class="card-body">
+                        <div class="info-list">
+                            {% for template_data in top_templates %}
+                                <div class="info-item">
+                                    <div class="info-item-label">{{ template_data.template__code }}</div>
+                                    <div class="info-item-value">{{ template_data.template__name }}</div>
+                                    <div class="info-item-value" style="margin-top: 0.25rem; font-weight: 700; color: #0b6ed0;">
+                                        {{ template_data.count }} scores
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if dashboard_access.operational_snapshot %}
+            <div class="info-container">
+                <div class="info-header">Operational Snapshot</div>
+                <div class="card-body">
+                    <div class="summary-stack">
+                        {% if dashboard_access.snapshot_historical %}
+                        <div class="summary-row">
+                            <div>
+                                <div class="summary-row-title">Historical scores</div>
+                                <div class="summary-row-note">
+                                    {% if latest_historical_reporting_date %}
+                                        Latest reporting date {{ latest_historical_reporting_date|date:"Y-m-d" }}
+                                    {% else %}
+                                        No historical score snapshot yet
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="summary-row-note">{{ latest_historical_complete }}/{{ latest_historical_rows }}</div>
+                        </div>
+                        {% endif %}
+                        {% if dashboard_access.snapshot_api %}
+                        <div class="summary-row">
+                            <div>
+                                <div class="summary-row-title">Latest API import</div>
+                                <div class="summary-row-note">
+                                    {% if latest_import_run %}
+                                        {{ latest_import_run.endpoint.name }} on {{ latest_import_run.started_at|date:"M d, Y H:i" }}
+                                    {% else %}
+                                        No API import run yet
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                {% if latest_import_run %}
+                                    <span class="status-pill {% if latest_import_run.status == 'success' %}success{% elif latest_import_run.status == 'failed' %}failed{% elif latest_import_run.status == 'running' %}running{% else %}neutral{% endif %}">
+                                        {{ latest_import_run.get_status_display }}
+                                    </span>
+                                {% else %}
+                                    <span class="status-pill neutral">N/A</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if dashboard_access.snapshot_main_sync %}
+                        <div class="summary-row">
+                            <div>
+                                <div class="summary-row-title">Latest main customer sync</div>
+                                <div class="summary-row-note">
+                                    {% if latest_main_sync_run %}
+                                        {{ latest_main_sync_run.reporting_date|date:"Y-m-d" }} with {{ latest_main_sync_run.rows_synced }} rows
+                                    {% else %}
+                                        No main sync run yet
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                {% if latest_main_sync_run %}
+                                    <span class="status-pill {% if latest_main_sync_run.status == 'success' %}success{% elif latest_main_sync_run.status == 'failed' %}failed{% elif latest_main_sync_run.status == 'running' %}running{% else %}neutral{% endif %}">
+                                        {{ latest_main_sync_run.get_status_display }}
+                                    </span>
+                                {% else %}
+                                    <span class="status-pill neutral">N/A</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if dashboard_access.quick_links %}
+            <div class="info-container">
+                <div class="info-header">Quick Links</div>
+                <div class="card-body">
+                    <div class="info-list">
+                        {% if dashboard_access.quick_link_basel_pending %}
+                        <a href="{% url 'scorecard:checker_pending_list' %}" class="info-item">
+                            <div class="info-item-label">Basel scores pending review</div>
+                            <div class="info-item-value">{{ basel_pending_review }} awaiting approval</div>
+                        </a>
+                        {% endif %}
+                        {% if dashboard_access.quick_link_ifrs9_pending %}
+                        <a href="{% url 'scorecard:checker_ifrs9_scores_pending_list' %}" class="info-item">
+                            <div class="info-item-label">IFRS9 score forms pending review</div>
+                            <div class="info-item-value">{{ ifrs9_pending_review }} awaiting approval</div>
+                        </a>
+                        {% endif %}
+                        {% if dashboard_access.quick_link_customers_without_basel %}
+                        <a href="{% url 'scorecard:customer_without_questionnaire_list' %}" class="info-item">
+                            <div class="info-item-label">Customers without Basel II scores</div>
+                            <div class="info-item-value">{{ customers_without_questionnaires }} customers</div>
+                        </a>
+                        {% endif %}
+                        {% if dashboard_access.quick_link_customers_without_ifrs9 %}
+                        <a href="{% url 'scorecard:customer_without_ifrs9_list' %}" class="info-item">
+                            <div class="info-item-label">Customers without IFRS9 score forms</div>
+                            <div class="info-item-value">{{ customers_without_ifrs9 }} customers</div>
+                        </a>
+                        {% endif %}
+                        {% if dashboard_access.quick_link_documents %}
+                        <a href="{% url 'scorecard:document_list' %}" class="info-item">
+                            <div class="info-item-label">Evaluation documents</div>
+                            <div class="info-item-value">{{ evaluation_documents_count }} files available</div>
+                        </a>
+                        {% endif %}
+                        {% if dashboard_access.quick_link_api_health %}
+                        <a href="{% url 'scorecard:api_health' %}" class="info-item">
+                            <div class="info-item-label">API and sync health</div>
+                            <div class="info-item-value">{{ api_failed_last_7_days }} failed imports in the last 7 days</div>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if dashboard_access.charts %}
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script>
+    if (!window.Chart) {
+        console.warn('Chart.js is not available, so dashboard charts were skipped.');
+    } else {
+        const chartConfig = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    displayColors: false,
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label || '';
+                        },
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        precision: 0,
+                        color: '#667085'
+                    },
+                    grid: {
+                        color: '#edf2f7'
+                    },
+                    border: { display: false }
+                },
+                x: {
+                    ticks: {
+                        color: '#667085',
+                        maxRotation: 45,
+                        minRotation: 0
+                    },
+                    grid: { display: false },
+                    border: { display: false }
+                }
+            }
+        };
+
+        {% if dashboard_access.charts_basel %}
+        const monthlyQuestionnaires = {{ monthly_questionnaires|safe }};
+        const monthlyCustomers = {{ monthly_customers|safe }};
+        const monthLabels = {{ month_labels|safe }};
+
+        const questionnairesEl = document.getElementById('questionnairesChart');
+        if (questionnairesEl) {
+            const questionnairesCtx = questionnairesEl.getContext('2d');
+            new Chart(questionnairesCtx, {
+                type: 'bar',
+                data: {
+                    labels: monthLabels,
+                    datasets: [{
+                        label: 'Basel II Scores',
+                        data: monthlyQuestionnaires,
+                        backgroundColor: 'rgba(11, 110, 208, 0.85)',
+                        borderColor: '#0b6ed0',
+                        borderWidth: 1.5,
+                        borderRadius: 5,
+                        borderSkipped: false
+                    }]
+                },
+                options: chartConfig
+            });
+        }
+
+        const customersEl = document.getElementById('customersChart');
+        if (customersEl) {
+            const customersCtx = customersEl.getContext('2d');
+            new Chart(customersCtx, {
+                type: 'bar',
+                data: {
+                    labels: monthLabels,
+                    datasets: [{
+                        label: 'Customers',
+                        data: monthlyCustomers,
+                        backgroundColor: 'rgba(22, 155, 98, 0.85)',
+                        borderColor: '#169b62',
+                        borderWidth: 1.5,
+                        borderRadius: 5,
+                        borderSkipped: false
+                    }]
+                },
+                options: chartConfig
+            });
+        }
+        {% endif %}
+
+        {% if dashboard_access.charts_api %}
+        const apiImportSuccessSeries = {{ api_import_success_series|safe }};
+        const apiImportFailedSeries = {{ api_import_failed_series|safe }};
+        const apiImportMonthLabels = {{ api_import_month_labels|safe }};
+
+        const apiImportsEl = document.getElementById('apiImportsChart');
+        if (apiImportsEl) {
+            const apiImportsCtx = apiImportsEl.getContext('2d');
+            new Chart(apiImportsCtx, {
+                type: 'line',
+                data: {
+                    labels: apiImportMonthLabels,
+                    datasets: [
+                        {
+                            label: 'Success',
+                            data: apiImportSuccessSeries,
+                            borderColor: '#169b62',
+                            backgroundColor: 'rgba(22, 155, 98, 0.16)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointHoverRadius: 5,
+                        },
+                        {
+                            label: 'Failed',
+                            data: apiImportFailedSeries,
+                            borderColor: '#e24a4a',
+                            backgroundColor: 'rgba(226, 74, 74, 0.08)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointHoverRadius: 5,
+                        }
+                    ]
+                },
+                options: {
+                    ...chartConfig,
+                    plugins: {
+                        ...chartConfig.plugins,
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                boxWidth: 10,
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                color: '#667085'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        {% endif %}
+    }
+</script>
+{% endif %}

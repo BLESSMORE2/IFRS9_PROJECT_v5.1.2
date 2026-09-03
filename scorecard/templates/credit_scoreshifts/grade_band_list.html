@@ -1,0 +1,219 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Grade Bands - {{ template.code }}{% endblock %}
+{% block header_title %}Grading Scale Configuration: {{ template.code }}{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .summary-card {
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem 2rem;
+    }
+    .summary-label {
+        font-weight: 600;
+        color: #666;
+        font-size: 0.85rem;
+        margin-bottom: 0.25rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .summary-card > div > div > div:last-child {
+        color: #333;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .action-bar {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.5rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    table thead th {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        padding: 0.4rem 0.5rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    table thead th.text-center {
+        text-align: center;
+    }
+    table tbody td {
+        border: 1px solid #e0e0e0;
+        padding: 0.4rem 0.5rem;
+        font-size: 12px;
+        color: #333;
+    }
+    table tbody td.text-center {
+        text-align: center;
+    }
+    table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    table tbody td strong {
+        font-weight: 600;
+        color: #333;
+    }
+    .action-links {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: center;
+        align-items: center;
+    }
+    .action-link {
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 500;
+        transition: color 0.2s ease;
+    }
+    .action-link-edit {
+        color: #0066cc;
+    }
+    .action-link-edit:hover {
+        color: #0052a3;
+        text-decoration: underline;
+    }
+    .action-link-delete {
+        color: #dc3545;
+    }
+    .action-link-delete:hover {
+        color: #c82333;
+        text-decoration: underline;
+    }
+    .empty-state {
+        padding: 2rem;
+        text-align: center;
+        color: #666;
+        font-style: italic;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+</style>
+
+<div class="summary-card">
+    <div class="summary-grid">
+        <div>
+            <div class="summary-label">Template</div>
+            <div>{{ template.code }} - {{ template.name }}</div>
+        </div>
+        <div>
+            <div class="summary-label">Total Grade Bands</div>
+            <div>{{ grade_bands|length }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="action-bar">
+    <a href="{% url 'scorecard:grade_band_create' template_id=template.id %}" class="btn btn-primary">
+        Add New Grade Band
+    </a>
+</div>
+
+{% if grade_bands %}
+    <table>
+        <thead>
+        <tr>
+            <th style="width: 10%;">Order</th>
+            <th style="width: 15%;">Grade Code</th>
+            <th style="width: 30%;">Description</th>
+            <th style="width: 20%;" class="text-center">Min %</th>
+            <th style="width: 20%;" class="text-center">Max %</th>
+            <th style="width: 5%;">Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for band in grade_bands %}
+            <tr>
+                <td class="text-center">{{ band.display_order }}</td>
+                <td><strong>{{ band.grade_code }}</strong></td>
+                <td>{{ band.description }}</td>
+                <td class="text-center">{{ band.min_percent }}%</td>
+                <td class="text-center">{{ band.max_percent }}%</td>
+                <td class="text-center">
+                    <div class="action-links">
+                        <a href="{% url 'scorecard:grade_band_edit' template_id=template.id band_id=band.id %}" 
+                           class="action-link action-link-edit">Edit</a>
+                        <a href="{% url 'scorecard:grade_band_delete' template_id=template.id band_id=band.id %}" 
+                           class="action-link action-link-delete">Delete</a>
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <div class="empty-state">
+        No grade bands configured yet. Click "Add New Grade Band" to create one.
+    </div>
+{% endif %}
+
+<div class="actions">
+    <a href="{% url 'scorecard:basel_template_detail' template_id=template.id %}" class="btn btn-secondary">
+        Back to Template
+    </a>
+</div>
+{% endblock %}

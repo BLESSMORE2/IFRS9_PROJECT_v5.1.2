@@ -1,0 +1,511 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}{% if request.resolver_match.url_name == 'customer_without_questionnaire_list' %}Customers Without Basel II Scores{% elif request.resolver_match.url_name == 'customer_without_ifrs9_list' %}Customers Without IFRS9 Score Forms{% else %}Customer Register{% endif %}{% endblock %}
+{% block header_title %}{% if request.resolver_match.url_name == 'customer_without_questionnaire_list' %}Customers Without Basel II Scores{% elif request.resolver_match.url_name == 'customer_without_ifrs9_list' %}Customers Without IFRS9 Score Forms{% else %}Customer Register{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+    .page-header { padding: 1rem 0; margin-bottom: 1rem; border-bottom: 1px solid #e0e0e0; }
+    .page-title { font-size: 1.5rem; font-weight: 600; color: #333; font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .table-container { background: white; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .summary-strip { padding: 0.9rem 1.5rem; border-bottom: 1px solid #e5edf5; background: #f8fbff; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
+    .summary-card { display:inline-flex; align-items:center; gap:0.6rem; padding:0.55rem 0.8rem; border:1px solid #d4e3f1; border-radius:999px; background:white; color:#355777; font-size:12px; font-weight:600; }
+    .summary-value { color:#0f4f8a; font-size:16px; font-weight:700; }
+    .table-header-section { padding: 1rem 1.5rem; border-bottom: 2px solid #0066cc; }
+    .table-header-top, .table-controls, .table-footer { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
+    .table-header-right, .pagination-controls { display:flex; gap:0.5rem; align-items:center; }
+    .export-btn, .columns-btn, .pagination-btn { padding: 0.4rem 0.8rem; border: 1px solid #0066cc; background: white; color: #0066cc; border-radius: 4px; cursor: pointer; font-size: 0.85rem; text-decoration: none; display: inline-block; }
+    .pagination-btn.disabled { opacity: 0.5; cursor: not-allowed; }
+    .table-controls, .table-footer { padding: 0.75rem 1.5rem; background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+    .table-footer { border-top: 1px solid #dee2e6; border-bottom: none; }
+    .search-input, .entries-select, .column-search { border: 1px solid #cbd2e1; padding: 0.4rem 0.75rem; border-radius: 4px; font-size: 0.9rem; }
+    .search-input { width: 320px; max-width: 100%; }
+    .table-scroll { overflow-x: auto; }
+    .data-table { width: 100%; min-width: 1400px; border-collapse: collapse; font-size: 12px; font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .data-table thead { background: #e3f2fd; }
+    .data-table th, .data-table td { padding: 0.6rem 0.75rem; text-align:left; border-bottom:1px solid #e0e0e0; font-size:12px; color:#333; white-space:nowrap; }
+    .data-table th { font-weight:600; border-bottom:2px solid #0066cc; }
+    .data-table tbody tr:hover { background:#f5f5f5; }
+    .sort-icons { display:inline-flex; flex-direction:column; margin-left:0.25rem; font-size:0.65rem; line-height:1; }
+    .text-empty { color:#999; font-style:italic; }
+    .status-pill { display:inline-flex; align-items:center; border-radius:999px; padding:0.2rem 0.55rem; font-size:11px; font-weight:600; }
+    .status-pill-blue { background:#e8f1fb; color:#215b8c; }
+    .status-pill-green { background:#e7f8ef; color:#127749; }
+    .status-pill-amber { background:#fff3df; color:#a66a11; }
+    .count-chip { display:inline-flex; min-width:28px; justify-content:center; padding:0.15rem 0.4rem; border-radius:999px; background:#f1f5f9; color:#334155; font-weight:600; }
+    .no-data-message { padding: 3rem; text-align: center; color: #999; font-style: italic; font-size: 12px; }
+    .export-dropdown { position:relative; display:inline-block; }
+    .export-dropdown-menu { display:none; position:absolute; top:100%; left:0; background:white; min-width:150px; box-shadow:0 4px 12px rgba(0,0,0,0.15); border-radius:4px; margin-top:0.25rem; z-index:10000; overflow:hidden; border:1px solid #ddd; }
+    .export-dropdown-menu.show { display:block !important; }
+    .export-dropdown-item { display:block; padding:0.75rem 1rem; color:#555; text-decoration:none; font-size:0.9rem; border-bottom:1px solid #f0f0f0; cursor:pointer; }
+    .export-dropdown-item:last-child { border-bottom:none; }
+    .export-dropdown-item:hover, .export-btn:hover, .columns-btn:hover { background:#f5f5f5; }
+    .column-modal-overlay, .customer-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10000; align-items:center; justify-content:center; padding:1rem; }
+    .column-modal-overlay.show, .customer-modal-overlay.show { display:flex; }
+    .column-modal-content, .customer-modal-card { background:white; border-radius:8px; max-width:900px; width:90%; max-height:85vh; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,0.2); display:flex; flex-direction:column; }
+    .column-modal-header, .customer-modal-header { background:linear-gradient(135deg, #0066cc 0%, #004d99 100%); color:white; padding:1rem 1.4rem; display:flex; justify-content:space-between; align-items:center; }
+    .column-modal-header h2, .customer-modal-header h2 { margin:0; font-size:14px; font-weight:600; }
+    .column-modal-close-btn, .customer-modal-close-btn { background:rgba(255,255,255,0.2); border:none; color:white; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1.2rem; display:flex; align-items:center; justify-content:center; }
+    .column-modal-body { padding:1.25rem 1.5rem; display:flex; gap:1rem; flex:1; overflow:hidden; }
+    .column-section { flex:1; display:flex; flex-direction:column; }
+    .column-section-title { font-weight:600; font-size:12px; margin-bottom:0.75rem; color:#333; }
+    .column-list { border:1px solid #cbd2e1; border-radius:4px; overflow-y:auto; flex:1; min-height:280px; max-height:380px; background:#f8f9fa; }
+    .column-item { padding:0.75rem 1rem; cursor:pointer; border-bottom:1px solid #e0e0e0; display:flex; align-items:center; gap:0.5rem; font-size:12px; }
+    .column-item:hover, .column-item.selected { background:#d1ecf1; }
+    .column-controls { display:flex; flex-direction:column; justify-content:center; gap:1rem; padding:0 0.5rem; }
+    .column-control-btn, .column-modal-btn { padding:0.75rem 1rem; border:none; border-radius:4px; cursor:pointer; font-size:12px; }
+    .column-control-btn { background:#6c757d; color:white; min-width:80px; }
+    .column-control-btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .column-modal-footer { padding:1rem 1.5rem; background:#f8f9fa; border-top:1px solid #e0e0e0; display:flex; justify-content:flex-end; gap:0.75rem; }
+    .column-modal-btn-primary { background:#0066cc; color:white; }
+    .column-modal-btn-secondary { background:#6c757d; color:white; }
+    .customer-modal-body { padding:1.25rem 1.4rem; overflow:auto; }
+    .customer-modal-loading { padding:2rem 0; text-align:center; color:#637a92; }
+</style>
+
+<div class="page-header">
+    <div class="page-title">{% if request.resolver_match.url_name == 'customer_without_questionnaire_list' %}Customers Without Basel II Scores{% elif request.resolver_match.url_name == 'customer_without_ifrs9_list' %}Customers Without IFRS9 Score Forms{% else %}Customers{% endif %}</div>
+</div>
+
+<div class="table-container">
+    <div class="summary-strip">
+        <div class="summary-card">
+            <span>Total Customers</span>
+            <span class="summary-value">{{ customer_total|default:0 }}</span>
+        </div>
+        {% if request.resolver_match.url_name == 'customer_list' %}
+        <div class="summary-card">
+            <span>Without Basel II Scores</span>
+            <span class="summary-value">{{ without_basel_total|default:0 }}</span>
+        </div>
+        <div class="summary-card">
+            <span>Without IFRS9 Scores</span>
+            <span class="summary-value">{{ without_ifrs9_total|default:0 }}</span>
+        </div>
+        {% endif %}
+    </div>
+    <div class="table-header-section">
+        <div class="table-header-top">
+            <div class="export-dropdown">
+                <a href="#" class="export-btn" id="export-data-btn">Export Data</a>
+                <div class="export-dropdown-menu" id="export-dropdown">
+                    {% if request.resolver_match.url_name == 'customer_without_questionnaire_list' %}
+                        <a href="{% url 'scorecard:customer_without_questionnaire_export_excel' %}?page=current" class="export-dropdown-item">Excel</a>
+                        <a href="{% url 'scorecard:customer_without_questionnaire_export_csv' %}?page=current" class="export-dropdown-item">CSV</a>
+                    {% elif request.resolver_match.url_name == 'customer_without_ifrs9_list' %}
+                        <a href="{% url 'scorecard:customer_without_ifrs9_export_excel' %}?page=current" class="export-dropdown-item">Excel</a>
+                        <a href="{% url 'scorecard:customer_without_ifrs9_export_csv' %}?page=current" class="export-dropdown-item">CSV</a>
+                    {% else %}
+                        <a href="{% url 'scorecard:customer_export_excel' %}?page=current" class="export-dropdown-item">Excel</a>
+                        <a href="{% url 'scorecard:customer_export_csv' %}?page=current" class="export-dropdown-item">CSV</a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="table-header-right">
+                {% if request.resolver_match.url_name == 'customer_list' %}
+                <a href="{% url 'scorecard:add_customer' %}" class="export-btn">Add Customer</a>
+                {% endif %}
+                <div class="export-dropdown">
+                    <a href="#" class="export-btn" id="export-all-btn">Export Data for all pages</a>
+                    <div class="export-dropdown-menu" id="export-all-dropdown">
+                        {% if request.resolver_match.url_name == 'customer_without_questionnaire_list' %}
+                            <a href="{% url 'scorecard:customer_without_questionnaire_export_excel' %}?page=all" class="export-dropdown-item">Excel</a>
+                            <a href="{% url 'scorecard:customer_without_questionnaire_export_csv' %}?page=all" class="export-dropdown-item">CSV</a>
+                        {% elif request.resolver_match.url_name == 'customer_without_ifrs9_list' %}
+                            <a href="{% url 'scorecard:customer_without_ifrs9_export_excel' %}?page=all" class="export-dropdown-item">Excel</a>
+                            <a href="{% url 'scorecard:customer_without_ifrs9_export_csv' %}?page=all" class="export-dropdown-item">CSV</a>
+                        {% else %}
+                            <a href="{% url 'scorecard:customer_export_excel' %}?page=all" class="export-dropdown-item">Excel</a>
+                            <a href="{% url 'scorecard:customer_export_csv' %}?page=all" class="export-dropdown-item">CSV</a>
+                        {% endif %}
+                    </div>
+                </div>
+                <a href="#" class="columns-btn" id="show-hide-columns-btn">Show/Hide Columns</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="column-modal" class="column-modal-overlay">
+        <div class="column-modal-content">
+            <div class="column-modal-header">
+                <h2>Show/Hide Columns</h2>
+                <button class="column-modal-close-btn" id="close-column-modal" aria-label="Close">×</button>
+            </div>
+            <div class="column-modal-body">
+                <div class="column-section">
+                    <div class="column-section-title">Available Columns</div>
+                    <input type="text" id="available-columns-search" class="column-search" placeholder="Search available columns...">
+                    <div class="column-list" id="available-columns-list"></div>
+                </div>
+                <div class="column-controls">
+                    <button class="column-control-btn" id="move-to-shown-btn">></button>
+                    <button class="column-control-btn" id="move-to-available-btn"><</button>
+                </div>
+                <div class="column-section">
+                    <div class="column-section-title">Shown Columns</div>
+                    <input type="text" id="shown-columns-search" class="column-search" placeholder="Search shown columns...">
+                    <div class="column-list" id="shown-columns-list"></div>
+                </div>
+            </div>
+            <div class="column-modal-footer">
+                <button class="column-modal-btn column-modal-btn-secondary" id="cancel-column-modal">Cancel</button>
+                <button class="column-modal-btn column-modal-btn-primary" id="apply-column-modal">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-controls">
+        <div class="search-control">
+            <input type="text" id="customer-list-search" value="{{ search_query|default:'' }}" placeholder="Search by customer name, code, branch, email, mobile..." class="search-input" autocomplete="off">
+        </div>
+        <div class="entries-control">
+            <span>Show</span>
+            <select id="entries-per-page" class="entries-select">
+                <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+            </select>
+            <span>entries</span>
+        </div>
+    </div>
+
+    {% if customers %}
+    <div class="table-scroll">
+        <table class="data-table" id="customer-table">
+            <thead>
+                <tr>
+                    <th data-column="view">View <span class="sort-icons">↓↑</span></th>
+                    <th data-column="customer_ref_code">Customer Code <span class="sort-icons">↓↑</span></th>
+                    <th data-column="customer_name">Customer Name <span class="sort-icons">↓↑</span></th>
+                    <th data-column="customer_type">Customer Type <span class="sort-icons">↓↑</span></th>
+                    <th data-column="branch_name">Branch <span class="sort-icons">↓↑</span></th>
+                    <th data-column="reporting_date">Reporting Date <span class="sort-icons">↓↑</span></th>
+                    <th data-column="email">Email <span class="sort-icons">↓↑</span></th>
+                    <th data-column="mobile">Mobile <span class="sort-icons">↓↑</span></th>
+                    <th data-column="national_id">National ID <span class="sort-icons">↓↑</span></th>
+                    <th data-column="has_loan">Has Loan <span class="sort-icons">↓↑</span></th>
+                    <th data-column="has_overdraft">Has Overdraft <span class="sort-icons">↓↑</span></th>
+                    <th data-column="loan_count">Loan Count <span class="sort-icons">↓↑</span></th>
+                    <th data-column="overdraft_count">Overdraft Count <span class="sort-icons">↓↑</span></th>
+                    <th data-column="profile_status">Profile Status <span class="sort-icons">↓↑</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in customers %}
+                {% with name=customer.customer_name|default:'' ref=customer.customer_ref_code|default:'' %}
+                <tr class="customer-row"
+                    data-search="{{ customer.customer_ref_code|default:''|lower }} {{ customer.customer_name|default:''|lower }} {{ customer.customer_type|default:''|lower }} {{ customer.branch_name|default:''|lower }} {{ customer.branch_code|default:''|lower }} {{ customer.email|default:''|lower }} {{ customer.mobile|default:''|lower }} {{ customer.national_id|default:''|lower }}"
+                    data-customer_ref_code="{{ customer.customer_ref_code|default:''|lower }}"
+                    data-customer_name="{{ customer.customer_name|default:''|lower }}"
+                    data-customer_type="{{ customer.customer_type|default:''|lower }}"
+                    data-branch_name="{{ customer.branch_name|default:''|lower }}"
+                    data-reporting_date="{{ customer.reporting_date|date:'Y-m-d'|lower }}"
+                    data-email="{{ customer.email|default:''|lower }}"
+                    data-mobile="{{ customer.mobile|default:''|lower }}"
+                    data-national_id="{{ customer.national_id|default:''|lower }}"
+                    data-has_loan="{% if customer.has_loan %}yes{% else %}no{% endif %}"
+                    data-has_overdraft="{% if customer.has_overdraft %}yes{% else %}no{% endif %}"
+                    data-loan_count="{{ customer.loan_count }}"
+                    data-overdraft_count="{{ customer.overdraft_count }}"
+                    data-profile_status="{% if not customer.customer_type or not name or name == ref %}needs attention{% else %}complete{% endif %}">
+                    <td data-column="view">
+                        {% if customer.id %}
+                        <a href="#" class="js-customer-view" data-detail-url="{% url 'scorecard:customer_detail' customer.id %}" style="text-decoration:none; color:#0066cc;">View</a>
+                        {% else %}
+                        <span class="text-empty">-</span>
+                        {% endif %}
+                    </td>
+                    <td data-column="customer_ref_code"><strong>{{ customer.customer_ref_code }}</strong></td>
+                    <td data-column="customer_name">{{ customer.customer_name|default:"-" }}</td>
+                    <td data-column="customer_type">{% if customer.customer_type %}<span class="status-pill status-pill-blue">{{ customer.customer_type }}</span>{% else %}<span class="text-empty">-</span>{% endif %}</td>
+                    <td data-column="branch_name">{% if customer.branch_name %}{{ customer.branch_name }}{% if customer.branch_code %} ({{ customer.branch_code }}){% endif %}{% else %}{{ customer.branch_description|default:"-" }}{% endif %}</td>
+                    <td data-column="reporting_date">{{ customer.reporting_date|date:"Y-m-d" }}</td>
+                    <td data-column="email">{% if customer.email %}<a href="mailto:{{ customer.email }}" style="text-decoration:none; color:#0066cc;">{{ customer.email }}</a>{% else %}<span class="text-empty">-</span>{% endif %}</td>
+                    <td data-column="mobile">{% if customer.mobile %}{{ customer.mobile }}{% else %}<span class="text-empty">-</span>{% endif %}</td>
+                    <td data-column="national_id">{% if customer.national_id %}{{ customer.national_id }}{% else %}<span class="text-empty">-</span>{% endif %}</td>
+                    <td data-column="has_loan"><span class="status-pill {% if customer.has_loan %}status-pill-green{% else %}status-pill-amber{% endif %}">{% if customer.has_loan %}Yes{% else %}No{% endif %}</span></td>
+                    <td data-column="has_overdraft"><span class="status-pill {% if customer.has_overdraft %}status-pill-green{% else %}status-pill-amber{% endif %}">{% if customer.has_overdraft %}Yes{% else %}No{% endif %}</span></td>
+                    <td data-column="loan_count"><span class="count-chip">{{ customer.loan_count }}</span></td>
+                    <td data-column="overdraft_count"><span class="count-chip">{{ customer.overdraft_count }}</span></td>
+                    <td data-column="profile_status">{% if not customer.customer_type or not name or name == ref %}<span class="status-pill status-pill-amber">Needs Attention</span>{% else %}<span class="status-pill status-pill-green">Complete</span>{% endif %}</td>
+                </tr>
+                {% endwith %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="table-footer">
+        <div class="pagination-info" id="pagination-info">Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} entries</div>
+        <div class="pagination-controls">
+            {% if page_obj.has_previous %}
+            <a href="?p={{ page_obj.previous_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="pagination-btn" id="prev-btn">Previous</a>
+            {% else %}
+            <a href="#" class="pagination-btn disabled" id="prev-btn">Previous</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?p={{ page_obj.next_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}" class="pagination-btn" id="next-btn">Next</a>
+            {% else %}
+            <a href="#" class="pagination-btn disabled" id="next-btn">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="no-data-message">No customers found for the current branch.</div>
+    <div class="table-footer">
+        <div class="pagination-info">Showing 0 to 0 of 0 entries</div>
+        <div class="pagination-controls">
+            <a href="#" class="pagination-btn disabled">Previous</a>
+            <a href="#" class="pagination-btn disabled">Next</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div id="customer-detail-modal" class="customer-modal-overlay">
+    <div class="customer-modal-card">
+        <div class="customer-modal-header">
+            <h2>Customer Details</h2>
+            <button class="customer-modal-close-btn" id="close-customer-modal" aria-label="Close">×</button>
+        </div>
+        <div class="customer-modal-body" id="customer-modal-body">
+            <div class="customer-modal-loading">Loading customer details...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const urlName = '{{ request.resolver_match.url_name }}';
+    const storageKey = urlName === 'customer_without_questionnaire_list' ? 'customer_without_questionnaire_list_columns' : (urlName === 'customer_without_ifrs9_list' ? 'customer_without_ifrs9_list_columns' : 'customer_list_columns');
+    const allColumns = [
+        { key: 'view', label: 'View' }, { key: 'customer_ref_code', label: 'Customer Code' }, { key: 'customer_name', label: 'Customer Name' },
+        { key: 'customer_type', label: 'Customer Type' }, { key: 'branch_name', label: 'Branch' }, { key: 'reporting_date', label: 'Reporting Date' },
+        { key: 'email', label: 'Email' }, { key: 'mobile', label: 'Mobile' }, { key: 'national_id', label: 'National ID' },
+        { key: 'has_loan', label: 'Has Loan' }, { key: 'has_overdraft', label: 'Has Overdraft' }, { key: 'loan_count', label: 'Loan Count' },
+        { key: 'overdraft_count', label: 'Overdraft Count' }, { key: 'profile_status', label: 'Profile Status' }
+    ];
+
+    const searchInput = document.getElementById('customer-list-search');
+    const entriesSelect = document.getElementById('entries-per-page');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const exportDataBtn = document.getElementById('export-data-btn');
+    const exportDropdown = document.getElementById('export-dropdown');
+    const exportAllBtn = document.getElementById('export-all-btn');
+    const exportAllDropdown = document.getElementById('export-all-dropdown');
+    const columnModal = document.getElementById('column-modal');
+    const showHideColumnsBtn = document.getElementById('show-hide-columns-btn');
+    const closeColumnModalBtn = document.getElementById('close-column-modal');
+    const cancelColumnModalBtn = document.getElementById('cancel-column-modal');
+    const applyColumnModalBtn = document.getElementById('apply-column-modal');
+    const availableColumnsList = document.getElementById('available-columns-list');
+    const shownColumnsList = document.getElementById('shown-columns-list');
+    const availableColumnsSearch = document.getElementById('available-columns-search');
+    const shownColumnsSearch = document.getElementById('shown-columns-search');
+    const moveToShownBtn = document.getElementById('move-to-shown-btn');
+    const moveToAvailableBtn = document.getElementById('move-to-available-btn');
+    const customerModal = document.getElementById('customer-detail-modal');
+    const customerModalBody = document.getElementById('customer-modal-body');
+    const closeCustomerModalBtn = document.getElementById('close-customer-modal');
+
+    let shownColumns = [];
+    let availableColumns = [];
+    let selectedAvailableColumn = null;
+    let selectedShownColumn = null;
+    let searchTimeout = null;
+
+    function loadColumns() {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+            try {
+                const keys = JSON.parse(saved);
+                shownColumns = allColumns.filter(col => keys.includes(col.key));
+                availableColumns = allColumns.filter(col => !keys.includes(col.key));
+                if (!shownColumns.length) throw new Error();
+                return;
+            } catch (e) {}
+        }
+        shownColumns = allColumns.slice();
+        availableColumns = [];
+    }
+
+    function saveColumns() {
+        localStorage.setItem(storageKey, JSON.stringify(shownColumns.map(col => col.key)));
+    }
+
+    function applyColumnVisibility() {
+        allColumns.forEach(column => {
+            const visible = shownColumns.some(col => col.key === column.key);
+            document.querySelectorAll(`[data-column="${column.key}"]`).forEach(el => {
+                el.style.display = visible ? '' : 'none';
+            });
+        });
+    }
+
+    function renderList(listEl, columns, selectedKey, searchTerm, kind) {
+        listEl.innerHTML = '';
+        const filtered = columns.filter(col => col.label.toLowerCase().includes((searchTerm || '').toLowerCase()));
+        if (!filtered.length) {
+            listEl.innerHTML = '<div class="column-item" style="color:#888;">No columns found</div>';
+            return;
+        }
+        filtered.forEach(col => {
+            const item = document.createElement('div');
+            item.className = 'column-item' + (selectedKey === col.key ? ' selected' : '');
+            item.innerHTML = `<input type="checkbox" ${selectedKey === col.key ? 'checked' : ''} readonly><span>${col.label}</span>`;
+            item.addEventListener('click', function() {
+                if (kind === 'available') {
+                    selectedAvailableColumn = selectedAvailableColumn === col.key ? null : col.key;
+                } else {
+                    selectedShownColumn = selectedShownColumn === col.key ? null : col.key;
+                }
+                renderLists();
+            });
+            listEl.appendChild(item);
+        });
+    }
+
+    function renderLists() {
+        renderList(availableColumnsList, availableColumns, selectedAvailableColumn, availableColumnsSearch.value, 'available');
+        renderList(shownColumnsList, shownColumns, selectedShownColumn, shownColumnsSearch.value, 'shown');
+        moveToShownBtn.disabled = !selectedAvailableColumn;
+        moveToAvailableBtn.disabled = !selectedShownColumn || shownColumns.length <= 1;
+    }
+
+    function openColumnModal() {
+        selectedAvailableColumn = null;
+        selectedShownColumn = null;
+        availableColumnsSearch.value = '';
+        shownColumnsSearch.value = '';
+        renderLists();
+        columnModal.classList.add('show');
+    }
+
+    function closeColumnModal() { columnModal.classList.remove('show'); }
+
+    function buildListUrl(overrides) {
+        const url = new URL(window.location.href);
+        const params = url.searchParams;
+        const currentSearch = (searchInput.value || '').trim();
+        const currentPageSize = entriesSelect ? entriesSelect.value : '20';
+
+        params.set('page_size', currentPageSize);
+        if (currentSearch) {
+            params.set('q', currentSearch);
+        } else {
+            params.delete('q');
+        }
+        params.delete('p');
+
+        Object.entries(overrides || {}).forEach(([key, value]) => {
+            if (value === null || value === undefined || value === '') {
+                params.delete(key);
+            } else {
+                params.set(key, value);
+            }
+        });
+        return `${url.pathname}?${params.toString()}`;
+    }
+
+    function toggleDropdown(button, dropdown, other) {
+        button.addEventListener('click', function(event) {
+            event.preventDefault();
+            dropdown.classList.toggle('show');
+            other.classList.remove('show');
+        });
+    }
+
+    function closeCustomerModal() {
+        customerModal.classList.remove('show');
+        customerModalBody.innerHTML = '<div class="customer-modal-loading">Loading customer details...</div>';
+    }
+
+    toggleDropdown(exportDataBtn, exportDropdown, exportAllDropdown);
+    toggleDropdown(exportAllBtn, exportAllDropdown, exportDropdown);
+
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.export-dropdown')) {
+            exportDropdown.classList.remove('show');
+            exportAllDropdown.classList.remove('show');
+        }
+    });
+
+    showHideColumnsBtn.addEventListener('click', function(event) { event.preventDefault(); openColumnModal(); });
+    closeColumnModalBtn.addEventListener('click', closeColumnModal);
+    cancelColumnModalBtn.addEventListener('click', closeColumnModal);
+    moveToShownBtn.addEventListener('click', function() {
+        if (!selectedAvailableColumn) return;
+        const col = availableColumns.find(c => c.key === selectedAvailableColumn);
+        availableColumns = availableColumns.filter(c => c.key !== selectedAvailableColumn);
+        shownColumns.push(col);
+        selectedAvailableColumn = null;
+        renderLists();
+    });
+    moveToAvailableBtn.addEventListener('click', function() {
+        if (!selectedShownColumn || shownColumns.length <= 1) return;
+        const col = shownColumns.find(c => c.key === selectedShownColumn);
+        shownColumns = shownColumns.filter(c => c.key !== selectedShownColumn);
+        availableColumns.push(col);
+        selectedShownColumn = null;
+        renderLists();
+    });
+    applyColumnModalBtn.addEventListener('click', function() {
+        saveColumns();
+        applyColumnVisibility();
+        closeColumnModal();
+    });
+    availableColumnsSearch.addEventListener('input', renderLists);
+    shownColumnsSearch.addEventListener('input', renderLists);
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            searchTimeout = setTimeout(function() {
+                window.location.href = buildListUrl({ p: 1 });
+            }, 250);
+        });
+        searchInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                this.value = '';
+                window.location.href = buildListUrl({ q: null, p: 1 });
+            }
+        });
+    }
+    if (entriesSelect) {
+        entriesSelect.addEventListener('change', function() {
+            window.location.href = buildListUrl({ page_size: this.value, p: 1 });
+        });
+    }
+
+    document.querySelectorAll('.js-customer-view').forEach(link => {
+        link.addEventListener('click', function(event) {
+            event.preventDefault();
+            const detailUrl = this.dataset.detailUrl;
+            if (!detailUrl) return;
+            customerModal.classList.add('show');
+            customerModalBody.innerHTML = '<div class="customer-modal-loading">Loading customer details...</div>';
+            fetch(detailUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(response => {
+                    if (!response.ok) throw new Error('Customer details could not be loaded.');
+                    return response.text();
+                })
+                .then(html => { customerModalBody.innerHTML = html; })
+                .catch(error => { customerModalBody.innerHTML = `<div class="customer-modal-loading">${error.message}</div>`; });
+        });
+    });
+
+    closeCustomerModalBtn.addEventListener('click', closeCustomerModal);
+    customerModal.addEventListener('click', function(event) { if (event.target === customerModal) closeCustomerModal(); });
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            if (columnModal.classList.contains('show')) closeColumnModal();
+            if (customerModal.classList.contains('show')) closeCustomerModal();
+        }
+    });
+
+    loadColumns();
+    applyColumnVisibility();
+});
+</script>
+{% endblock %}

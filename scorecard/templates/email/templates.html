@@ -1,0 +1,645 @@
+{% extends "email/base.html" %}
+
+{% block title %}Email Templates{% endblock %}
+{% block email_title %}Email Templates{% endblock %}
+{% block email_intro %}Update the scorecard email wording from a dedicated templates page, separate from delivery configuration and operational controls.{% endblock %}
+{% block email_summary_section %}{% endblock %}
+
+{% block email_body %}
+<style>
+    .email-template-overview {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+        gap: 1rem;
+        margin-top: 1rem;
+        padding: 1.15rem 1.2rem;
+        border: 1px solid #d7e5f0;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #fbfdff 0%, #f6fbff 100%);
+        box-shadow: 0 14px 30px rgba(15, 52, 86, 0.05);
+    }
+    .email-template-overview h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.12rem;
+        color: #16324f;
+    }
+    .email-template-overview p {
+        margin: 0;
+        color: #607385;
+        line-height: 1.62;
+    }
+    .email-template-overview-meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.8rem;
+    }
+    .email-template-overview-chip {
+        padding: 0.9rem 1rem;
+        border-radius: 16px;
+        border: 1px solid #d7e5f0;
+        background: #fff;
+        box-shadow: 0 10px 22px rgba(15, 52, 86, 0.04);
+    }
+    .email-template-overview-chip-label {
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #70839a;
+    }
+    .email-template-overview-chip-value {
+        margin-top: 0.35rem;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #16324f;
+        line-height: 1.4;
+    }
+    .email-template-sections {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .email-template-section {
+        border: 1px solid #d8e5f2;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 14px 28px rgba(15, 52, 86, 0.05);
+    }
+    .email-template-section-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.1rem 0.95rem;
+        border-bottom: 1px solid #e5edf6;
+        background: linear-gradient(180deg, #f8fbff 0%, #f3f9ff 100%);
+    }
+    .email-template-section-copy h3 {
+        margin: 0;
+        font-size: 1.02rem;
+        color: #16324f;
+    }
+    .email-template-section-copy p {
+        margin: 0.3rem 0 0;
+        color: #607385;
+        font-size: 0.87rem;
+        line-height: 1.55;
+    }
+    .email-template-count {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.35rem 0.8rem;
+        border-radius: 999px;
+        border: 1px solid #d7e6f1;
+        background: #fff;
+        color: #1d5f96;
+        font-size: 0.8rem;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+    }
+    .email-template-count::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #1766a6;
+        box-shadow: 0 0 0 4px rgba(23, 102, 166, 0.12);
+    }
+    .email-template-table-wrap {
+        overflow-x: auto;
+    }
+    .email-template-table {
+        width: 100%;
+        min-width: 920px;
+        border-collapse: collapse;
+    }
+    .email-template-table th,
+    .email-template-table td {
+        padding: 0.95rem 1rem;
+        border-bottom: 1px solid #e7eef5;
+        text-align: left;
+        vertical-align: top;
+    }
+    .email-template-table thead th {
+        background: #fbfdff;
+        color: #70839a;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .email-template-table tbody tr:hover {
+        background: #f9fcff;
+    }
+    .email-template-name {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #16324f;
+        line-height: 1.4;
+    }
+    .email-template-meta {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 0.42rem;
+        padding: 0.22rem 0.55rem;
+        border-radius: 999px;
+        background: #eef6fd;
+        color: #1d5f96;
+        font-size: 0.75rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .email-template-desc {
+        max-width: 420px;
+        color: #607385;
+        line-height: 1.58;
+    }
+    .email-template-availability {
+        display: flex;
+        flex-direction: column;
+        gap: 0.32rem;
+        min-width: 150px;
+    }
+    .email-template-availability strong {
+        color: #16324f;
+        font-size: 0.88rem;
+    }
+    .email-template-availability small {
+        color: #6e8295;
+        font-size: 0.78rem;
+        line-height: 1.45;
+    }
+    .email-action-stack {
+        display: flex;
+        flex-direction: row;
+        gap: 0.5rem;
+        align-items: center;
+        justify-content: center;
+        min-width: 110px;
+        flex-wrap: nowrap;
+    }
+    .email-action-button {
+        position: relative;
+        width: 42px;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border-radius: 12px;
+        font-size: 0.83rem;
+        font-weight: 700;
+        text-decoration: none;
+        line-height: 1;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+    }
+    .email-action-button svg {
+        width: 18px;
+        height: 18px;
+    }
+    .email-action-button.secondary {
+        background: #f4f9fd;
+        border: 1px solid #d7e5f0;
+        color: #204d74;
+    }
+    .email-action-button.secondary:hover {
+        background: #eaf3fb;
+        border-color: #bfd5e8;
+        transform: translateY(-1px);
+        box-shadow: 0 10px 22px rgba(15, 52, 86, 0.08);
+    }
+    .email-action-button[data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 10px);
+        transform: translateX(-50%);
+        padding: 0.42rem 0.58rem;
+        border-radius: 8px;
+        background: #16324f;
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        box-shadow: 0 10px 22px rgba(10, 34, 56, 0.18);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        z-index: 3;
+    }
+    .email-action-button[data-tooltip]:hover::after {
+        opacity: 1;
+        transform: translateX(-50%) translateY(-2px);
+    }
+    .email-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 29, 46, 0.48);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        z-index: 1200;
+    }
+    .email-modal-backdrop.is-open {
+        display: flex;
+    }
+    .email-modal {
+        width: min(900px, 100%);
+        max-height: min(88vh, 920px);
+        overflow: auto;
+        background: #ffffff;
+        border: 1px solid #d7e4ef;
+        border-radius: 18px;
+        box-shadow: 0 22px 50px rgba(12, 39, 63, 0.22);
+    }
+    .email-modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.2rem 1.25rem 0.8rem;
+        border-bottom: 1px solid #e4edf5;
+    }
+    .email-modal-title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #16324f;
+    }
+    .email-modal-subtitle {
+        margin: 0.25rem 0 0;
+        font-size: 0.88rem;
+        color: #627587;
+        line-height: 1.5;
+    }
+    .email-modal-close {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        border: 1px solid #d7e4ef;
+        background: #f8fbfd;
+        color: #36506a;
+        font-size: 1.2rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+    .email-modal-content {
+        padding: 1rem 1.25rem 1.25rem;
+    }
+    .email-view-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.9rem;
+    }
+    .email-view-card {
+        padding: 0.95rem 1rem;
+        border-radius: 14px;
+        background: #f8fbfd;
+        border: 1px solid #e4edf5;
+    }
+    .email-view-card.full {
+        grid-column: 1 / -1;
+    }
+    .email-view-label {
+        margin-bottom: 0.4rem;
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #74879b;
+    }
+    .email-view-value {
+        font-size: 0.95rem;
+        color: #16324f;
+        line-height: 1.55;
+        word-break: break-word;
+    }
+    .email-code-box {
+        padding: 0.9rem;
+        border-radius: 10px;
+        background: #f7fbff;
+        border: 1px solid #dce8f2;
+        font-family: "Consolas", "Courier New", monospace;
+        font-size: 0.82rem;
+        color: #204d74;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    @media (max-width: 960px) {
+        .email-template-overview {
+            grid-template-columns: 1fr;
+        }
+        .email-template-overview-meta {
+            grid-template-columns: 1fr;
+        }
+        .email-template-section-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+</style>
+
+<section class="email-panel">
+    <div class="email-template-overview">
+        <div>
+            <h2>Template Library</h2>
+            <p>This page is dedicated to email wording only. Use it to review the event coverage, open a template for quick inspection, and update the saved wording without mixing it into delivery configuration.</p>
+        </div>
+        <div class="email-template-overview-meta">
+            <div class="email-template-overview-chip">
+                <div class="email-template-overview-chip-label">Editing Model</div>
+                <div class="email-template-overview-chip-value">Centralized template library</div>
+            </div>
+            <div class="email-template-overview-chip">
+                <div class="email-template-overview-chip-label">Template Status</div>
+                <div class="email-template-overview-chip-value">{{ email_summary.enabled_templates }} enabled of {{ email_summary.total_templates }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="email-template-sections">
+    {% for section in template_sections %}
+        <section class="email-template-section">
+            <div class="email-template-section-header">
+                <div class="email-template-section-copy">
+                    <h3>{{ section.title }}</h3>
+                    <p>{{ section.subtitle }}</p>
+                </div>
+                <span class="email-template-count">{{ section.records|length }} template{{ section.records|length|pluralize }}</span>
+            </div>
+            <div class="email-template-table-wrap">
+                <table class="email-template-table">
+                    <thead>
+                        <tr>
+                            <th>Template</th>
+                            <th>Status</th>
+                            <th>Description</th>
+                            <th>Availability</th>
+                            {% if email_can_manage %}<th>Actions</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for template in section.records %}
+                            <tr>
+                                <td>
+                                    <div class="email-template-name">{{ template.name }}</div>
+                                    <span class="email-template-meta">{{ template.event_code }}</span>
+                                </td>
+                                <td>
+                                    <span class="email-status {% if template.is_enabled %}success{% else %}neutral{% endif %}">
+                                        {{ template.status_label }}
+                                    </span>
+                                </td>
+                                <td><div class="email-template-desc">{{ template.description }}</div></td>
+                                <td>
+                                    <div class="email-template-availability">
+                                        <strong>{% if template.is_enabled %}Active for sending{% else %}Disabled from sending{% endif %}</strong>
+                                        <small>{% if email_can_manage %}Wording remains available for review and editing.{% else %}Wording remains available for read-only review.{% endif %}</small>
+                                    </div>
+                                </td>
+                                {% if email_can_manage %}<td>
+                                    <div class="email-action-stack">
+                                        <button
+                                            type="button"
+                                            class="email-button secondary email-action-button js-email-template-view"
+                                            data-tooltip="View"
+                                            aria-label="View"
+                                            data-template-name="{{ template.name|escape }}"
+                                            data-template-event-code="{{ template.event_code|escape }}"
+                                            data-template-status="{{ template.status_label|escape }}"
+                                            data-template-description="{{ template.description|escape }}"
+                                            data-template-subject="{{ template.subject_template|escape }}"
+                                            data-template-text-body="{{ template.text_body_template|escape }}"
+                                            data-template-html-body="{{ template.html_body_template|escape }}"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"></path>
+                                                <circle cx="12" cy="12" r="3"></circle>
+                                            </svg>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="email-button secondary email-action-button js-email-template-edit"
+                                            data-tooltip="Edit"
+                                            aria-label="Edit"
+                                            data-edit-url="{{ template.edit_url }}"
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M12 20h9"></path>
+                                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>{% endif %}
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="{% if email_can_manage %}5{% else %}4{% endif %}">No templates are available in this section yet.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endfor %}
+    </div>
+</section>
+
+<div class="email-modal-backdrop" id="email-template-modal" aria-hidden="true">
+    <div class="email-modal" role="dialog" aria-modal="true" aria-labelledby="email-template-modal-title">
+        <div id="email-template-modal-body"></div>
+    </div>
+</div>
+
+<div class="email-modal-backdrop" id="email-template-view-modal" aria-hidden="true">
+    <div class="email-modal" role="dialog" aria-modal="true" aria-labelledby="email-template-view-title">
+        <div class="email-modal-header">
+            <div>
+                <h3 class="email-modal-title" id="email-template-view-title">Email Template Details</h3>
+                <p class="email-modal-subtitle" id="email-template-view-subtitle">Saved email template information</p>
+            </div>
+            <button type="button" class="email-modal-close" id="email-template-view-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="email-modal-content">
+            <div class="email-view-grid">
+                <div class="email-view-card">
+                    <div class="email-view-label">Template Name</div>
+                    <div class="email-view-value" id="email-template-view-name"></div>
+                </div>
+                <div class="email-view-card">
+                    <div class="email-view-label">Event Code</div>
+                    <div class="email-view-value" id="email-template-view-event-code"></div>
+                </div>
+                <div class="email-view-card">
+                    <div class="email-view-label">Status</div>
+                    <div class="email-view-value" id="email-template-view-status"></div>
+                </div>
+                <div class="email-view-card full">
+                    <div class="email-view-label">Description</div>
+                    <div class="email-view-value" id="email-template-view-description"></div>
+                </div>
+                <div class="email-view-card full">
+                    <div class="email-view-label">Subject Template</div>
+                    <div class="email-code-box" id="email-template-view-subject"></div>
+                </div>
+                <div class="email-view-card full">
+                    <div class="email-view-label">Plain Text Body</div>
+                    <div class="email-code-box" id="email-template-view-text-body"></div>
+                </div>
+                <div class="email-view-card full">
+                    <div class="email-view-label">HTML Body</div>
+                    <div class="email-code-box" id="email-template-view-html-body"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const modal = document.getElementById("email-template-modal");
+    const modalBody = document.getElementById("email-template-modal-body");
+    const viewModal = document.getElementById("email-template-view-modal");
+    const viewModalClose = document.getElementById("email-template-view-close");
+
+    if (!modal || !modalBody) {
+        return;
+    }
+
+    function closeModal() {
+        modal.classList.remove("is-open");
+        modal.setAttribute("aria-hidden", "true");
+        modalBody.innerHTML = "";
+        document.body.style.overflow = "";
+    }
+
+    function closeViewModal() {
+        if (!viewModal) {
+            return;
+        }
+        viewModal.classList.remove("is-open");
+        viewModal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+    }
+
+    function bindModalActions() {
+        modalBody.querySelectorAll(".js-email-template-modal-close").forEach(function (button) {
+            button.addEventListener("click", closeModal);
+        });
+
+        const form = modalBody.querySelector("#email-template-modal-form");
+        if (!form) {
+            return;
+        }
+
+        form.addEventListener("submit", async function (event) {
+            event.preventDefault();
+            const formData = new FormData(form);
+            if (event.submitter && event.submitter.name) {
+                formData.append(event.submitter.name, event.submitter.value || "1");
+            }
+            try {
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: formData,
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    }
+                });
+                const data = await response.json();
+                if (data.ok) {
+                    window.location.reload();
+                    return;
+                }
+                if (data.html) {
+                    modalBody.innerHTML = data.html;
+                    bindModalActions();
+                }
+            } catch (error) {
+                console.error("Email template modal save failed:", error);
+            }
+        });
+    }
+
+    async function openModal(url) {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+            if (!response.ok) {
+                return;
+            }
+            const html = await response.text();
+            modalBody.innerHTML = html;
+            bindModalActions();
+            modal.classList.add("is-open");
+            modal.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
+        } catch (error) {
+            console.error("Email template modal load failed:", error);
+        }
+    }
+
+    document.querySelectorAll(".js-email-template-edit").forEach(function (button) {
+        button.addEventListener("click", function () {
+            openModal(button.dataset.editUrl);
+        });
+    });
+
+    document.querySelectorAll(".js-email-template-view").forEach(function (button) {
+        button.addEventListener("click", function () {
+            if (!viewModal) {
+                return;
+            }
+            document.getElementById("email-template-view-name").textContent = button.dataset.templateName || "-";
+            document.getElementById("email-template-view-event-code").textContent = button.dataset.templateEventCode || "-";
+            document.getElementById("email-template-view-status").textContent = button.dataset.templateStatus || "-";
+            document.getElementById("email-template-view-description").textContent = button.dataset.templateDescription || "-";
+            document.getElementById("email-template-view-subject").textContent = button.dataset.templateSubject || "";
+            document.getElementById("email-template-view-text-body").textContent = button.dataset.templateTextBody || "";
+            document.getElementById("email-template-view-html-body").textContent = button.dataset.templateHtmlBody || "";
+            document.getElementById("email-template-view-subtitle").textContent = `Saved template overview for ${button.dataset.templateName || "this template"}`;
+            viewModal.classList.add("is-open");
+            viewModal.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
+        });
+    });
+
+    modal.addEventListener("click", function (event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+
+    if (viewModalClose) {
+        viewModalClose.addEventListener("click", closeViewModal);
+    }
+
+    if (viewModal) {
+        viewModal.addEventListener("click", function (event) {
+            if (event.target === viewModal) {
+                closeViewModal();
+            }
+        });
+    }
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && modal.classList.contains("is-open")) {
+            closeModal();
+        }
+        if (event.key === "Escape" && viewModal && viewModal.classList.contains("is-open")) {
+            closeViewModal();
+        }
+    });
+});
+</script>
+{% endblock %}

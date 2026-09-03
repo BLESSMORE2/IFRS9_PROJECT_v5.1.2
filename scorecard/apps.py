@@ -1,36 +1,26 @@
-from importlib import import_module
-from pathlib import Path
-
-from scorecard_utils.scorecard.apps import ScorecardConfig as SourceScorecardConfig
+from django.apps import AppConfig
+from django.db.models.signals import post_migrate
 
 
-def _resolve_package_root():
-    shim_dir = Path(__file__).resolve().parent
-    candidates = []
+class ScorecardConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'scorecard'
 
-    for package_name in ("scorecard", "scorecard_utils.scorecard"):
-        try:
-            package = import_module(package_name)
-        except Exception:
-            continue
+    def ready(self):
+        from scorecard import signals  # noqa: F401
+        from scorecard.default_role_seeder import run_default_role_seeder
+        from scorecard.scheduler_runtime import autostart_scheduler_if_needed
+        from scorecard.template_seed_seeder import run_template_seed_seeder
 
-        for package_path in getattr(package, "__path__", []):
-            resolved = Path(package_path).resolve()
-            if resolved not in candidates:
-                candidates.append(resolved)
+        post_migrate.connect(
+            run_default_role_seeder,
+            sender=self,
+            dispatch_uid="scorecard_seed_default_roles",
+        )
+        post_migrate.connect(
+            run_template_seed_seeder,
+            sender=self,
+            dispatch_uid="scorecard_seed_default_templates",
+        )
+        autostart_scheduler_if_needed()
 
-    for candidate in candidates:
-        if candidate == shim_dir:
-            continue
-        if (candidate / "templates").exists() or (candidate / "static").exists():
-            return str(candidate)
-
-    for candidate in candidates:
-        if candidate != shim_dir and candidate.exists():
-            return str(candidate)
-
-    return str(shim_dir)
-
-
-class ScorecardConfig(SourceScorecardConfig):
-    path = _resolve_package_root()

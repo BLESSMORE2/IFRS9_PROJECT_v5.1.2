@@ -1,0 +1,11 @@
+Hello,
+
+Your {{ score_label|lower }} has been returned for changes.
+
+Customer: {{ customer_name }} ({{ customer_code }})
+Branch: {{ branch_name }}
+Returned By: {{ actor_name }}
+Reason: {{ reason|default:"No reason was provided." }}
+
+Open Score Form:
+{{ action_url|default:"-" }}

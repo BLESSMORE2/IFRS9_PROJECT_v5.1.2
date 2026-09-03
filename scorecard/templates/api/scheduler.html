@@ -1,0 +1,738 @@
+{% extends "api/base.html" %}
+
+{% block title %}Automation{% endblock %}
+{% block api_title %}Scheduler Control Centre{% endblock %}
+{% block api_intro %}Monitor the scheduler, pause or resume automatic work, tune its check interval, and control each saved job from one production-safe workspace.{% endblock %}
+{% block api_summary_section %}{% endblock %}
+
+{% block api_body %}
+<style>
+    .scheduler-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(150px, 0.55fr));
+        gap: 1rem;
+        align-items: stretch;
+    }
+    .scheduler-state-card {
+        border-radius: 14px;
+        padding: 1.15rem;
+        border: 1px solid #d8e6f2;
+        background: linear-gradient(145deg, #f8fbfe, #eef5fb);
+    }
+    .scheduler-state-card.primary {
+        color: #fff;
+        border-color: transparent;
+        background: linear-gradient(135deg, #0e4d7d 0%, #1675b8 100%);
+        box-shadow: 0 14px 28px rgba(15, 76, 129, 0.18);
+    }
+    .scheduler-eyebrow {
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        opacity: 0.72;
+    }
+    .scheduler-state-value {
+        margin-top: 0.45rem;
+        font-size: 1.35rem;
+        font-weight: 800;
+    }
+    .scheduler-state-copy {
+        margin-top: 0.45rem;
+        font-size: 0.82rem;
+        line-height: 1.45;
+        opacity: 0.82;
+    }
+    .scheduler-control-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .scheduler-toggle {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        min-height: 105px;
+        padding: 1rem;
+        border: 1px solid #d6e4ef;
+        border-radius: 12px;
+        background: #f9fcff;
+    }
+    .scheduler-toggle input[type="checkbox"] {
+        width: 19px;
+        height: 19px;
+        margin-top: 0.1rem;
+        accent-color: #1471b5;
+        flex: 0 0 auto;
+    }
+    .scheduler-toggle strong {
+        display: block;
+        color: #173653;
+        font-size: 0.92rem;
+    }
+    .scheduler-toggle small {
+        display: block;
+        margin-top: 0.35rem;
+        color: #667d91;
+        line-height: 1.45;
+    }
+    .scheduler-master {
+        border-color: #9ed4c9;
+        background: linear-gradient(135deg, #eefaf7, #f9fffd);
+    }
+    .scheduler-number-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .scheduler-readonly-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.8rem;
+        margin-top: 1rem;
+    }
+    .scheduler-readonly-item {
+        padding: 0.9rem;
+        border-radius: 11px;
+        background: #f5f9fd;
+        border: 1px solid #dce8f2;
+    }
+    .scheduler-readonly-item strong {
+        display: block;
+        margin-top: 0.25rem;
+        color: #173653;
+    }
+    .schedule-mode {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.34rem 0.65rem;
+        font-size: 0.76rem;
+        font-weight: 800;
+    }
+    .schedule-mode.enabled {
+        color: #087455;
+        background: #def5ec;
+    }
+    .schedule-mode.paused {
+        color: #8c5b08;
+        background: #fff0cf;
+    }
+    .schedule-text-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        min-width: 250px;
+    }
+    .schedule-text-actions form {
+        margin: 0;
+    }
+    .schedule-text-actions .api-button {
+        padding: 0.55rem 0.7rem;
+        font-size: 0.76rem;
+    }
+    @media (max-width: 1050px) {
+        .scheduler-hero,
+        .scheduler-control-grid,
+        .scheduler-number-grid,
+        .scheduler-readonly-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @media (max-width: 650px) {
+        .scheduler-hero,
+        .scheduler-control-grid,
+        .scheduler-number-grid,
+        .scheduler-readonly-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="scheduler-hero" id="automation-scheduler-status">
+    <div class="scheduler-state-card primary">
+        <div class="scheduler-eyebrow">Live service state</div>
+        <div class="scheduler-state-value" data-scheduler-field="state">{{ scheduler_service.state_label }}</div>
+        <div class="scheduler-state-copy" data-scheduler-field="message">{{ scheduler_service.last_message }}</div>
+    </div>
+    <div class="scheduler-state-card">
+        <div class="scheduler-eyebrow">Last heartbeat</div>
+        <div class="scheduler-state-value" data-scheduler-field="heartbeat">{{ scheduler_service.last_heartbeat }}</div>
+        <div class="scheduler-state-copy" data-scheduler-field="heartbeatAge">{{ scheduler_service.heartbeat_age }}</div>
+    </div>
+    <div class="scheduler-state-card">
+        <div class="scheduler-eyebrow">Last check</div>
+        <div class="scheduler-state-value" data-scheduler-field="check">{{ scheduler_service.last_check }}</div>
+        <div class="scheduler-state-copy">Completed jobs: <strong data-scheduler-field="count">{{ scheduler_service.last_run_count }}</strong></div>
+    </div>
+    <div class="scheduler-state-card">
+        <div class="scheduler-eyebrow">Check interval</div>
+        <div class="scheduler-state-value"><span data-scheduler-field="interval">{{ scheduler_control.check_interval_seconds }}</span>s</div>
+        <div class="scheduler-state-copy">Changes apply on the next heartbeat.</div>
+    </div>
+</div>
+
+<div class="api-panel">
+    <h2>Scheduler Settings</h2>
+    <p>These controls are stored in the database and are read live by the scheduler worker. Pausing automation does not stop the watchdog process.</p>
+    {% if editing_scheduler_controls %}
+        <form method="post" action="{% url 'scorecard:api_scheduler_controls' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'scorecard:api_scheduler' %}">
+            <div class="scheduler-control-grid">
+                <label class="scheduler-toggle scheduler-master">
+                    {{ scheduler_control_form.scheduler_enabled }}
+                    <span>
+                        <strong>{{ scheduler_control_form.scheduler_enabled.label }}</strong>
+                        <small>{{ scheduler_control_form.scheduler_enabled.help_text }}</small>
+                    </span>
+                </label>
+                <label class="scheduler-toggle">
+                    {{ scheduler_control_form.run_import_schedules }}
+                    <span>
+                        <strong>{{ scheduler_control_form.run_import_schedules.label }}</strong>
+                        <small>{{ scheduler_control_form.run_import_schedules.help_text }}</small>
+                    </span>
+                </label>
+                <label class="scheduler-toggle">
+                    {{ scheduler_control_form.run_main_customer_sync }}
+                    <span>
+                        <strong>{{ scheduler_control_form.run_main_customer_sync.label }}</strong>
+                        <small>{{ scheduler_control_form.run_main_customer_sync.help_text }}</small>
+                    </span>
+                </label>
+                <label class="scheduler-toggle">
+                    {{ scheduler_control_form.run_historical_score_capture }}
+                    <span>
+                        <strong>{{ scheduler_control_form.run_historical_score_capture.label }}</strong>
+                        <small>{{ scheduler_control_form.run_historical_score_capture.help_text }}</small>
+                    </span>
+                </label>
+            </div>
+            <div class="scheduler-number-grid">
+                <div class="api-field">
+                    <label for="{{ scheduler_control_form.check_interval_seconds.id_for_label }}">{{ scheduler_control_form.check_interval_seconds.label }}</label>
+                    {{ scheduler_control_form.check_interval_seconds }}
+                    <small>{{ scheduler_control_form.check_interval_seconds.help_text }}</small>
+                </div>
+                <div class="api-field">
+                    <label for="{{ scheduler_control_form.retry_limit.id_for_label }}">{{ scheduler_control_form.retry_limit.label }}</label>
+                    {{ scheduler_control_form.retry_limit }}
+                    <small>{{ scheduler_control_form.retry_limit.help_text }}</small>
+                </div>
+                <div class="api-field">
+                    <label for="{{ scheduler_control_form.retry_delay_seconds.id_for_label }}">{{ scheduler_control_form.retry_delay_seconds.label }}</label>
+                    {{ scheduler_control_form.retry_delay_seconds }}
+                    <small>{{ scheduler_control_form.retry_delay_seconds.help_text }}</small>
+                </div>
+            </div>
+            <div class="api-button-row">
+                <button type="submit" class="api-button primary">Update Scheduler Settings</button>
+                <a href="{% url 'scorecard:api_scheduler' %}" class="api-button secondary">Cancel</a>
+                {% if scheduler_service.state != "running" and scheduler_service.state != "paused" %}
+                    <button type="submit" class="api-button secondary" formaction="{% url 'scorecard:api_scheduler_start' %}">Start Watchdog</button>
+                {% endif %}
+            </div>
+        </form>
+    {% else %}
+        <div class="scheduler-readonly-grid">
+            <div class="scheduler-readonly-item"><span>Automation</span><strong>{% if scheduler_control.scheduler_enabled %}Enabled{% else %}Paused{% endif %}</strong></div>
+            <div class="scheduler-readonly-item"><span>Endpoint imports</span><strong>{% if scheduler_control.run_import_schedules %}Enabled{% else %}Paused{% endif %}</strong></div>
+            <div class="scheduler-readonly-item"><span>Main customer sync</span><strong>{% if scheduler_control.run_main_customer_sync %}Enabled{% else %}Paused{% endif %}</strong></div>
+            <div class="scheduler-readonly-item"><span>Historical capture</span><strong>{% if scheduler_control.run_historical_score_capture %}Enabled{% else %}Paused{% endif %}</strong></div>
+            <div class="scheduler-readonly-item"><span>Check interval</span><strong>{{ scheduler_control.check_interval_seconds }} seconds</strong></div>
+            <div class="scheduler-readonly-item"><span>Cycle retry limit</span><strong>{{ scheduler_control.retry_limit }}</strong></div>
+            <div class="scheduler-readonly-item"><span>Retry delay</span><strong>{{ scheduler_control.retry_delay_seconds }} seconds</strong></div>
+        </div>
+        {% if api_can_manage_schedules %}
+            <div class="api-button-row">
+                <a href="{% url 'scorecard:api_scheduler' %}?edit_settings=1" class="api-button primary">Edit Scheduler Settings</a>
+                {% if scheduler_service.state != "running" and scheduler_service.state != "paused" %}
+                    <form method="post" action="{% url 'scorecard:api_scheduler_start' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'scorecard:api_scheduler' %}">
+                        <button type="submit" class="api-button secondary">Start Watchdog</button>
+                    </form>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+{% if api_can_manage_schedules %}<div class="api-layout-two">{% else %}<div>{% endif %}
+    {% if api_can_manage_schedules %}<div class="api-panel">
+        <h2>{% if editing_schedule %}Edit Schedule{% else %}Create Schedule{% endif %}</h2>
+        <p>Choose the endpoint, frequency, run time, and how reporting_date should be filled during the automated import.</p>
+        <form method="post">
+            {% csrf_token %}
+            {% if editing_schedule %}
+                <input type="hidden" name="schedule_id" value="{{ editing_schedule.id }}">
+            {% endif %}
+            <div class="api-form-grid">
+                <div class="api-field">
+                    <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+                    {{ form.name }}
+                    {{ form.name.errors }}
+                    {% if form.name.help_text %}
+                        <small>{{ form.name.help_text }}</small>
+                    {% endif %}
+                </div>
+                <div class="api-field">
+                    <label for="{{ form.endpoint.id_for_label }}">{{ form.endpoint.label }}</label>
+                    {{ form.endpoint }}
+                    {{ form.endpoint.errors }}
+                    {% if form.endpoint.help_text %}
+                        <small>{{ form.endpoint.help_text }}</small>
+                    {% endif %}
+                </div>
+                <div class="api-field">
+                    <label for="{{ form.frequency.id_for_label }}">{{ form.frequency.label }}</label>
+                    {{ form.frequency }}
+                    {{ form.frequency.errors }}
+                    {% if form.frequency.help_text %}
+                        <small>{{ form.frequency.help_text }}</small>
+                    {% endif %}
+                </div>
+                <div class="api-field">
+                    <label for="{{ form.run_time.id_for_label }}">{{ form.run_time.label }}</label>
+                    {{ form.run_time }}
+                    {{ form.run_time.errors }}
+                    {% if form.run_time.help_text %}
+                        <small>{{ form.run_time.help_text }}</small>
+                    {% endif %}
+                </div>
+                <div class="api-field" id="weekdayField">
+                    <label for="{{ form.weekday.id_for_label }}">{{ form.weekday.label }}</label>
+                    {{ form.weekday }}
+                    {{ form.weekday.errors }}
+                    {% if form.weekday.help_text %}
+                        <small>{{ form.weekday.help_text }}</small>
+                    {% endif %}
+                </div>
+                <div class="api-field" id="dayOfMonthField">
+                    <label for="{{ form.day_of_month.id_for_label }}">{{ form.day_of_month.label }}</label>
+                    {{ form.day_of_month }}
+                    {{ form.day_of_month.errors }}
+                    {% if form.day_of_month.help_text %}
+                        <small>{{ form.day_of_month.help_text }}</small>
+                    {% endif %}
+                </div>
+                <div class="api-field">
+                    <label for="{{ form.reporting_date_mode.id_for_label }}">{{ form.reporting_date_mode.label }}</label>
+                    {{ form.reporting_date_mode }}
+                    {{ form.reporting_date_mode.errors }}
+                    {% if form.reporting_date_mode.help_text %}
+                        <small>{{ form.reporting_date_mode.help_text }}</small>
+                    {% endif %}
+                </div>
+                <div class="api-field" id="fixedReportingDateField">
+                    <label for="{{ form.fixed_reporting_date.id_for_label }}">{{ form.fixed_reporting_date.label }}</label>
+                    {{ form.fixed_reporting_date }}
+                    {{ form.fixed_reporting_date.errors }}
+                    {% if form.fixed_reporting_date.help_text %}
+                        <small>{{ form.fixed_reporting_date.help_text }}</small>
+                    {% endif %}
+                </div>
+                <div class="api-field full">
+                    <label for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+                    {{ form.is_active }}
+                    {{ form.is_active.errors }}
+                    {% if form.is_active.help_text %}
+                        <small>{{ form.is_active.help_text }}</small>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="api-button-row">
+                <button type="submit" class="api-button primary">
+                    {% if editing_schedule %}Update Schedule{% else %}Save Schedule{% endif %}
+                </button>
+                {% if editing_schedule %}
+                    <a href="{% url 'scorecard:api_scheduler' %}" class="api-button secondary">Cancel</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>{% endif %}
+
+    <div class="api-panel">
+        <h2>How Automation Runs</h2>
+        <p>The watchdog remains available inside Django, while the database controls above decide whether work is executed.</p>
+        <div class="api-message-list">
+            <div class="api-message">Only one scheduler worker may hold the process lock, preventing duplicate workers across Django processes.</div>
+            <div class="api-message">Each schedule also uses its own execution lock, preventing manual and automatic runs from overlapping.</div>
+            <div class="api-message">If an endpoint uses <code>reporting_date</code>, its saved schedule supplies the configured run date, previous day, or fixed date.</div>
+        </div>
+    </div>
+</div>
+
+<div class="api-panel">
+    <h2>Saved Schedules</h2>
+    <p>These schedules will be picked up automatically when the Django scheduler service is running and finds them due.</p>
+    <div class="api-table-wrap api-table-scroll">
+        <table class="api-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Endpoint</th>
+                    <th>Frequency</th>
+                    <th>Next Run</th>
+                    <th>Last Run</th>
+                    <th>Status</th>
+                    <th>Mode</th>
+                    {% if api_can_manage_schedules %}<th>Action</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in schedule_rows %}
+                    <tr>
+                        <td>{{ row.schedule.name }}</td>
+                        <td>{{ row.schedule.endpoint.name }}</td>
+                        <td>{{ row.schedule.get_frequency_display }}</td>
+                        <td>{{ row.next_run_at }}</td>
+                        <td>{% if row.schedule.last_run_at %}{{ row.schedule.last_run_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</td>
+                        <td>
+                            {% if row.schedule.last_status == "success" %}
+                                <span class="api-status success">Success</span>
+                            {% elif row.schedule.last_status == "failed" %}
+                                <span class="api-status failed">Failed</span>
+                            {% else %}
+                                <span class="api-badge-soft">Not run</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="schedule-mode {% if row.schedule.is_active %}enabled{% else %}paused{% endif %}">
+                                {% if row.schedule.is_active %}Enabled{% else %}Paused{% endif %}
+                            </span>
+                        </td>
+                        {% if api_can_manage_schedules %}<td>
+                            <div class="schedule-text-actions">
+                                <form method="post" action="{% url 'scorecard:api_scheduler_run_now' row.schedule.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="api-button primary">Run Now</button>
+                                </form>
+                                <form method="post" action="{% url 'scorecard:api_scheduler_toggle' row.schedule.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="api-button secondary">
+                                        {% if row.schedule.is_active %}Pause{% else %}Resume{% endif %}
+                                    </button>
+                                </form>
+                                <button
+                                    type="button"
+                                    class="api-button secondary js-schedule-view"
+                                    data-name="{{ row.schedule.name }}"
+                                    data-endpoint="{{ row.schedule.endpoint.name }}"
+                                    data-frequency="{{ row.schedule.get_frequency_display }}"
+                                    data-target="{{ row.schedule.endpoint.get_target_table_display|default:row.schedule.endpoint.target_table }}"
+                                    data-next-run="{{ row.next_run_at }}"
+                                    data-last-run="{% if row.schedule.last_run_at %}{{ row.schedule.last_run_at|date:'Y-m-d H:i' }}{% else %}-{% endif %}"
+                                    data-status="{% if row.schedule.last_status == 'success' %}Success{% elif row.schedule.last_status == 'failed' %}Failed{% else %}Not run{% endif %}"
+                                    data-run-time="{{ row.schedule.run_time|time:'H:i'|default:'-' }}"
+                                    data-reporting-mode="{{ row.schedule.get_reporting_date_mode_display|default:'-' }}"
+                                    data-fixed-reporting-date="{{ row.schedule.fixed_reporting_date|date:'Y-m-d'|default:'-' }}"
+                                    data-weekday="{% if row.schedule.weekday is not None %}{{ row.schedule.get_weekday_display|default:row.schedule.weekday }}{% else %}-{% endif %}"
+                                    data-day-of-month="{{ row.schedule.day_of_month|default:'-' }}"
+                                    data-active="{% if row.schedule.is_active %}Yes{% else %}No{% endif %}"
+                                    data-last-message="{{ row.schedule.last_message|default_if_none:'-' }}"
+                                >
+                                    View
+                                </button>
+                                <a href="{% url 'scorecard:api_scheduler' %}?schedule={{ row.schedule.id }}" class="api-button secondary">Edit</a>
+                                <form method="post" action="{% url 'scorecard:api_scheduler_delete' row.schedule.id %}" onsubmit="return confirm('Delete this automation schedule?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="api-button danger">Delete</button>
+                                </form>
+                            </div>
+                        </td>{% endif %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="{% if api_can_manage_schedules %}8{% else %}7{% endif %}">No automation schedules saved yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="api-panel">
+    <h2>Scheduler Logs</h2>
+    <p>Operational events are recorded when real work, failures, restarts, or manual actions occur.</p>
+    <div class="api-table-wrap api-table-scroll">
+        <table class="api-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Level</th>
+                    <th>Event</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in scheduler_logs_page_obj %}
+                    <tr>
+                        <td>{{ log.created_display }}</td>
+                        <td><span class="api-status {% if log.level == 'success' %}success{% elif log.level == 'error' %}failed{% endif %}">{{ log.level_display }}</span></td>
+                        <td>{{ log.event_label }}</td>
+                        <td>{{ log.message }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4">No scheduler events have been recorded yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if scheduler_logs_page_obj.paginator.num_pages > 1 %}
+        <div class="api-button-row">
+            {% if scheduler_logs_page_obj.has_previous %}
+                <a class="api-button secondary" href="?scheduler_logs_page={{ scheduler_logs_page_obj.previous_page_number }}&scheduler_logs_per_page={{ scheduler_logs_per_page }}">Previous</a>
+            {% endif %}
+            <span class="api-button secondary">Page {{ scheduler_logs_page_obj.number }} of {{ scheduler_logs_page_obj.paginator.num_pages }}</span>
+            {% if scheduler_logs_page_obj.has_next %}
+                <a class="api-button secondary" href="?scheduler_logs_page={{ scheduler_logs_page_obj.next_page_number }}&scheduler_logs_per_page={{ scheduler_logs_per_page }}">Next</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<div class="api-modal-backdrop" id="scheduleViewModal" aria-hidden="true">
+    <div class="api-modal" role="dialog" aria-modal="true" aria-labelledby="scheduleViewTitle">
+        <div class="api-modal-header">
+            <div>
+                <h3 class="api-modal-title" id="scheduleViewTitle">Schedule Details</h3>
+                <p class="api-modal-subtitle">Review the saved automation setup without leaving this page.</p>
+            </div>
+            <button type="button" class="api-modal-close" id="scheduleViewClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="api-modal-content">
+            <div class="api-modal-grid">
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Name</div>
+                    <div class="api-modal-value" data-modal-field="name">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Endpoint</div>
+                    <div class="api-modal-value" data-modal-field="endpoint">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Target Table</div>
+                    <div class="api-modal-value" data-modal-field="target">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Frequency</div>
+                    <div class="api-modal-value" data-modal-field="frequency">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Run Time</div>
+                    <div class="api-modal-value" data-modal-field="runTime">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Status</div>
+                    <div class="api-modal-value" data-modal-field="status">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Next Run</div>
+                    <div class="api-modal-value" data-modal-field="nextRun">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Last Run</div>
+                    <div class="api-modal-value" data-modal-field="lastRun">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Reporting Date Mode</div>
+                    <div class="api-modal-value" data-modal-field="reportingMode">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Fixed Reporting Date</div>
+                    <div class="api-modal-value" data-modal-field="fixedReportingDate">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Weekday</div>
+                    <div class="api-modal-value" data-modal-field="weekday">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Day Of Month</div>
+                    <div class="api-modal-value" data-modal-field="dayOfMonth">-</div>
+                </div>
+                <div class="api-modal-card">
+                    <div class="api-modal-label">Active</div>
+                    <div class="api-modal-value" data-modal-field="active">-</div>
+                </div>
+                <div class="api-modal-card full">
+                    <div class="api-modal-label">Last Message</div>
+                    <div class="api-modal-value" data-modal-field="lastMessage">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const frequencyField = document.getElementById("{{ form.frequency.id_for_label }}");
+        const weekdayFieldWrap = document.getElementById("weekdayField");
+        const weekdayInput = document.getElementById("{{ form.weekday.id_for_label }}");
+        const dayOfMonthFieldWrap = document.getElementById("dayOfMonthField");
+        const dayOfMonthInput = document.getElementById("{{ form.day_of_month.id_for_label }}");
+        const reportingModeField = document.getElementById("{{ form.reporting_date_mode.id_for_label }}");
+        const fixedDateFieldWrap = document.getElementById("fixedReportingDateField");
+        const fixedDateInput = document.getElementById("{{ form.fixed_reporting_date.id_for_label }}");
+        const modal = document.getElementById("scheduleViewModal");
+        const closeButton = document.getElementById("scheduleViewClose");
+        const triggers = document.querySelectorAll(".js-schedule-view");
+
+        function setFieldState(wrapper, input, isVisible) {
+            if (!wrapper || !input) {
+                return;
+            }
+            wrapper.style.display = isVisible ? "" : "none";
+            input.disabled = !isVisible;
+            if (!isVisible) {
+                if (input.tagName === "SELECT") {
+                    input.selectedIndex = 0;
+                } else {
+                    input.value = "";
+                }
+            }
+        }
+
+        function syncScheduleForm() {
+            if (frequencyField) {
+                const frequencyValue = frequencyField.value;
+                setFieldState(
+                    weekdayFieldWrap,
+                    weekdayInput,
+                    frequencyValue === "weekly"
+                );
+                setFieldState(
+                    dayOfMonthFieldWrap,
+                    dayOfMonthInput,
+                    frequencyValue === "monthly"
+                );
+            }
+
+            if (reportingModeField) {
+                setFieldState(
+                    fixedDateFieldWrap,
+                    fixedDateInput,
+                    reportingModeField.value === "fixed_date"
+                );
+            }
+        }
+
+        syncScheduleForm();
+        if (frequencyField) {
+            frequencyField.addEventListener("change", syncScheduleForm);
+        }
+        if (reportingModeField) {
+            reportingModeField.addEventListener("change", syncScheduleForm);
+        }
+
+        const statusUrl = "{% url 'scorecard:api_scheduler_status' %}";
+        const schedulerStatusWrap = document.getElementById("automation-scheduler-status");
+        const schedulerStateField = document.querySelector('#automation-scheduler-status [data-scheduler-field="state"]');
+        const schedulerHeartbeatField = document.querySelector('#automation-scheduler-status [data-scheduler-field="heartbeat"]');
+        const schedulerHeartbeatAgeField = document.querySelector('#automation-scheduler-status [data-scheduler-field="heartbeatAge"]');
+        const schedulerCheckField = document.querySelector('#automation-scheduler-status [data-scheduler-field="check"]');
+        const schedulerCountField = document.querySelector('#automation-scheduler-status [data-scheduler-field="count"]');
+        const schedulerMessageField = document.querySelector('#automation-scheduler-status [data-scheduler-field="message"]');
+
+        async function refreshSchedulerStatus() {
+            if (!schedulerStatusWrap || !schedulerStateField || !schedulerHeartbeatField || !schedulerHeartbeatAgeField || !schedulerCheckField || !schedulerCountField || !schedulerMessageField) {
+                return;
+            }
+            try {
+                const response = await fetch(statusUrl, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                    credentials: "same-origin"
+                });
+                if (!response.ok) {
+                    return;
+                }
+                const data = await response.json();
+                schedulerStateField.textContent = data.state_label || "Unknown";
+                schedulerHeartbeatField.textContent = data.last_heartbeat || "-";
+                schedulerHeartbeatAgeField.textContent = data.heartbeat_age || "-";
+                schedulerCheckField.textContent = data.last_check || "-";
+                schedulerCountField.textContent = data.last_run_count || 0;
+                schedulerMessageField.textContent = data.last_message || "No scheduler message yet.";
+                const intervalField = document.querySelector('[data-scheduler-field="interval"]');
+                if (intervalField && data.check_interval_seconds) {
+                    intervalField.textContent = data.check_interval_seconds;
+                }
+
+                schedulerStatusWrap.dataset.state = data.state || "unknown";
+            } catch (error) {
+                // Keep the last known state on the page.
+            }
+        }
+
+        window.setInterval(refreshSchedulerStatus, 15000);
+
+        if (!modal || !closeButton || !triggers.length) {
+            return;
+        }
+
+        const fields = {
+            name: modal.querySelector('[data-modal-field="name"]'),
+            endpoint: modal.querySelector('[data-modal-field="endpoint"]'),
+            target: modal.querySelector('[data-modal-field="target"]'),
+            frequency: modal.querySelector('[data-modal-field="frequency"]'),
+            runTime: modal.querySelector('[data-modal-field="runTime"]'),
+            status: modal.querySelector('[data-modal-field="status"]'),
+            nextRun: modal.querySelector('[data-modal-field="nextRun"]'),
+            lastRun: modal.querySelector('[data-modal-field="lastRun"]'),
+            reportingMode: modal.querySelector('[data-modal-field="reportingMode"]'),
+            fixedReportingDate: modal.querySelector('[data-modal-field="fixedReportingDate"]'),
+            weekday: modal.querySelector('[data-modal-field="weekday"]'),
+            dayOfMonth: modal.querySelector('[data-modal-field="dayOfMonth"]'),
+            active: modal.querySelector('[data-modal-field="active"]'),
+            lastMessage: modal.querySelector('[data-modal-field="lastMessage"]')
+        };
+
+        function openModal(button) {
+            fields.name.textContent = button.dataset.name || "-";
+            fields.endpoint.textContent = button.dataset.endpoint || "-";
+            fields.target.textContent = button.dataset.target || "-";
+            fields.frequency.textContent = button.dataset.frequency || "-";
+            fields.runTime.textContent = button.dataset.runTime || "-";
+            fields.status.textContent = button.dataset.status || "-";
+            fields.nextRun.textContent = button.dataset.nextRun || "-";
+            fields.lastRun.textContent = button.dataset.lastRun || "-";
+            fields.reportingMode.textContent = button.dataset.reportingMode || "-";
+            fields.fixedReportingDate.textContent = button.dataset.fixedReportingDate || "-";
+            fields.weekday.textContent = button.dataset.weekday || "-";
+            fields.dayOfMonth.textContent = button.dataset.dayOfMonth || "-";
+            fields.active.textContent = button.dataset.active || "-";
+            fields.lastMessage.textContent = button.dataset.lastMessage || "-";
+            modal.classList.add("is-open");
+            modal.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
+        }
+
+        function closeModal() {
+            modal.classList.remove("is-open");
+            modal.setAttribute("aria-hidden", "true");
+            document.body.style.overflow = "";
+        }
+
+        triggers.forEach((button) => {
+            button.addEventListener("click", function () {
+                openModal(button);
+            });
+        });
+
+        closeButton.addEventListener("click", closeModal);
+        modal.addEventListener("click", function (event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && modal.classList.contains("is-open")) {
+                closeModal();
+            }
+        });
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,253 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}External Imports{% endblock %}
+{% block header_title %}External Imports{% endblock %}
+
+{% block content %}
+<style>
+    .upload-shell {
+        --upload-primary: #0b63ce;
+        --upload-primary-dark: #094ea1;
+        --upload-ink: #122033;
+        --upload-muted: #60758f;
+        --upload-line: #d6e0ec;
+        --upload-soft: #f5f8fc;
+        --upload-soft-blue: linear-gradient(135deg, #f7fbff 0%, #edf5ff 100%);
+        --upload-shadow: 0 18px 45px rgba(15, 40, 75, 0.08);
+        --upload-radius: 18px;
+    }
+    .upload-shell {
+        color: var(--upload-ink);
+    }
+    .hero {
+        background: var(--upload-soft-blue);
+        border: 1px solid #dbe8f5;
+        border-radius: var(--upload-radius);
+        padding: 1.5rem 1.6rem;
+        box-shadow: var(--upload-shadow);
+        position: relative;
+        overflow: hidden;
+    }
+    .hero::after {
+        content: "";
+        position: absolute;
+        right: -40px;
+        top: -40px;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(11, 99, 206, 0.14), rgba(11, 99, 206, 0));
+    }
+    .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        background: rgba(11, 99, 206, 0.08);
+        color: var(--upload-primary-dark);
+        border-radius: 999px;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+    .hero h2 {
+        margin-top: 0.9rem;
+        font-size: 1.9rem;
+        line-height: 1.15;
+    }
+    .hero p {
+        margin-top: 0.8rem;
+        max-width: 760px;
+        font-size: 0.98rem;
+        line-height: 1.6;
+        color: var(--upload-muted);
+    }
+    .process-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-top: 1.2rem;
+    }
+    .process-step {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #dbe6f3;
+        border-radius: 14px;
+        padding: 0.9rem 1rem;
+    }
+    .process-step strong {
+        display: block;
+        font-size: 0.84rem;
+        color: var(--upload-primary-dark);
+        margin-bottom: 0.3rem;
+    }
+    .process-step span {
+        color: var(--upload-muted);
+        font-size: 0.88rem;
+        line-height: 1.45;
+    }
+    .cards {
+        margin-top: 1.3rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1rem;
+    }
+    .card {
+        background: #fff;
+        border: 1px solid var(--upload-line);
+        border-radius: var(--upload-radius);
+        box-shadow: var(--upload-shadow);
+        padding: 1.3rem 1.35rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .card h3 {
+        font-size: 1.08rem;
+        margin-bottom: 0.3rem;
+    }
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.3rem 0.7rem;
+        background: #eef5ff;
+        color: var(--upload-primary-dark);
+        font-size: 0.78rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .muted {
+        color: var(--upload-muted);
+        line-height: 1.55;
+        font-size: 0.94rem;
+    }
+    .checklist {
+        display: grid;
+        gap: 0.65rem;
+    }
+    .checklist-item {
+        display: flex;
+        gap: 0.65rem;
+        align-items: flex-start;
+        color: var(--upload-ink);
+        font-size: 0.93rem;
+        line-height: 1.45;
+    }
+    .check-badge {
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 999px;
+        background: #eaf3ff;
+        color: var(--upload-primary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-weight: 700;
+        font-size: 0.82rem;
+    }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        padding: 0.78rem 1.15rem;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 700;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    .btn:hover {
+        transform: translateY(-1px);
+    }
+    .btn-primary {
+        background: var(--upload-primary);
+        color: #fff;
+        box-shadow: 0 14px 24px rgba(11, 99, 206, 0.2);
+    }
+    .btn-primary:hover {
+        background: var(--upload-primary-dark);
+    }
+    @media (max-width: 900px) {
+        .process-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+    @media (max-width: 640px) {
+        .hero h2 {
+            font-size: 1.55rem;
+        }
+        .process-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="upload-shell">
+    <section class="hero">
+        <span class="eyebrow">External Score Imports</span>
+        <h2>Import Basel, IFRS9, and historical scores with guided mapping.</h2>
+        <p>
+            This front-end flow is built for operational uploads. We keep the normal score-entry journey template-driven, and handle external workbooks here with a cleaner process: upload, map, preview, then import.
+        </p>
+
+        <div class="process-grid">
+            <div class="process-step">
+                <strong>Step 1</strong>
+                <span>Upload the workbook. The importer picks the workbook sheet automatically.</span>
+            </div>
+            <div class="process-step">
+                <strong>Step 2</strong>
+                <span>Map the Excel headers to the model fields you actually want to keep.</span>
+            </div>
+            <div class="process-step">
+                <strong>Step 3</strong>
+                <span>Review cleaned rows and see what would be skipped before anything loads.</span>
+            </div>
+            <div class="process-step">
+                <strong>Step 4</strong>
+                <span>Import validated rows into the correct target table with audit metadata.</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="cards">
+        {% for card in cards %}
+            <article class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>{{ card.label }}</h3>
+                        <div class="muted">{{ card.table_name }}</div>
+                    </div>
+                    <span class="chip">{% if card.key == "basel" %}Basel{% elif card.key == "ifrs9" %}IFRS9{% else %}History{% endif %}</span>
+                </div>
+
+                <div class="checklist">
+                    <div class="checklist-item">
+                        <span class="check-badge">1</span>
+                        <span>Upload a workbook and let the importer take the working sheet automatically.</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="check-badge">2</span>
+                        <span>Use the mapping screen to keep model fields and drop non-model columns.</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="check-badge">3</span>
+                        <span>Preview cleaned rows, skipped rows, and import counts before confirming.</span>
+                    </div>
+                </div>
+
+                <div>
+                    <a class="btn btn-primary" href="{{ card.start_url }}">Start Import</a>
+                </div>
+            </article>
+        {% endfor %}
+    </section>
+</div>
+{% endblock %}

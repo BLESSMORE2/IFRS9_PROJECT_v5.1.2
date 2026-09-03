@@ -1,0 +1,982 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Branch Master{% endblock %}
+
+{% block content %}
+<style>
+    .branch-master-page {
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #163a63;
+    }
+    .branch-master-header {
+        margin-bottom: 1.5rem;
+    }
+    .branch-master-title {
+        font-size: 1.9rem;
+        font-weight: 700;
+        color: #0f3d6d;
+        margin-bottom: 0.35rem;
+    }
+    .branch-master-subtitle {
+        color: #4f6f93;
+        font-size: 1rem;
+        max-width: 980px;
+        line-height: 1.65;
+    }
+    .branch-master-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .branch-master-card {
+        background: #fff;
+        border: 1px solid #d6e4f3;
+        border-radius: 18px;
+        padding: 1rem 1.1rem;
+        box-shadow: 0 10px 24px rgba(15, 61, 109, 0.07);
+    }
+    .branch-master-card-label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6d86a5;
+        margin-bottom: 0.35rem;
+    }
+    .branch-master-card-value {
+        font-size: 1.7rem;
+        font-weight: 700;
+        color: #0f3d6d;
+    }
+    .branch-diagnostics {
+        margin-bottom: 1.5rem;
+        background: #fff;
+        border: 1px solid #d6e4f3;
+        border-radius: 18px;
+        padding: 1rem 1.1rem;
+        box-shadow: 0 10px 24px rgba(15, 61, 109, 0.07);
+    }
+    .branch-diagnostics-summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        user-select: none;
+    }
+    .branch-diagnostics-summary::-webkit-details-marker {
+        display: none;
+    }
+    .branch-diagnostics-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: #eef5fb;
+        color: #255384;
+        font-size: 1rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+    .branch-diagnostics[open] .branch-diagnostics-toggle {
+        transform: rotate(180deg);
+    }
+    .branch-diagnostics-body {
+        margin-top: 0.85rem;
+    }
+    .branch-diagnostics-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #0f3d6d;
+        margin-bottom: 0.25rem;
+    }
+    .branch-diagnostics-copy {
+        color: #537196;
+        font-size: 0.92rem;
+        line-height: 1.5;
+        margin-bottom: 0.85rem;
+    }
+    .branch-diagnostics-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(160px, 1fr));
+        gap: 0.85rem;
+        margin-bottom: 1rem;
+    }
+    .branch-diagnostics-item {
+        border: 1px solid #e1ebf5;
+        border-radius: 14px;
+        background: #f8fbfe;
+        padding: 0.8rem 0.95rem;
+    }
+    .branch-diagnostics-item-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6d86a5;
+        margin-bottom: 0.25rem;
+    }
+    .branch-diagnostics-item-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #163a63;
+    }
+    .branch-diagnostics-samples {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .branch-diagnostics-sample-card {
+        border: 1px solid #e1ebf5;
+        border-radius: 14px;
+        background: #fbfdff;
+        padding: 0.9rem 1rem;
+    }
+    .branch-diagnostics-sample-title {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #1e446d;
+        margin-bottom: 0.55rem;
+    }
+    .branch-diagnostics-sample-list {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: #35577d;
+        line-height: 1.55;
+    }
+    .branch-diagnostics-sample-empty {
+        color: #5f7c9e;
+        font-size: 0.9rem;
+    }
+    .branch-master-grid {
+        display: grid;
+        grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: start;
+    }
+    .branch-master-grid--readonly {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .branch-panel {
+        background: #fff;
+        border: 1px solid #d6e4f3;
+        border-radius: 22px;
+        box-shadow: 0 12px 28px rgba(15, 61, 109, 0.08);
+        overflow: hidden;
+    }
+    .branch-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 1rem;
+    }
+    .branch-panel-header {
+        padding: 1.15rem 1.25rem 0.4rem;
+    }
+    .branch-panel-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #0f3d6d;
+        margin-bottom: 0.2rem;
+    }
+    .branch-panel-copy {
+        color: #537196;
+        font-size: 0.94rem;
+        line-height: 1.55;
+    }
+    .branch-form {
+        padding: 0.5rem 1.25rem 1.25rem;
+    }
+    .branch-field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .branch-field-grid--single {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .branch-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+    .branch-field label {
+        font-size: 0.84rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: #6681a2;
+    }
+    .branch-field input,
+    .branch-field textarea {
+        width: 100%;
+        border: 1px solid #cddff0;
+        border-radius: 14px;
+        padding: 0.82rem 0.95rem;
+        font-size: 1rem;
+        color: #163a63;
+        background: #fbfdff;
+        outline: none;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .branch-field input:focus,
+    .branch-field textarea:focus {
+        border-color: #2b74b8;
+        box-shadow: 0 0 0 4px rgba(43, 116, 184, 0.12);
+    }
+    .branch-field-errors {
+        color: #b2382f;
+        font-size: 0.88rem;
+        line-height: 1.45;
+    }
+    .branch-form-actions {
+        display: flex;
+        gap: 0.85rem;
+        margin-top: 1.1rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .branch-btn {
+        border: none;
+        border-radius: 14px;
+        padding: 0.85rem 1.3rem;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+    }
+    .branch-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 24px rgba(15, 61, 109, 0.12);
+    }
+    .branch-btn-primary {
+        background: #1e6fb8;
+        color: #fff;
+    }
+    .branch-btn-secondary {
+        background: #edf4fb;
+        color: #29598c;
+        border: 1px solid #d4e4f2;
+    }
+    .branch-list-wrap {
+        padding: 0 1.25rem 1.25rem;
+    }
+    .branch-table-shell {
+        border: 1px solid #d6e4f3;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #fff;
+    }
+    .branch-table-scroll {
+        overflow: auto;
+        max-height: 700px;
+    }
+    .branch-table {
+        width: 100%;
+        min-width: 980px;
+        border-collapse: collapse;
+    }
+    .branch-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #edf5fc;
+        color: #6681a2;
+        font-size: 0.82rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-align: left;
+        padding: 0.95rem 1rem;
+        border-bottom: 1px solid #d6e4f3;
+    }
+    .branch-table tbody td {
+        padding: 1rem;
+        border-bottom: 1px solid #e6eef7;
+        color: #1e446d;
+        font-size: 0.98rem;
+        vertical-align: top;
+    }
+    .branch-table tbody tr:hover {
+        background: #f9fbfe;
+    }
+    .branch-code-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        background: #eef5fb;
+        color: #255384;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 0.87rem;
+        font-weight: 700;
+    }
+    .branch-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.4rem 0.82rem;
+        border-radius: 999px;
+        font-size: 0.88rem;
+        font-weight: 700;
+    }
+    .branch-status.success {
+        background: #e8f7ef;
+        color: #0b7f49;
+    }
+    .branch-status.neutral {
+        background: #eef3f8;
+        color: #5e738b;
+    }
+    .branch-detail-lines {
+        display: grid;
+        gap: 0.35rem;
+        color: #587493;
+        font-size: 0.9rem;
+    }
+    .branch-actions {
+        display: flex;
+        gap: 0.6rem;
+        align-items: center;
+    }
+    .branch-icon-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        border: 1px solid #d3e2f0;
+        background: #f3f8fd;
+        color: #255384;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+        position: relative;
+    }
+    .branch-icon-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(15, 61, 109, 0.1);
+    }
+    .branch-icon-btn--danger {
+        background: #fff5f4;
+        border-color: #f1c4bf;
+        color: #c44c3f;
+    }
+    .branch-icon-btn[disabled] {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    .branch-icon-btn::after {
+        content: attr(data-label);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%);
+        white-space: nowrap;
+        padding: 0.35rem 0.55rem;
+        border-radius: 8px;
+        background: #163a63;
+        color: #fff;
+        font-size: 0.78rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.16s ease;
+    }
+    .branch-icon-btn:hover::after {
+        opacity: 1;
+    }
+    .branch-empty {
+        padding: 2.4rem 1.25rem;
+        text-align: center;
+        color: #6b84a2;
+        font-size: 0.98rem;
+    }
+    .branch-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(11, 32, 58, 0.28);
+        backdrop-filter: blur(7px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        z-index: 1200;
+    }
+    .branch-modal.is-open {
+        display: flex;
+    }
+    .branch-modal-card {
+        width: min(760px, 100%);
+        max-height: calc(100vh - 3rem);
+        overflow: auto;
+        background: #fff;
+        border-radius: 22px;
+        box-shadow: 0 28px 60px rgba(10, 36, 66, 0.22);
+        border: 1px solid #dbe7f3;
+    }
+    .branch-modal-header {
+        padding: 1.1rem 1.25rem;
+        border-bottom: 1px solid #dfe9f3;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .branch-modal-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0f3d6d;
+    }
+    .branch-modal-close {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        border: 1px solid #d6e4f3;
+        background: #f7fbff;
+        color: #255384;
+        cursor: pointer;
+        font-size: 1.15rem;
+    }
+    .branch-modal-body {
+        padding: 1.25rem;
+    }
+    .branch-modal-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .branch-modal-item {
+        border: 1px solid #dce8f4;
+        background: #fbfdff;
+        border-radius: 16px;
+        padding: 0.95rem 1rem;
+    }
+    .branch-modal-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6b84a2;
+        margin-bottom: 0.35rem;
+    }
+    .branch-modal-value {
+        color: #183e67;
+        line-height: 1.6;
+        word-break: break-word;
+    }
+    @media (max-width: 1200px) {
+        .branch-master-summary {
+            grid-template-columns: repeat(2, minmax(180px, 1fr));
+        }
+        .branch-diagnostics-grid,
+        .branch-diagnostics-samples {
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .branch-master-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+    @media (max-width: 720px) {
+        .branch-master-summary,
+        .branch-field-grid,
+        .branch-modal-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+</style>
+
+<div class="branch-master-page">
+    <div class="branch-master-header">
+        <div class="branch-master-title">Branch Master</div>
+        <div class="branch-master-subtitle">
+            Manage the branch master manually for user access and scorecard branch selection. This area is independent from the main customer sync.
+            {% if not can_manage_branch_master %}<br><strong>Read-only mode:</strong> You can view branch records but cannot add, edit, sync, or delete them.{% endif %}
+        </div>
+    </div>
+
+    <div class="branch-master-summary">
+        <div class="branch-master-card">
+            <div class="branch-master-card-label">Total Branches</div>
+            <div class="branch-master-card-value">{{ branch_master_summary.total_branches }}</div>
+        </div>
+        <div class="branch-master-card">
+            <div class="branch-master-card-label">Assigned Branches</div>
+            <div class="branch-master-card-value">{{ branch_master_summary.branches_with_users }}</div>
+        </div>
+        <div class="branch-master-card">
+            <div class="branch-master-card-label">Unassigned Branches</div>
+            <div class="branch-master-card-value">{{ branch_master_summary.branches_without_users }}</div>
+        </div>
+        <div class="branch-master-card">
+            <div class="branch-master-card-label">Assigned Users</div>
+            <div class="branch-master-card-value">{{ branch_master_summary.total_assigned_users }}</div>
+        </div>
+    </div>
+
+    <details class="branch-diagnostics" id="branch-sync-diagnostics" data-diagnostics-url="{{ branch_master_diagnostics_url }}">
+        <summary class="branch-diagnostics-summary">
+            <div>
+                <div class="branch-diagnostics-title">Branch Sync Diagnostics</div>
+                <div class="branch-diagnostics-copy">
+                    Compare distinct branch codes coming from MainCustomer against the saved Branch Master table.
+                </div>
+            </div>
+            <span class="branch-diagnostics-toggle" aria-hidden="true">&#9662;</span>
+        </summary>
+        <div class="branch-diagnostics-body" id="branch-diagnostics-body">
+            <div class="branch-diagnostics-copy" id="branch-diagnostics-status">
+                Open this panel to load branch sync diagnostics for the current scorecard data set.
+            </div>
+        </div>
+    </details>
+
+    <script>
+        (function () {
+            const diagnostics = document.getElementById("branch-sync-diagnostics");
+            const diagnosticsBody = document.getElementById("branch-diagnostics-body");
+            const diagnosticsStatus = document.getElementById("branch-diagnostics-status");
+            if (!diagnostics || !diagnosticsBody || !diagnosticsStatus) {
+                return;
+            }
+
+            let diagnosticsLoaded = false;
+            let diagnosticsLoading = false;
+
+            const renderSampleList = function (items, formatter, emptyMessage) {
+                if (!items || !items.length) {
+                    return `<div class="branch-diagnostics-sample-empty">${emptyMessage}</div>`;
+                }
+                return `
+                    <ul class="branch-diagnostics-sample-list">
+                        ${items.map(formatter).join("")}
+                    </ul>
+                `;
+            };
+
+            const renderDiagnostics = function (payload) {
+                diagnosticsBody.innerHTML = `
+                    <div class="branch-diagnostics-grid">
+                        <div class="branch-diagnostics-item">
+                            <div class="branch-diagnostics-item-label">MainCustomer Branches</div>
+                            <div class="branch-diagnostics-item-value">${payload.main_customer_total ?? 0}</div>
+                        </div>
+                        <div class="branch-diagnostics-item">
+                            <div class="branch-diagnostics-item-label">Branch Master Branches</div>
+                            <div class="branch-diagnostics-item-value">${payload.branch_master_total ?? 0}</div>
+                        </div>
+                        <div class="branch-diagnostics-item">
+                            <div class="branch-diagnostics-item-label">Missing In Branch Master</div>
+                            <div class="branch-diagnostics-item-value">${payload.missing_total ?? 0}</div>
+                        </div>
+                        <div class="branch-diagnostics-item">
+                            <div class="branch-diagnostics-item-label">Name Mismatches</div>
+                            <div class="branch-diagnostics-item-value">${payload.mismatched_total ?? 0}</div>
+                        </div>
+                        <div class="branch-diagnostics-item">
+                            <div class="branch-diagnostics-item-label">Source Name Conflicts</div>
+                            <div class="branch-diagnostics-item-value">${payload.conflicted_total ?? 0}</div>
+                        </div>
+                    </div>
+                    <div class="branch-diagnostics-samples">
+                        <div class="branch-diagnostics-sample-card">
+                            <div class="branch-diagnostics-sample-title">Missing Sample</div>
+                            ${renderSampleList(payload.missing_sample, (item) => `<li>${item.branch_code} - ${item.branch_name}</li>`, "No missing branch codes were found.")}
+                        </div>
+                        <div class="branch-diagnostics-sample-card">
+                            <div class="branch-diagnostics-sample-title">Code Mismatch Sample</div>
+                            ${renderSampleList(payload.mismatched_sample, (item) => `<li>${item.branch_name} - MainCustomer Code: ${item.branch_code} | Branch Master Code: ${item.branch_master_branch_code}</li>`, "No branch-code mismatches were found.")}
+                        </div>
+                        <div class="branch-diagnostics-sample-card">
+                            <div class="branch-diagnostics-sample-title">Source Name Conflicts</div>
+                            ${renderSampleList(payload.conflicted_sample, (item) => `<li>${item.branch_name} - Codes: ${(item.branch_codes || []).join(", ")}</li>`, "No duplicate branch names with multiple source codes were found.")}
+                        </div>
+                    </div>
+                `;
+            };
+
+            const loadDiagnostics = function () {
+                if (diagnosticsLoaded || diagnosticsLoading) {
+                    return;
+                }
+                diagnosticsLoading = true;
+                diagnosticsStatus.textContent = "Loading branch sync diagnostics from MainCustomer and Branch Master...";
+                const diagnosticsUrl = diagnostics.dataset.diagnosticsUrl;
+                fetch(diagnosticsUrl, {
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    credentials: "same-origin"
+                })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error("Diagnostics request failed.");
+                        }
+                        return response.json();
+                    })
+                    .then(function (payload) {
+                        renderDiagnostics(payload || {});
+                        diagnosticsLoaded = true;
+                    })
+                    .catch(function () {
+                        diagnosticsBody.innerHTML = '<div class="branch-diagnostics-sample-empty">Branch sync diagnostics could not be loaded right now. Please try opening this panel again.</div>';
+                    })
+                    .finally(function () {
+                        diagnosticsLoading = false;
+                    });
+            };
+
+            const forceClosed = function () {
+                diagnostics.removeAttribute("open");
+            };
+
+            diagnostics.addEventListener("toggle", function () {
+                if (diagnostics.open) {
+                    loadDiagnostics();
+                }
+            });
+
+            forceClosed();
+            window.addEventListener("pageshow", forceClosed);
+        })();
+    </script>
+
+    {% if can_manage_branch_master %}<div class="branch-toolbar">
+        <form method="post" action="{% url 'scorecard:branch_master_sync_from_main_customer' %}">
+            {% csrf_token %}
+            <button type="submit" name="sync_from_main_customer" value="1" class="branch-btn branch-btn-secondary">
+                Load Unique Branches From MainCustomer
+            </button>
+        </form>
+    </div>{% endif %}
+
+    <div class="branch-master-grid{% if not can_manage_branch_master %} branch-master-grid--readonly{% endif %}">
+        {% if can_manage_branch_master %}
+        <section class="branch-panel">
+            <div class="branch-panel-header">
+                <div class="branch-panel-title">
+                    {% if editing_branch %}Edit Branch{% else %}Add Branch{% endif %}
+                </div>
+                <div class="branch-panel-copy">
+                    Save branch records here for user-access assignment and branch-based scorecard work.
+                </div>
+            </div>
+            <form method="post" class="branch-form" novalidate>
+                {% csrf_token %}
+                {% if editing_branch %}
+                    <input type="hidden" name="branch_id" value="{{ editing_branch.id }}">
+                {% endif %}
+
+                <div class="branch-field-grid">
+                    <div class="branch-field">
+                        <label for="{{ branch_form.branch_code.id_for_label }}">Branch Code</label>
+                        {{ branch_form.branch_code }}
+                        {% if branch_form.branch_code.errors %}
+                            <div class="branch-field-errors">{{ branch_form.branch_code.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="branch-field">
+                        <label for="{{ branch_form.branch_name.id_for_label }}">Branch Name</label>
+                        {{ branch_form.branch_name }}
+                        {% if branch_form.branch_name.errors %}
+                            <div class="branch-field-errors">{{ branch_form.branch_name.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="branch-field-grid" style="margin-top: 1rem;">
+                    <div class="branch-field">
+                        <label for="{{ branch_form.bank_name.id_for_label }}">Bank Name</label>
+                        {{ branch_form.bank_name }}
+                        {% if branch_form.bank_name.errors %}
+                            <div class="branch-field-errors">{{ branch_form.bank_name.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="branch-field">
+                        <label for="{{ branch_form.city.id_for_label }}">City</label>
+                        {{ branch_form.city }}
+                        {% if branch_form.city.errors %}
+                            <div class="branch-field-errors">{{ branch_form.city.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="branch-field-grid" style="margin-top: 1rem;">
+                    <div class="branch-field">
+                        <label for="{{ branch_form.province.id_for_label }}">Province</label>
+                        {{ branch_form.province }}
+                        {% if branch_form.province.errors %}
+                            <div class="branch-field-errors">{{ branch_form.province.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="branch-field">
+                        <label for="{{ branch_form.zipcode.id_for_label }}">Zip Code</label>
+                        {{ branch_form.zipcode }}
+                        {% if branch_form.zipcode.errors %}
+                            <div class="branch-field-errors">{{ branch_form.zipcode.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="branch-field-grid branch-field-grid--single" style="margin-top: 1rem;">
+                    <div class="branch-field">
+                        <label for="{{ branch_form.address.id_for_label }}">Address</label>
+                        {{ branch_form.address }}
+                        {% if branch_form.address.errors %}
+                            <div class="branch-field-errors">{{ branch_form.address.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="branch-field-grid" style="margin-top: 1rem;">
+                    <div class="branch-field">
+                        <label for="{{ branch_form.landline.id_for_label }}">Landline</label>
+                        {{ branch_form.landline }}
+                        {% if branch_form.landline.errors %}
+                            <div class="branch-field-errors">{{ branch_form.landline.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="branch-field">
+                        <label for="{{ branch_form.mobile.id_for_label }}">Mobile</label>
+                        {{ branch_form.mobile }}
+                        {% if branch_form.mobile.errors %}
+                            <div class="branch-field-errors">{{ branch_form.mobile.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if branch_form.non_field_errors %}
+                    <div class="branch-field-errors" style="margin-top: 1rem;">
+                        {{ branch_form.non_field_errors|join:", " }}
+                    </div>
+                {% endif %}
+
+                <div class="branch-form-actions">
+                    <button type="submit" name="save_branch" value="1" class="branch-btn branch-btn-primary">
+                        {% if editing_branch %}Update Branch{% else %}Save Branch{% endif %}
+                    </button>
+                    {% if editing_branch %}
+                        <button type="submit" name="cancel" value="1" class="branch-btn branch-btn-secondary">Cancel</button>
+                    {% endif %}
+                </div>
+            </form>
+        </section>
+        {% endif %}
+
+        <section class="branch-panel">
+            <div class="branch-panel-header">
+                <div class="branch-panel-title">Saved Branches</div>
+                <div class="branch-panel-copy">
+                    {% if can_manage_branch_master %}View, edit, and remove branch master records used for access control.{% else %}View branch master records used for access control.{% endif %}
+                </div>
+            </div>
+            <div class="branch-list-wrap">
+                <div class="branch-table-shell">
+                    <div class="branch-table-scroll">
+                        <table class="branch-table">
+                            <thead>
+                                <tr>
+                                    <th>Branch Code</th>
+                                    <th>Branch Name</th>
+                                    <th>Bank Name</th>
+                                    <th>Status</th>
+                                    <th>Assigned Users</th>
+                                    <th>Location</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for branch in branch_records %}
+                                    <tr>
+                                        <td><span class="branch-code-chip">{{ branch.branch_code }}</span></td>
+                                        <td>{{ branch.branch_name }}</td>
+                                        <td>{{ branch.bank_name }}</td>
+                                        <td>
+                                            <span class="branch-status {{ branch.status_class }}">{{ branch.status_label }}</span>
+                                        </td>
+                                        <td>{{ branch.assigned_users_count }}</td>
+                                        <td>
+                                            <div class="branch-detail-lines">
+                                                <span>{{ branch.city }}</span>
+                                                <span>{{ branch.province }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="branch-actions">
+                                                <button
+                                                    type="button"
+                                                    class="branch-icon-btn js-branch-view"
+                                                    data-label="View"
+                                                    data-branch-code="{{ branch.branch_code }}"
+                                                    data-branch-name="{{ branch.branch_name }}"
+                                                    data-bank-name="{{ branch.bank_name }}"
+                                                    data-address="{{ branch.address }}"
+                                                    data-city="{{ branch.city }}"
+                                                    data-province="{{ branch.province }}"
+                                                    data-zipcode="{{ branch.zipcode }}"
+                                                    data-landline="{{ branch.landline }}"
+                                                    data-mobile="{{ branch.mobile }}"
+                                                    data-assigned-users="{{ branch.assigned_users_count }}"
+                                                >
+                                                    <span aria-hidden="true">&#128065;</span>
+                                                </button>
+                                                {% if can_manage_branch_master %}<a href="{{ branch.edit_url }}" class="branch-icon-btn" data-label="Edit">
+                                                    <span aria-hidden="true">&#9998;</span>
+                                                </a>
+                                                <form method="post" action="{% url 'scorecard:branch_master_delete' branch.id %}" style="display: inline;">
+                                                    {% csrf_token %}
+                                                    <button
+                                                        type="submit"
+                                                        class="branch-icon-btn branch-icon-btn--danger"
+                                                        data-label="Delete"
+                                                        {% if branch.assigned_users_count %}disabled{% endif %}
+                                                        onclick="return confirm('Delete branch {{ branch.branch_name|escapejs }}?');"
+                                                    >
+                                                        <span aria-hidden="true">&#128465;</span>
+                                                    </button>
+                                                </form>{% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="7" class="branch-empty">
+                                            No branches have been added yet. Use the form on the left to create the first branch record.
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="branch-modal" id="branch-view-modal" aria-hidden="true">
+    <div class="branch-modal-card">
+        <div class="branch-modal-header">
+            <div class="branch-modal-title">Branch Details</div>
+            <button type="button" class="branch-modal-close" id="branch-view-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="branch-modal-body">
+            <div class="branch-modal-grid">
+                <div class="branch-modal-item">
+                    <div class="branch-modal-label">Branch Code</div>
+                    <div class="branch-modal-value" data-branch-modal="branch_code">-</div>
+                </div>
+                <div class="branch-modal-item">
+                    <div class="branch-modal-label">Branch Name</div>
+                    <div class="branch-modal-value" data-branch-modal="branch_name">-</div>
+                </div>
+                <div class="branch-modal-item">
+                    <div class="branch-modal-label">Bank Name</div>
+                    <div class="branch-modal-value" data-branch-modal="bank_name">-</div>
+                </div>
+                <div class="branch-modal-item">
+                    <div class="branch-modal-label">Assigned Users</div>
+                    <div class="branch-modal-value" data-branch-modal="assigned_users">-</div>
+                </div>
+                <div class="branch-modal-item">
+                    <div class="branch-modal-label">City</div>
+                    <div class="branch-modal-value" data-branch-modal="city">-</div>
+                </div>
+                <div class="branch-modal-item">
+                    <div class="branch-modal-label">Province</div>
+                    <div class="branch-modal-value" data-branch-modal="province">-</div>
+                </div>
+                <div class="branch-modal-item">
+                    <div class="branch-modal-label">Zip Code</div>
+                    <div class="branch-modal-value" data-branch-modal="zipcode">-</div>
+                </div>
+                <div class="branch-modal-item">
+                    <div class="branch-modal-label">Landline</div>
+                    <div class="branch-modal-value" data-branch-modal="landline">-</div>
+                </div>
+                <div class="branch-modal-item">
+                    <div class="branch-modal-label">Mobile</div>
+                    <div class="branch-modal-value" data-branch-modal="mobile">-</div>
+                </div>
+                <div class="branch-modal-item">
+                    <div class="branch-modal-label">Address</div>
+                    <div class="branch-modal-value" data-branch-modal="address">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const modal = document.getElementById("branch-view-modal");
+        const closeButton = document.getElementById("branch-view-close");
+        if (!modal || !closeButton) {
+            return;
+        }
+
+        const fieldMap = {
+            branch_code: modal.querySelector('[data-branch-modal="branch_code"]'),
+            branch_name: modal.querySelector('[data-branch-modal="branch_name"]'),
+            bank_name: modal.querySelector('[data-branch-modal="bank_name"]'),
+            assigned_users: modal.querySelector('[data-branch-modal="assigned_users"]'),
+            city: modal.querySelector('[data-branch-modal="city"]'),
+            province: modal.querySelector('[data-branch-modal="province"]'),
+            zipcode: modal.querySelector('[data-branch-modal="zipcode"]'),
+            landline: modal.querySelector('[data-branch-modal="landline"]'),
+            mobile: modal.querySelector('[data-branch-modal="mobile"]'),
+            address: modal.querySelector('[data-branch-modal="address"]')
+        };
+
+        const setFieldValue = (key, value) => {
+            if (fieldMap[key]) {
+                fieldMap[key].textContent = value && value !== "-" ? value : "-";
+            }
+        };
+
+        const openModal = (button) => {
+            setFieldValue("branch_code", button.dataset.branchCode);
+            setFieldValue("branch_name", button.dataset.branchName);
+            setFieldValue("bank_name", button.dataset.bankName);
+            setFieldValue("assigned_users", button.dataset.assignedUsers);
+            setFieldValue("city", button.dataset.city);
+            setFieldValue("province", button.dataset.province);
+            setFieldValue("zipcode", button.dataset.zipcode);
+            setFieldValue("landline", button.dataset.landline);
+            setFieldValue("mobile", button.dataset.mobile);
+            setFieldValue("address", button.dataset.address);
+            modal.classList.add("is-open");
+            modal.setAttribute("aria-hidden", "false");
+        };
+
+        const closeModal = () => {
+            modal.classList.remove("is-open");
+            modal.setAttribute("aria-hidden", "true");
+        };
+
+        document.querySelectorAll(".js-branch-view").forEach((button) => {
+            button.addEventListener("click", () => openModal(button));
+        });
+
+        closeButton.addEventListener("click", closeModal);
+        modal.addEventListener("click", (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && modal.classList.contains("is-open")) {
+                closeModal();
+            }
+        });
+    })();
+</script>
+{% endblock %}

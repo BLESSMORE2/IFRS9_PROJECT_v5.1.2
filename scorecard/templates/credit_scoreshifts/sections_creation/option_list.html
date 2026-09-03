@@ -1,0 +1,234 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Options - {{ template.code }}{% endblock %}
+{% block header_title %}Options: {{ attribute.code }} - {{ template.code }}{% endblock %}
+
+{% block content %}
+<style>
+    .summary-card {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .summary-label {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+    .group-label-box {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        background-color: #f5f5f5;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 0.9rem;
+        color: #333;
+    }
+    .group-label-box strong {
+        font-weight: 600;
+        color: #0066cc;
+    }
+    .actions-header {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.5rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    table thead th {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        padding: 0.4rem 0.5rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    table thead th.text-center {
+        text-align: center;
+    }
+    table tbody td {
+        border: 1px solid #e0e0e0;
+        padding: 0.3rem 0.5rem;
+        font-size: 12px;
+        color: #333;
+    }
+    table tbody td.text-center {
+        text-align: center;
+    }
+    table tbody td strong {
+        font-weight: 600;
+        color: #333;
+    }
+    .allocated-score {
+        font-weight: 600;
+        color: #0066cc;
+    }
+    table tbody tr:hover {
+        background-color: #f5f5f5;
+    }
+    .action-link {
+        text-decoration: none;
+        margin-right: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: color 0.2s ease;
+    }
+    .action-link:last-child {
+        margin-right: 0;
+    }
+    .action-link-edit {
+        color: #0066cc;
+    }
+    .action-link-edit:hover {
+        color: #0052a3;
+        text-decoration: underline;
+    }
+    .action-link-delete {
+        color: #dc3545;
+    }
+    .action-link-delete:hover {
+        color: #c82333;
+        text-decoration: underline;
+    }
+    .empty-state {
+        padding: 2rem;
+        text-align: center;
+        color: #999;
+        font-style: italic;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+<div class="summary-card">
+    <div class="summary-grid">
+        <div>
+            <div class="summary-label">Template</div>
+            <div>{{ template.code }} - {{ template.name }}</div>
+        </div>
+        <div>
+            <div class="summary-label">Section</div>
+            <div>{{ section.code }} - {{ section.name }}</div>
+        </div>
+        <div>
+            <div class="summary-label">Risk Driver</div>
+            <div>{{ risk_driver.code }} - {{ risk_driver.name }}</div>
+        </div>
+        <div>
+            <div class="summary-label">Attribute</div>
+            <div>{{ attribute.code }} - {{ attribute.label }}</div>
+        </div>
+        <div>
+            <div class="summary-label">Total Options</div>
+            <div>{{ options|length }}</div>
+        </div>
+    </div>
+</div>
+
+{% if attribute.group_label %}
+    <div class="group-label-box">
+        <strong>Group Label:</strong> {{ attribute.group_label }}
+    </div>
+{% endif %}
+
+<div class="actions-header">
+    <a href="{% url 'scorecard:option_create' template_id=template.id section_id=section.id driver_id=risk_driver.id attribute_id=attribute.id %}" class="btn btn-primary">
+        Add New Option
+    </a>
+</div>
+
+{% if options %}
+    <table>
+        <thead>
+        <tr>
+            <th style="width: 8%;">Order</th>
+            <th style="width: 40%;">Label</th>
+            <th style="width: 15%;" class="text-center">Allocated Score</th>
+            <th style="width: 15%;" class="text-center">Weight</th>
+            <th style="width: 12%;">Default</th>
+            <th style="width: 10%;">Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for option in options %}
+            <tr>
+                <td class="text-center">{{ option.display_order }}</td>
+                <td><strong>{{ option.label }}</strong></td>
+                <td class="text-center allocated-score">{{ option.allocated_score }}</td>
+                <td class="text-center">{{ attribute.weight_percent }}%</td>
+                <td class="text-center">{% if option.is_default %}✓{% else %}-{% endif %}</td>
+                <td class="text-center">
+                    <a href="{% url 'scorecard:option_edit_new' template_id=template.id section_id=section.id driver_id=risk_driver.id attribute_id=attribute.id option_id=option.id %}" 
+                       class="action-link action-link-edit">Edit</a>
+                    <a href="{% url 'scorecard:option_delete' template_id=template.id section_id=section.id driver_id=risk_driver.id attribute_id=attribute.id option_id=option.id %}" 
+                       class="action-link action-link-delete">Delete</a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <div class="empty-state">
+        No options configured yet. Click "Add New Option" to create one.
+    </div>
+{% endif %}
+
+<div class="actions">
+    <a href="{% url 'scorecard:attribute_list' template_id=template.id section_id=section.id driver_id=risk_driver.id %}" class="btn btn-secondary">
+        Back to Attributes
+    </a>
+    <a href="{% url 'scorecard:basel_template_detail' template_id=template.id %}" class="btn btn-secondary">
+        Back to Template
+    </a>
+</div>
+{% endblock %}

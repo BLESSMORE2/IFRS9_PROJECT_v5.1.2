@@ -1,0 +1,315 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Add Customer{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .form-container {
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 0;
+    }
+    .form-section {
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .form-section:last-child {
+        border-bottom: none;
+    }
+    .section-header {
+        background: #f5f5f5;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #333;
+        margin: 0;
+        margin-bottom: 1rem;
+        border-radius: 4px;
+    }
+    .form-section-content {
+        padding: 0;
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group:last-child {
+        margin-bottom: 0;
+    }
+    label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333;
+        font-size: 0.9rem;
+    }
+    input[type="text"],
+    input[type="email"],
+    select {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        transition: border-color 0.2s ease;
+    }
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    select:focus {
+        outline: none;
+        border-color: #0066cc;
+        box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    }
+    input[type="text"]::placeholder,
+    input[type="email"]::placeholder {
+        color: #999;
+    }
+    .help-text {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 1rem;
+        font-style: italic;
+    }
+    .form-actions {
+        padding: 1.5rem 2rem;
+        background: #f9f9f9;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+    .error-message {
+        color: #d32f2f;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+    }
+    .required-indicator {
+        color: #d32f2f;
+    }
+    .readonly-field {
+        background: #f5f5f5;
+        color: #666;
+        cursor: not-allowed;
+        border: 1px solid #cbd2e1;
+    }
+    .readonly-field:focus {
+        border-color: #cbd2e1;
+        box-shadow: none;
+    }
+</style>
+
+<div class="page-header">
+    <div class="page-title">Add Customer</div>
+</div>
+
+<form method="post" action="{% url 'scorecard:add_customer' %}">
+    {% csrf_token %}
+    
+    <div class="form-container">
+        <!-- Required Fields Section -->
+        <div class="form-section">
+            <div class="section-header">Required Fields</div>
+            <div class="form-section-content">
+                <div class="form-group">
+                    <label for="branch_display">
+                        Branch <span class="required-indicator">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="branch_display" 
+                        value="{{ current_branch.branch_name }} ({{ current_branch.bank_name }}) - {{ current_branch.branch_code }}"
+                        class="readonly-field"
+                        readonly
+                        disabled
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="reporting_date_display">
+                        Reporting Date
+                    </label>
+                    <input 
+                        type="text" 
+                        id="reporting_date_display" 
+                        value="{{ default_reporting_date|date:'Y-m-d' }}"
+                        class="readonly-field"
+                        readonly
+                        disabled
+                    >
+                    <div class="help-text" style="margin-top:0.5rem; margin-bottom:0;">
+                        Manual fallback customers are created on the latest reporting date available for this branch.
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="customer_ref_code">
+                        Customer Code <span class="required-indicator">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="customer_ref_code" 
+                        id="customer_ref_code" 
+                        value="{{ form_data.customer_ref_code|default:'' }}"
+                        placeholder="Enter Customer Code"
+                        required
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="customer_name">
+                        Customer Name <span class="required-indicator">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="customer_name" 
+                        id="customer_name" 
+                        value="{{ form_data.customer_name|default:'' }}"
+                        placeholder="Enter Customer Name"
+                        required
+                    >
+                </div>
+            </div>
+        </div>
+        
+        <!-- Optional Fields Section -->
+        <div class="form-section">
+            <div class="section-header">Optional Fields</div>
+            <div class="form-section-content">
+                <div class="help-text">
+                    These fields are optional, but they help the score forms auto-populate more accurately for fallback customers.
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input 
+                        type="email" 
+                        name="email" 
+                        id="email" 
+                        value="{{ form_data.email|default:'' }}"
+                        placeholder="Enter Email Address"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="mobile">Mobile</label>
+                    <input 
+                        type="text" 
+                        name="mobile" 
+                        id="mobile" 
+                        value="{{ form_data.mobile|default:'' }}"
+                        placeholder="Enter Mobile Number (Numbers only)"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="national_id">National ID</label>
+                    <input 
+                        type="text" 
+                        name="national_id" 
+                        id="national_id" 
+                        value="{{ form_data.national_id|default:'' }}"
+                        placeholder="Enter National ID"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="customer_type">Customer Type</label>
+                    <select name="customer_type" id="customer_type">
+                        <option value="">Select Customer Type</option>
+                        <option value="INDIVIDUAL" {% if form_data.customer_type == 'INDIVIDUAL' %}selected{% endif %}>Individual</option>
+                        <option value="CORPORATE" {% if form_data.customer_type == 'CORPORATE' %}selected{% endif %}>Corporate</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="resident_status">Resident Status</label>
+                    <input 
+                        type="text" 
+                        name="resident_status" 
+                        id="resident_status" 
+                        value="{{ form_data.resident_status|default:'' }}"
+                        placeholder="Enter Resident Status"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="nationality_code">Nationality Code</label>
+                    <input 
+                        type="text" 
+                        name="nationality_code" 
+                        id="nationality_code" 
+                        value="{{ form_data.nationality_code|default:'' }}"
+                        placeholder="Enter Nationality Code"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="occupation_code">Occupation Code</label>
+                    <input 
+                        type="text" 
+                        name="occupation_code" 
+                        id="occupation_code" 
+                        value="{{ form_data.occupation_code|default:'' }}"
+                        placeholder="Enter Occupation Code"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="employer_name">Employer Name</label>
+                    <input 
+                        type="text" 
+                        name="employer_name" 
+                        id="employer_name" 
+                        value="{{ form_data.employer_name|default:'' }}"
+                        placeholder="Enter Employer Name"
+                    >
+                </div>
+            </div>
+        </div>
+        
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <a href="{% url 'scorecard:customer_list' %}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Add Customer</button>
+        </div>
+    </div>
+</form>
+{% endblock %}
+

@@ -1,0 +1,246 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}{% if is_new %}New IFRS9 Option{% else %}Edit IFRS9 Option{% endif %} - {{ template.code }}{% endblock %}
+{% block header_title %}{% if is_new %}Create IFRS9 Option{% else %}Edit IFRS9 Option{% endif %}: {{ attribute.code }}{% endblock %}
+
+{% block content %}
+<style>
+    .info-box {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 0.9rem;
+        color: #333;
+    }
+    .info-item {
+        margin-bottom: 0.5rem;
+    }
+    .info-item:last-child {
+        margin-bottom: 0;
+    }
+    .info-item strong {
+        font-weight: 600;
+        color: #0066cc;
+    }
+    .info-item-secondary {
+        color: #666;
+        font-size: 0.85rem;
+    }
+    .form-group {
+        margin-top: 1rem;
+    }
+    label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 0.9rem;
+    }
+    label small {
+        font-weight: normal;
+        color: #666;
+        font-size: 0.85rem;
+    }
+    .required-indicator {
+        color: #dc3545;
+    }
+    input[type="text"],
+    input[type="number"] {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #333;
+        transition: border-color 0.2s ease;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus {
+        outline: none;
+        border-color: #0066cc;
+        box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    }
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        margin-bottom: 0.25rem;
+    }
+    .checkbox-label input[type="checkbox"] {
+        width: auto;
+        cursor: pointer;
+    }
+    .info-note {
+        margin-top: 0.5rem;
+        padding: 0.75rem;
+        background-color: #f0f8ff;
+        border: 1px solid #0066cc;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .info-note strong {
+        color: #0066cc;
+        font-weight: 600;
+    }
+    .error {
+        background: #ffe9e9;
+        color: #b00020;
+        border-radius: 4px;
+        padding: 0.5rem 0.75rem;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+    .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+</style>
+
+<div class="info-box">
+    <div class="info-item">
+        <strong>Template:</strong> {{ template.code }} - {{ template.name }}
+    </div>
+    <div class="info-item">
+        <strong>Section/Demographics:</strong> {{ section.code }} - {{ section.name }}
+    </div>
+    <div class="info-item">
+        <strong>Risk Driver:</strong> {{ risk_driver.code }} - {{ risk_driver.name }} (Total Weight: {{ risk_driver.get_total_weight_percent }}%)
+    </div>
+    <div class="info-item">
+        <strong>Attribute:</strong> {{ attribute.code }} - {{ attribute.label }} (Weight: {{ attribute.weight_percent }}%)
+        {% if attribute.group_label %}
+            <span class="info-item-secondary">(Group: {{ attribute.group_label }})</span>
+        {% endif %}
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="form-group">
+        <label for="{{ form.label.id_for_label }}">
+            Option Label <span class="required-indicator">*</span>
+            {% if form.label.help_text %}
+                <small>({{ form.label.help_text }})</small>
+            {% endif %}
+        </label>
+        {{ form.label }}
+        {% if form.label.errors %}
+            <div class="error">{{ form.label.errors|striptags }}</div>
+        {% endif %}
+    </div>
+
+    <div class="meta-grid" style="margin-top: 1rem;">
+        <div>
+            <label for="{{ form.value.id_for_label }}">
+                Value
+                {% if form.value.help_text %}
+                    <small>({{ form.value.help_text }})</small>
+                {% endif %}
+            </label>
+            {{ form.value }}
+            {% if form.value.errors %}
+                <div class="error">{{ form.value.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        <div>
+            <label for="{{ form.display_order.id_for_label }}">
+                Display Order
+                {% if form.display_order.help_text %}
+                    <small>({{ form.display_order.help_text }})</small>
+                {% endif %}
+            </label>
+            {{ form.display_order }}
+            {% if form.display_order.errors %}
+                <div class="error">{{ form.display_order.errors|striptags }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="{{ form.allocated_score.id_for_label }}">
+            Allocated Score <span class="required-indicator">*</span>
+            {% if form.allocated_score.help_text %}
+                <small>({{ form.allocated_score.help_text }})</small>
+            {% endif %}
+        </label>
+        {{ form.allocated_score }}
+        {% if form.allocated_score.errors %}
+            <div class="error">{{ form.allocated_score.errors|striptags }}</div>
+        {% endif %}
+        <div class="info-note">
+            <strong>Note:</strong> The <strong>WEIGHT</strong> ({{ attribute.weight_percent }}%) comes from the Attribute and applies to all options under this attribute. The Risk Driver's total weight is calculated as the sum of all its attributes' weights.
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="{{ form.is_default.id_for_label }}" class="checkbox-label">
+            {{ form.is_default }}
+            <span>Default Option</span>
+            {% if form.is_default.help_text %}
+                <small>({{ form.is_default.help_text }})</small>
+            {% endif %}
+        </label>
+        {% if form.is_default.errors %}
+            <div class="error">{{ form.is_default.errors|striptags }}</div>
+        {% endif %}
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="error" style="margin-top: 1rem;">
+            {{ form.non_field_errors|striptags }}
+        </div>
+    {% endif %}
+
+    <div class="actions">
+        <a href="{% url 'scorecard:ifrs9_option_list' template_id=template.id section_id=section.id driver_id=risk_driver.id attribute_id=attribute.id %}" class="btn btn-secondary">
+            Cancel
+        </a>
+        <button type="submit" class="btn btn-primary">{% if is_new %}Create{% else %}Save Changes{% endif %}</button>
+    </div>
+</form>
+{% endblock %}

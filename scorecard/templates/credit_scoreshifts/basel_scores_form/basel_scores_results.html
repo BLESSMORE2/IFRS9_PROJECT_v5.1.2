@@ -1,0 +1,124 @@
+﻿{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Questionnaire Results - {{ evaluation.template.code }}{% endblock %}
+{% block header_title %}Questionnaire Results{% endblock %}
+
+{% block content %}
+    <div class="summary-card">
+        <div class="summary-grid">
+            <div>
+                <div class="summary-label">Template</div>
+                <div>{{ evaluation.template.code }} - {{ evaluation.template.name }}</div>
+            </div>
+            <div>
+                <div class="summary-label">Branch</div>
+                <div>{{ evaluation.branch_name }}</div>
+            </div>
+            <div>
+                <div class="summary-label">Customer</div>
+                <div>{{ evaluation.customer_name }} ({{ evaluation.customer_id }})</div>
+            </div>
+            <div>
+                <div class="summary-label">Total Raw Score</div>
+                <div>{{ evaluation.total_raw_score }}</div>
+            </div>
+            <div>
+                <div class="summary-label">Total Weighted %</div>
+                <div><strong>{{ evaluation.total_weighted_percent }}%</strong></div>
+            </div>
+            <div>
+                <div class="summary-label">Final Grade</div>
+                <div><strong style="font-size: 1.2rem; color: #0066cc;">{{ evaluation.final_grade }}</strong></div>
+            </div>
+            {% if grade_band %}
+                <div>
+                    <div class="summary-label">Grade Description</div>
+                    <div>{{ grade_band.description }}</div>
+                </div>
+            {% endif %}
+            <div>
+                <div class="summary-label">Submitted</div>
+                <div>{{ evaluation.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <h2 style="margin-top: 1.5rem; font-size: 0.95rem;">Section Scores</h2>
+    <table>
+        <thead>
+        <tr>
+            <th>Section</th>
+            <th class="text-right">Weighted %</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for s in section_scores %}
+            <tr>
+                <td>{{ s.section.code }}) {{ s.section.name }}</td>
+                <td class="text-right">{{ s.weighted_percent }}%</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h2 style="margin-top: 1.5rem; font-size: 0.95rem;">Risk Driver Scores</h2>
+    <table>
+        <thead>
+        <tr>
+            <th>Risk Driver</th>
+            <th class="text-right">Actual Score</th>
+            <th class="text-right">Weight</th>
+            <th class="text-right">Weighted Score</th>
+            <th class="text-right">Proof</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for ds in driver_scores %}
+            <tr>
+                <td>{{ ds.risk_driver.section.code }}) {{ ds.risk_driver.section.name }} - {{ ds.risk_driver.code }}. {{ ds.risk_driver.name }}</td>
+                <td class="text-right">{{ ds.raw_score }}</td>
+                <td class="text-right">{{ ds.risk_driver.get_total_weight_percent }}%</td>
+                <td class="text-right">{{ ds.weighted_percent }}%</td>
+                <td class="text-right {% if 'ERROR' in ds.proof %}error{% endif %}">{{ ds.proof }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h2 style="margin-top: 1.5rem; font-size: 0.95rem;">Selected Responses</h2>
+    <table>
+        <thead>
+        <tr>
+            <th style="width: 30%;">Attribute</th>
+            <th style="width: 50%;">Selected Option</th>
+            <th style="width: 20%;" class="text-right">Allocated Score</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for response in attribute_responses %}
+            <tr>
+                <td>{{ response.attribute.label }}</td>
+                <td>
+                    {% if response.option %}
+                        {{ response.option.label }}
+                    {% else %}
+                        {{ response.raw_value|default:"-" }}
+                    {% endif %}
+                </td>
+                <td class="text-right">{{ response.allocated_score }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+
+    <div class="actions" style="margin-top: 2rem;">
+        <a href="{% url 'scorecard:basel_scores_template_select' %}" class="btn-primary" style="text-decoration: none; display: inline-block; padding: 0.55rem 1.2rem;">
+            New Questionnaire
+        </a>
+        <a href="{% url 'scorecard:basel_template_list' %}" class="btn-secondary" style="text-decoration: none; display: inline-block; padding: 0.55rem 1.2rem;">
+            Back to Templates
+        </a>
+    </div>
+{% endblock %}
+

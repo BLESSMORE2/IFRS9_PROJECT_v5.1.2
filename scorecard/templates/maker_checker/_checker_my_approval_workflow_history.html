@@ -1,0 +1,33 @@
+{% if workflow_history %}
+<div class="workflow-history-card">
+    <div class="workflow-history-header">
+        <h3>Workflow History</h3>
+        <span>{{ workflow_history|length }} recent item{{ workflow_history|length|pluralize }}</span>
+    </div>
+    <div class="workflow-history-list">
+        {% for entry in workflow_history %}
+            <div class="workflow-history-item">
+                <div class="workflow-history-main">
+                    <strong>{{ entry.get_action_display|default:entry.action }}</strong>
+                    <span>{{ entry.from_status|default:"-" }} to {{ entry.to_status|default:"-" }}</span>
+                </div>
+                <div class="workflow-history-meta">
+                    {% if entry.performed_by %}{{ entry.performed_by.email|default:entry.performed_by }}{% else %}System{% endif %}
+                    <span>-</span>
+                    {% if entry.performed_at %}{{ entry.performed_at|date:"Y-m-d H:i" }}{% else %}{{ entry.created_at|date:"Y-m-d H:i" }}{% endif %}
+                </div>
+                {% if entry.comments %}
+                    <div class="workflow-history-comments">{{ entry.comments }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="workflow-history-card">
+    <div class="workflow-history-header">
+        <h3>Workflow History</h3>
+    </div>
+    <p class="workflow-history-empty">No workflow history recorded yet.</p>
+</div>
+{% endif %}

@@ -1,0 +1,136 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Submit for Review{% endblock %}
+
+{% block content %}
+    <style>
+        .confirmation-box {
+            max-width: 600px;
+            margin: 2rem auto;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+        .info-section {
+            margin-bottom: 1.5rem;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #333;
+        }
+        .completion-indicator {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .completion-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        .completion-fill {
+            height: 100%;
+            background-color: #28a745;
+            transition: width 0.3s ease;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #cbd2e1;
+            border-radius: 4px;
+            font-family: "Calibri", sans-serif;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+    </style>
+    
+    <div class="confirmation-box">
+        <h2 style="margin-top: 0; color: #333;">Submit for Review</h2>
+        
+        <div class="info-section">
+            <div class="info-row">
+                <span class="info-label">Customer:</span>
+                <span>{{ evaluation.customer_name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Customer ID:</span>
+                <span>{{ evaluation.customer_id }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Branch:</span>
+                <span>{{ evaluation.branch_name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Template:</span>
+                <span>{{ evaluation.template.code }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Current Version:</span>
+                <span>{{ evaluation.version }}</span>
+            </div>
+        </div>
+        
+        <div class="completion-indicator">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-weight: 500;">Completion:</span>
+                <span>{{ completion_percentage }}%</span>
+            </div>
+            <div class="completion-bar">
+                <div class="completion-fill" style="width: {{ completion_percentage }}%"></div>
+            </div>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="comments">Comments (Optional):</label>
+                <textarea id="comments" name="comments" rows="3" placeholder="Add any notes for the checker..."></textarea>
+            </div>
+            
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Submit for Review</button>
+                <a href="{% url 'scorecard:maker_draft_list' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

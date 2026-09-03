@@ -1,0 +1,431 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}New IFRS9 Template{% endblock %}
+{% block header_title %}Create IFRS9 Credit Score Sheet Template{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .clone-box {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #f0f8ff;
+        border: 1px solid #0066cc;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .clone-checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .clone-checkbox-wrapper input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    .clone-checkbox-label {
+        font-weight: 600;
+        cursor: pointer;
+        margin: 0;
+        color: #333;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .clone-description {
+        margin-top: 0.5rem;
+        margin-left: 2rem;
+        font-size: 0.9rem;
+        color: #666;
+        line-height: 1.5;
+    }
+    .form-section {
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .formulas-section {
+        background-color: #f9f9f9;
+        border: 1px solid #e0e0e0;
+    }
+    .section-title {
+        margin-top: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    input[type="text"],
+    input[type="email"],
+    textarea,
+    select {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        transition: border-color 0.2s ease;
+    }
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    textarea:focus,
+    select:focus {
+        outline: none;
+        border-color: #0066cc;
+        box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    }
+    .checkbox-wrapper {
+        margin-top: 0.5rem;
+    }
+    .checkbox-wrapper input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    .help-text {
+        color: #666;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+    }
+    .variables-box {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        background-color: #f0f8ff;
+        border: 1px solid #0066cc;
+        border-radius: 4px;
+    }
+    .variables-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+    .variables-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    .var-btn, .op-btn {
+        padding: 0.35rem 0.7rem;
+        background: #0066cc;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        transition: background 0.2s ease;
+    }
+    .var-btn:hover, .op-btn:hover {
+        background: #0052a3;
+    }
+    .op-btn {
+        background: #6c757d;
+        padding: 0.25rem 0.5rem;
+        margin: 0 0.25rem;
+    }
+    .op-btn:hover {
+        background: #5a6268;
+    }
+    .operators-section {
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        color: #666;
+    }
+    .operators-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    .formula-field {
+        margin-top: 0.75rem;
+    }
+    .formula-input-group {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin-top: 0.5rem;
+    }
+    .formula-input-group input {
+        flex: 1;
+    }
+    .clear-btn {
+        padding: 0.4rem 0.8rem;
+        background: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        transition: background 0.2s ease;
+        white-space: nowrap;
+    }
+    .clear-btn:hover {
+        background: #5a6268;
+    }
+    .error {
+        background: #ffe9e9;
+        color: #b00020;
+        border-radius: 4px;
+        padding: 0.5rem 0.75rem;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+<form method="post">
+    {% csrf_token %}
+    
+    {% if reference_template %}
+        <div class="clone-box">
+            <div class="clone-checkbox-wrapper">
+                <input type="checkbox" id="clone_from_reference" name="clone_from_reference" value="on" checked>
+                <label for="clone_from_reference" class="clone-checkbox-label">
+                    Clone structure from reference template: <strong>{{ reference_template.code }}</strong> - {{ reference_template.name }}
+                </label>
+            </div>
+            <div class="clone-description">
+                If checked, the new template will copy all section/demographics, risk drivers, attributes, and options from the reference template. 
+                You can then customize the cloned template for your needs.
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="form-section">
+        <div class="meta-grid">
+            <div>
+                <label for="{{ form.code.id_for_label }}">Template Code</label>
+                {{ form.code }}
+                {% if form.code.errors %}
+                    <div class="error">{{ form.code.errors|striptags }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.name.id_for_label }}">Template Name</label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                    <div class="error">{{ form.name.errors|striptags }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.is_active.id_for_label }}">Set as Active</label>
+                <div class="checkbox-wrapper">
+                    {{ form.is_active }}
+                </div>
+                {% if form.is_active.errors %}
+                    <div class="error">{{ form.is_active.errors|striptags }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="margin-top: 1rem;">
+            <label for="{{ form.description.id_for_label }}">Description</label>
+            {{ form.description }}
+            {% if form.description.errors %}
+                <div class="error">{{ form.description.errors|striptags }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="form-section formulas-section">
+        <h3 class="section-title">Calculation Formulas (Same for all sections):</h3>
+        
+        <div class="variables-box">
+            <div class="variables-title">Available Variables:</div>
+            <div class="variables-grid">
+                <button type="button" class="var-btn" data-variable="ALLOCATED_SCORE">ALLOCATED_SCORE</button>
+                <button type="button" class="var-btn" data-variable="ACTUAL_SCORE">ACTUAL_SCORE</button>
+                <button type="button" class="var-btn" data-variable="WEIGHTED_SCORE">WEIGHTED_SCORE</button>
+                <button type="button" class="var-btn" data-variable="Highest_Possible_Score">Highest_Possible_Score</button>
+                <button type="button" class="var-btn" data-variable="WEIGHT">WEIGHT</button>
+                <button type="button" class="var-btn" data-variable="MAX_SCORE">MAX_SCORE</button>
+            </div>
+            <div class="operators-section">
+                <div class="operators-title">Operators:</div>
+                <div class="variables-grid">
+                    <button type="button" class="op-btn" data-operator=" + ">+</button>
+                    <button type="button" class="op-btn" data-operator=" - ">-</button>
+                    <button type="button" class="op-btn" data-operator=" * ">×</button>
+                    <button type="button" class="op-btn" data-operator=" / ">÷</button>
+                    <button type="button" class="op-btn" data-operator=" = ">=</button>
+                    <button type="button" class="op-btn" data-operator="(">(</button>
+                    <button type="button" class="op-btn" data-operator=")">)</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="formula-field">
+            <label for="{{ form.formula_actual_score.id_for_label }}">
+                Formula for ACTUAL_SCORE
+                {% if form.formula_actual_score.help_text %}
+                    <small style="font-weight: normal; color: #666;">({{ form.formula_actual_score.help_text }})</small>
+                {% endif %}
+            </label>
+            <div class="formula-input-group">
+                {{ form.formula_actual_score }}
+                <button type="button" class="clear-btn" data-target="{{ form.formula_actual_score.id_for_label }}">Clear</button>
+            </div>
+            {% if form.formula_actual_score.errors %}
+                <div class="error">{{ form.formula_actual_score.errors|striptags }}</div>
+            {% endif %}
+        </div>
+
+        <div class="formula-field">
+            <label for="{{ form.formula_weighted_score.id_for_label }}">
+                Formula for WEIGHTED_SCORE
+                {% if form.formula_weighted_score.help_text %}
+                    <small style="font-weight: normal; color: #666;">({{ form.formula_weighted_score.help_text }})</small>
+                {% endif %}
+            </label>
+            <div class="formula-input-group">
+                {{ form.formula_weighted_score }}
+                <button type="button" class="clear-btn" data-target="{{ form.formula_weighted_score.id_for_label }}">Clear</button>
+            </div>
+            {% if form.formula_weighted_score.errors %}
+                <div class="error">{{ form.formula_weighted_score.errors|striptags }}</div>
+            {% endif %}
+        </div>
+
+        <div class="formula-field">
+            <label for="{{ form.formula_proof.id_for_label }}">
+                Formula for PROOF
+                {% if form.formula_proof.help_text %}
+                    <small style="font-weight: normal; color: #666;">({{ form.formula_proof.help_text }})</small>
+                {% endif %}
+            </label>
+            <div class="formula-input-group">
+                {{ form.formula_proof }}
+                <button type="button" class="clear-btn" data-target="{{ form.formula_proof.id_for_label }}">Clear</button>
+            </div>
+            {% if form.formula_proof.errors %}
+                <div class="error">{{ form.formula_proof.errors|striptags }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="error" style="margin-top: 1rem;">
+            {{ form.non_field_errors|striptags }}
+        </div>
+    {% endif %}
+
+    <div class="actions">
+        <a href="{% url 'scorecard:ifrs9_template_list' %}" class="btn btn-secondary">
+            Cancel
+        </a>
+        <button type="submit" class="btn btn-primary">Save Template</button>
+    </div>
+</form>
+
+<script>
+    // Formula builder functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        // Variable buttons - insert variable into active formula field
+        document.querySelectorAll('.var-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const variable = this.getAttribute('data-variable');
+                const activeField = document.activeElement;
+                if (activeField && activeField.classList.contains('formula-input')) {
+                    insertAtCursor(activeField, variable);
+                    activeField.focus();
+                } else {
+                    alert('Please click on a formula field first, then click the variable button.');
+                }
+            });
+        });
+
+        // Operator buttons - insert operator into active formula field
+        document.querySelectorAll('.op-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const operator = this.getAttribute('data-operator');
+                const activeField = document.activeElement;
+                if (activeField && activeField.classList.contains('formula-input')) {
+                    insertAtCursor(activeField, operator);
+                    activeField.focus();
+                } else {
+                    alert('Please click on a formula field first, then click the operator button.');
+                }
+            });
+        });
+
+        // Clear buttons
+        document.querySelectorAll('.clear-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const targetField = document.getElementById(targetId);
+                if (targetField) {
+                    targetField.value = '';
+                    targetField.focus();
+                }
+            });
+        });
+
+        // Helper function to insert text at cursor position
+        function insertAtCursor(field, text) {
+            const start = field.selectionStart;
+            const end = field.selectionEnd;
+            const value = field.value;
+            field.value = value.substring(0, start) + text + value.substring(end);
+            field.selectionStart = field.selectionEnd = start + text.length;
+        }
+    });
+</script>
+{% endblock %}

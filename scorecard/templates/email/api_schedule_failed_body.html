@@ -1,0 +1,24 @@
+<html>
+<body style="font-family:Segoe UI, Arial, sans-serif; color:#17324d; line-height:1.5;">
+  <h2 style="margin-bottom:12px;">Scheduled API Import Failed</h2>
+  <p>A scheduled API import needs attention in the scorecard system.</p>
+
+  <table cellpadding="8" cellspacing="0" style="border-collapse:collapse; width:100%; max-width:760px;">
+    <tr><td style="font-weight:600; width:180px;">Schedule</td><td>{{ schedule_name }}</td></tr>
+    <tr><td style="font-weight:600;">Endpoint</td><td>{{ endpoint_name }}</td></tr>
+    <tr><td style="font-weight:600;">Frequency</td><td>{{ frequency_label }}</td></tr>
+    <tr><td style="font-weight:600;">Last Run</td><td>{{ last_run_at|date:"Y-m-d H:i"|default:"-" }}</td></tr>
+    <tr><td style="font-weight:600;">Next Run</td><td>{{ next_run_at|date:"Y-m-d H:i"|default:"-" }}</td></tr>
+  </table>
+
+  <p style="margin-top:16px;"><strong>Failure Reason</strong><br>{{ failure_reason }}</p>
+
+  {% if action_url %}
+  <p style="margin-top:20px;">
+    <a href="{{ action_url }}" style="display:inline-block; padding:10px 16px; background:#0b63ce; color:#ffffff; text-decoration:none; border-radius:8px;">Open Automation</a>
+  </p>
+  {% endif %}
+
+  <p style="margin-top:18px; color:#5f7388;">This email was sent because the scheduled import needs attention.</p>
+</body>
+</html>

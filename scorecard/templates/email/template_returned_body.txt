@@ -1,0 +1,10 @@
+Hello,
+
+Your {{ workflow_label|lower }} has been returned for changes.
+
+Template: {{ template_code }} - {{ template_name }}
+Returned By: {{ actor_name }}
+Reason: {{ reason|default:"No reason was provided." }}
+
+Open Template:
+{{ action_url|default:"-" }}

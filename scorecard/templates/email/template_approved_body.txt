@@ -1,0 +1,9 @@
+Hello,
+
+Your {{ workflow_label|lower }} has been approved.
+
+Template: {{ template_code }} - {{ template_name }}
+Approved By: {{ actor_name }}
+
+Open Template:
+{{ action_url|default:"-" }}

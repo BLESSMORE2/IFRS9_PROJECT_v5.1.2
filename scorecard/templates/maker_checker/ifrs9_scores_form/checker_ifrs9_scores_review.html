@@ -1,0 +1,218 @@
+{% extends "credit_scoreshifts/base.html" %}
+{% load dict_extras %}
+
+{% block title %}Review Evaluation{% endblock %}
+
+{% block content %}
+    <style>
+        .review-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .review-header {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #333;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e0e0e0;
+        }
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .workflow-history {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+        .history-item {
+            padding: 0.75rem;
+            border-left: 3px solid #0066cc;
+            margin-bottom: 0.5rem;
+            background: #f8f9fa;
+        }
+        .history-item strong {
+            color: #0066cc;
+        }
+    </style>
+    
+    <div class="review-container">
+        <div class="review-header">
+            <h2 style="margin-top: 0; color: #333;">Review Evaluation</h2>
+            
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Customer:</span>
+                    <span>{{ evaluation.customer_name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Customer ID:</span>
+                    <span>{{ evaluation.customer_id }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Branch:</span>
+                    <span>{{ evaluation.branch_name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Template:</span>
+                    <span>{{ evaluation.template.code }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Submitted By:</span>
+                    <span>
+                        {% if evaluation.submitted_by %}
+                            {{ evaluation.submitted_by.email }}
+                        {% elif evaluation.maker %}
+                            {{ evaluation.maker.email }}
+                        {% else %}
+                            Unknown
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Submitted:</span>
+                    <span>{{ evaluation.submitted_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Version:</span>
+                    <span>{% if latest_unapproved_version %}{{ latest_unapproved_version.version_number }}{% else %}{{ evaluation.version }}{% endif %}</span>
+                </div>
+            </div>
+            
+            {# Score Summary Section - Show Pending and Approved Scores #}
+            <div style="margin-top: 1.5rem; padding: 1rem; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6;">
+                <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1rem; color: #333;">Score Summary</h3>
+                
+                {% if pending_weighted_percent %}
+                {# Show pending score (to be approved) #}
+                <div style="margin-bottom: 1rem; padding: 1rem; background-color: #fff3cd; border: 2px solid #ff9800; border-radius: 4px;">
+                    <div style="font-size: 0.9rem; font-weight: 600; color: #856404; margin-bottom: 0.5rem;">
+                        ⏳ PENDING APPROVAL (To Be Approved)
+                    </div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #ff9800;">
+                        {{ pending_weighted_percent|floatformat:2 }}%
+                        <span style="font-size: 1rem; font-weight: 600; color: #856404; margin-left: 0.5rem;">
+                            (Grade: {{ pending_grade|default:"-" }})
+                        </span>
+                    </div>
+                    <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #856404;">
+                        This score is awaiting your approval decision.
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if evaluation.approved_weighted_percent %}
+                {# Show current approved score (if exists) #}
+                <div style="padding: 1rem; background-color: #d1ecf1; border: 2px solid #28a745; border-radius: 4px;">
+                    <div style="font-size: 0.9rem; font-weight: 600; color: #0c5460; margin-bottom: 0.5rem;">
+                        ✓ CURRENT APPROVED SCORE
+                    </div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #28a745;">
+                        {{ evaluation.approved_weighted_percent|floatformat:2 }}%
+                        <span style="font-size: 1rem; font-weight: 600; color: #0c5460; margin-left: 0.5rem;">
+                            (Grade: {{ evaluation.approved_grade|default:"-" }})
+                        </span>
+                    </div>
+                    <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #0c5460;">
+                        This is the currently effective approved score. If you approve the pending submission above, it will replace this score.
+                    </div>
+                </div>
+                {% elif not pending_weighted_percent %}
+                {# Fallback: show current score if no pending and no approved #}
+                {% if evaluation.total_weighted_percent %}
+                <div style="padding: 1rem; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;">
+                    <div style="font-size: 0.9rem; font-weight: 600; color: #666; margin-bottom: 0.5rem;">
+                        Current Score
+                    </div>
+                    <div style="font-size: 1.3rem; font-weight: 600; color: #333;">
+                        {{ evaluation.total_weighted_percent|floatformat:2 }}%
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+
+            {% include "credit_scoreshifts/partials/_autofill_summary.html" with autofill_metadata=active_autofill_metadata %}
+            
+            <div class="action-buttons">
+                <a href="{% url 'scorecard:ifrs9_scores_approve_evaluation' evaluation_id=evaluation.id %}" 
+                   class="btn btn-success">Approve</a>
+                <a href="{% url 'scorecard:ifrs9_scores_return_evaluation' evaluation_id=evaluation.id %}" 
+                   class="btn btn-danger">Return for Changes</a>
+                <a href="{% url 'scorecard:ifrs9_scores_view_detail' evaluation_id=evaluation.id %}" 
+                   class="btn btn-secondary">View Full Details</a>
+                <a href="{% url 'scorecard:checker_ifrs9_scores_pending_list' %}" 
+                   class="btn btn-secondary">Back to List</a>
+            </div>
+        </div>
+        {# Include the independent checker review comparison content #}
+        {% if evaluation.status == 'submitted' and latest_unapproved_version %}
+            {% include "maker_checker/ifrs9_scores_form/_checker_ifrs9_scores_review_content.html" %}
+        {% elif evaluation %}
+            {# Fallback to regular view if not submitted or no pending version #}
+            {% include "ifrs9_score_config/ifrs9_form/_ifrs9_scores_content.html" %}
+        {% endif %}
+
+        {% if workflow_history %}
+        <div class="workflow-history">
+            <h3 style="margin-top: 0;">Workflow History</h3>
+            {% for history in workflow_history %}
+            <div class="history-item">
+                <strong>{{ history.get_action_display }}</strong>
+                by {{ history.performed_by.email }}
+                on {{ history.created_at|date:"Y-m-d H:i" }}
+                {% if history.from_status %}
+                <br><small>Status: {{ history.get_from_status_display }} → {{ history.get_to_status_display }}</small>
+                {% endif %}
+                {% if history.comments %}
+                <br><em>{{ history.comments }}</em>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+{% endblock %}

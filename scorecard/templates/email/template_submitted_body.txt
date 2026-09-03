@@ -1,0 +1,9 @@
+Hello,
+
+A {{ workflow_label|lower }} has been submitted for your review.
+
+Template: {{ template_code }} - {{ template_name }}
+Submitted By: {{ actor_name }}
+
+Open Review:
+{{ action_url|default:"-" }}

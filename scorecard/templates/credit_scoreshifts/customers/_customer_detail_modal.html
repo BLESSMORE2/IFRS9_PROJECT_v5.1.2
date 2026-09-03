@@ -1,0 +1,167 @@
+<style>
+    .customer-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.95rem;
+    }
+    .customer-detail-card {
+        border: 1px solid #dbe7f4;
+        border-radius: 14px;
+        padding: 0.95rem 1rem;
+        background: #fbfdff;
+    }
+    .customer-detail-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6b829a;
+        margin-bottom: 0.45rem;
+        font-weight: 700;
+    }
+    .customer-detail-value {
+        color: #153b61;
+        font-weight: 600;
+        word-break: break-word;
+    }
+    .customer-detail-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+    .customer-detail-title-text {
+        color: #163b62;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+    .detail-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+    .detail-badge-complete {
+        background: #e9f8ef;
+        color: #0f7b4a;
+    }
+    .detail-badge-attention {
+        background: #fff2e2;
+        color: #ad6a10;
+    }
+    .detail-badge-type {
+        background: #eef5fc;
+        color: #175892;
+    }
+    @media (max-width: 720px) {
+        .customer-detail-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="customer-detail-title-row">
+    <div class="customer-detail-title-text">{{ customer.customer_name|default:customer.customer_ref_code }}</div>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        {% if customer.customer_type %}
+            <span class="detail-badge detail-badge-type">{{ customer.customer_type }}</span>
+        {% endif %}
+        <span class="detail-badge {% if profile_status == 'Complete' %}detail-badge-complete{% else %}detail-badge-attention{% endif %}">
+            {{ profile_status }}
+        </span>
+    </div>
+</div>
+
+<div class="customer-detail-grid">
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Customer Code</div>
+        <div class="customer-detail-value">{{ customer.customer_ref_code }}</div>
+    </div>
+      <div class="customer-detail-card">
+          <div class="customer-detail-label">Branch</div>
+        <div class="customer-detail-value">{% if customer.branch_name %}{{ customer.branch_name }}{% if customer.branch_code %} ({{ customer.branch_code }}){% endif %}{% else %}{{ customer.branch_description|default:"-" }}{% endif %}</div>
+      </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Reporting Date</div>
+        <div class="customer-detail-value">{{ customer.reporting_date|date:"Y-m-d" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Last Synced</div>
+        <div class="customer-detail-value">{% if customer.last_synced_at %}{{ customer.last_synced_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Mobile</div>
+        <div class="customer-detail-value">{{ customer.mobile|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Email</div>
+        <div class="customer-detail-value">{{ customer.email|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">National ID</div>
+        <div class="customer-detail-value">{{ customer.national_id|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Nationality</div>
+        <div class="customer-detail-value">{{ customer.nationality_code|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Resident Status</div>
+        <div class="customer-detail-value">{{ customer.resident_status|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Marital Status</div>
+        <div class="customer-detail-value">{{ customer.marital_status|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Gender</div>
+        <div class="customer-detail-value">{{ customer.gender|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Birth Date</div>
+        <div class="customer-detail-value">{% if customer.birth_date %}{{ customer.birth_date|date:"Y-m-d" }}{% else %}-{% endif %}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Occupation Code</div>
+        <div class="customer-detail-value">{{ customer.occupation_code|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Employment Type</div>
+        <div class="customer-detail-value">{{ customer.employment_type|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Employer Name</div>
+        <div class="customer-detail-value">{{ customer.employer_name|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Annual Income</div>
+        <div class="customer-detail-value">{% if customer.annual_income %}{{ customer.annual_income }}{% else %}-{% endif %}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Has Loan</div>
+        <div class="customer-detail-value">{% if customer.has_loan %}Yes{% else %}No{% endif %}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Loan Count</div>
+        <div class="customer-detail-value">{{ customer.loan_count }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Primary Loan ID</div>
+        <div class="customer-detail-value">{{ customer.primary_loan_id|default:"-" }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Has Overdraft</div>
+        <div class="customer-detail-value">{% if customer.has_overdraft %}Yes{% else %}No{% endif %}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Overdraft Count</div>
+        <div class="customer-detail-value">{{ customer.overdraft_count }}</div>
+    </div>
+    <div class="customer-detail-card">
+        <div class="customer-detail-label">Primary Account Number</div>
+        <div class="customer-detail-value">{{ customer.primary_account_number|default:"-" }}</div>
+    </div>
+</div>

@@ -1,0 +1,110 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Delete IFRS9 Option - {{ template.code }}{% endblock %}
+{% block header_title %}Delete IFRS9 Option{% endblock %}
+
+{% block content %}
+<style>
+    .warning-box {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 4px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .warning-box strong {
+        font-weight: 600;
+        color: #856404;
+    }
+    .info-box {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background-color: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 0.9rem;
+        color: #333;
+    }
+    .info-item {
+        margin-bottom: 0.5rem;
+    }
+    .info-item:last-child {
+        margin-bottom: 0;
+    }
+    .info-item strong {
+        font-weight: 600;
+        color: #0066cc;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+    .btn-danger {
+        background: #dc3545;
+        color: white;
+    }
+    .btn-danger:hover {
+        background: #c82333;
+    }
+</style>
+
+<div class="warning-box">
+    <strong>⚠️ Warning:</strong> Are you sure you want to delete this option? This action cannot be undone.
+</div>
+
+<div class="info-box">
+    <div class="info-item">
+        <strong>Template:</strong> {{ template.code }} - {{ template.name }}
+    </div>
+    <div class="info-item">
+        <strong>Section/Demographics:</strong> {{ section.code }} - {{ section.name }}
+    </div>
+    <div class="info-item">
+        <strong>Risk Driver:</strong> {{ risk_driver.code }} - {{ risk_driver.name }}
+    </div>
+    <div class="info-item">
+        <strong>Attribute:</strong> {{ attribute.code }} - {{ attribute.label }}
+    </div>
+    <div class="info-item">
+        <strong>Option Label:</strong> {{ option.label }}
+    </div>
+    <div class="info-item">
+        <strong>Allocated Score:</strong> {{ option.allocated_score }} | <strong>Weight:</strong> {{ attribute.weight_percent }}%
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="actions">
+        <a href="{% url 'scorecard:ifrs9_option_list' template_id=template.id section_id=section.id driver_id=risk_driver.id attribute_id=attribute.id %}" class="btn btn-secondary">
+            Cancel
+        </a>
+        <button type="submit" class="btn btn-danger">Delete Option</button>
+    </div>
+</form>
+{% endblock %}

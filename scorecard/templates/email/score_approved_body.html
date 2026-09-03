@@ -1,0 +1,11 @@
+<html><body style="font-family:Segoe UI, Arial, sans-serif; color:#17324d; line-height:1.5;">
+<h2>{{ score_label }} Approved</h2>
+<p>Your {{ score_label|lower }} has been approved.</p>
+<table cellpadding="8" cellspacing="0" style="border-collapse:collapse;">
+  <tr><td style="font-weight:600;">Customer</td><td>{{ customer_name }} ({{ customer_code }})</td></tr>
+  <tr><td style="font-weight:600;">Branch</td><td>{{ branch_name }}</td></tr>
+  <tr><td style="font-weight:600;">Approved By</td><td>{{ actor_name }}</td></tr>
+  <tr><td style="font-weight:600;">Final Grade</td><td>{{ grade }}</td></tr>
+</table>
+{% if action_url %}<p style="margin-top:18px;"><a href="{{ action_url }}" style="display:inline-block; padding:10px 16px; background:#0b63ce; color:#fff; text-decoration:none; border-radius:8px;">View Approved Score</a></p>{% endif %}
+</body></html>

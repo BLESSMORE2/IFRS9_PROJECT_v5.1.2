@@ -1,0 +1,120 @@
+{% extends "api/base.html" %}
+
+{% block title %}Retrieve Data{% endblock %}
+{% block api_title %}Retrieve Data{% endblock %}
+{% block api_intro %}Use a saved endpoint and fill the reusable parameters defined in Settings. Add extra parameters only when needed. No need to retype the API URL or secret key here.{% endblock %}
+{% block api_summary_section %}{% endblock %}
+
+{% block api_body %}
+<div class="api-layout-two">
+    <div class="api-panel">
+        <h2>Retrieve Using Saved Endpoint</h2>
+        <p>Select one saved endpoint, complete only the parameters linked to that endpoint, and retrieve the data.</p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="api-form-grid">
+                {% for field in form %}
+                    <div class="api-field {% if field.name == 'extra_query_string' %}full{% endif %}">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {{ field.errors }}
+                        {% if field.help_text %}
+                            <small>{{ field.help_text }}</small>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            {% if selected_endpoint %}
+                <div class="api-message" style="margin-top:1rem;">
+                    This endpoint uses these saved parameters:
+                    {% for parameter in selected_endpoint.parameters.all %}
+                        <strong>{{ parameter.name }}</strong>{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        none
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% if api_can_run_operations %}
+            <div class="api-button-row">
+                <button type="submit" class="api-button primary">Retrieve Data</button>
+            </div>
+            {% else %}
+            <div class="api-message" style="margin-top:1rem;">You have read-only access to Retrieve Data. Retrieval actions are hidden.</div>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="api-panel">
+        <h2>Usage Notes</h2>
+        <p>This page is intentionally simple. It asks for the saved endpoint, the reusable parameters from Settings, and only optional extra parameters if you need them.</p>
+        <div class="api-message-list">
+            <div class="api-message">The saved API URL and secret key from Settings are used automatically.</div>
+            <div class="api-message">Only the parameters chosen when creating the endpoint appear here. Required parameters must be filled before retrieval can proceed.</div>
+            <div class="api-message">Extra parameters are optional and can be written like: `page=1&page_size=1000`.</div>
+            <div class="api-message">If the API returns a `data` list, the first few rows are previewed below.</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const endpointField = document.getElementById("id_endpoint");
+        if (!endpointField) {
+            return;
+        }
+
+        endpointField.addEventListener("change", function () {
+            const endpointId = endpointField.value;
+            const baseUrl = "{% url 'scorecard:api_retrieve' %}";
+            if (!endpointId) {
+                window.location.href = baseUrl;
+                return;
+            }
+            window.location.href = `${baseUrl}?endpoint=${encodeURIComponent(endpointId)}`;
+        });
+    })();
+</script>
+
+{% if response_status %}
+    <div class="api-panel">
+        <h2>Response Status</h2>
+        <p>Status code from the last retrieval request.</p>
+        <div class="api-code-box">{{ response_status }}</div>
+    </div>
+{% endif %}
+
+{% if result_error %}
+    <div class="api-panel">
+        <h2>Request Error</h2>
+        <p>The API returned an error for the last request.</p>
+        <div class="api-json-panel">
+            <div class="api-json-toolbar">
+                <div class="api-json-title">Error Output</div>
+                <div class="api-json-meta">Scroll inside the box to inspect the response</div>
+            </div>
+            <div class="api-json-body">
+                <pre>{{ result_error }}</pre>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{% if result_preview_text and not result_error %}
+    <div class="api-panel">
+        <h2>Response Preview</h2>
+        <p>Formatted response output in a fixed viewer. Scroll inside the box to inspect the rest of the payload.</p>
+        <div class="api-json-panel">
+            <div class="api-json-toolbar">
+                <div class="api-json-title">JSON Output</div>
+                <div class="api-json-meta">Scroll inside the box to inspect the response</div>
+            </div>
+            <div class="api-message" style="margin:0.75rem 0 0;">
+                Preview shown below is normalized to match saved import data.
+            </div>
+            <div class="api-json-body">
+                <pre>{{ result_preview_text }}</pre>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

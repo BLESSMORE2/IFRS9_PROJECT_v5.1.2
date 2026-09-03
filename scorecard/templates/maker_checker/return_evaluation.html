@@ -1,0 +1,146 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Return Evaluation{% endblock %}
+
+{% block content %}
+    <style>
+        .confirmation-box {
+            max-width: 600px;
+            margin: 2rem auto;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+        .warning-box {
+            padding: 1rem;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            color: #856404;
+        }
+        .info-section {
+            margin-bottom: 1.5rem;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .form-group label .required {
+            color: #dc3545;
+        }
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #cbd2e1;
+            border-radius: 4px;
+            font-family: "Calibri", sans-serif;
+        }
+        .error-message {
+            color: #dc3545;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+    </style>
+    
+    <div class="confirmation-box">
+        <h2 style="margin-top: 0; color: #333;">Return Evaluation for Changes</h2>
+        
+        <div class="warning-box">
+            <strong>⚠️ Return:</strong> This will return the evaluation to the maker for corrections. 
+            The maker will be able to edit it again after you return it.
+        </div>
+        
+        <div class="info-section">
+            <div class="info-row">
+                <span class="info-label">Customer:</span>
+                <span>{{ evaluation.customer_name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Customer ID:</span>
+                <span>{{ evaluation.customer_id }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Branch:</span>
+                <span>{{ evaluation.branch_name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Template:</span>
+                <span>{{ evaluation.template.code }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Version:</span>
+                <span>{{ evaluation.version }}</span>
+            </div>
+        </div>
+        
+        <form method="post" id="return-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="return_reason">
+                    Reason for Return <span class="required">*</span>
+                </label>
+                <textarea id="return_reason" name="return_reason" rows="5" 
+                          placeholder="Please explain what needs to be corrected or changed..." 
+                          required></textarea>
+                <div class="error-message" id="error-message" style="display: none;">
+                    Please provide a reason for returning this evaluation.
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button type="submit" class="btn btn-danger">Confirm Return</button>
+                <a href="{% url 'scorecard:checker_review' evaluation_id=evaluation.id %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        document.getElementById('return-form').addEventListener('submit', function(e) {
+            const reason = document.getElementById('return_reason').value.trim();
+            if (!reason) {
+                e.preventDefault();
+                document.getElementById('error-message').style.display = 'block';
+                document.getElementById('return_reason').focus();
+            }
+        });
+    </script>
+{% endblock %}

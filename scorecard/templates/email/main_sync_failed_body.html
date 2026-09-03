@@ -1,0 +1,24 @@
+<html>
+<body style="font-family:Segoe UI, Arial, sans-serif; color:#17324d; line-height:1.5;">
+  <h2 style="margin-bottom:12px;">Main Customer Sync Failed</h2>
+  <p>A main customer sync needs attention in the scorecard system.</p>
+
+  <table cellpadding="8" cellspacing="0" style="border-collapse:collapse; width:100%; max-width:760px;">
+    <tr><td style="font-weight:600; width:180px;">Reporting Date</td><td>{{ sync_run.reporting_date|date:"Y-m-d" }}</td></tr>
+    <tr><td style="font-weight:600;">Triggered By</td><td>{{ triggered_by_name }}</td></tr>
+    <tr><td style="font-weight:600;">Started</td><td>{{ sync_run.started_at|date:"Y-m-d H:i" }}</td></tr>
+    <tr><td style="font-weight:600;">Completed</td><td>{{ sync_run.completed_at|date:"Y-m-d H:i"|default:"-" }}</td></tr>
+    <tr><td style="font-weight:600;">Rows Synced</td><td>{{ sync_run.rows_synced }}</td></tr>
+  </table>
+
+  <p style="margin-top:16px;"><strong>Failure Reason</strong><br>{{ sync_run.failure_message|default:sync_run.detail_message|default:"No failure details were captured." }}</p>
+
+  {% if action_url %}
+  <p style="margin-top:20px;">
+    <a href="{{ action_url }}" style="display:inline-block; padding:10px 16px; background:#0b63ce; color:#ffffff; text-decoration:none; border-radius:8px;">Open Auto Sync</a>
+  </p>
+  {% endif %}
+
+  <p style="margin-top:18px; color:#5f7388;">This email was sent because the event needs attention.</p>
+</body>
+</html>

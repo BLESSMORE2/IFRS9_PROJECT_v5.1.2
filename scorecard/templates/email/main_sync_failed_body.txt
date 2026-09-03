@@ -1,0 +1,17 @@
+Hello,
+
+A main customer sync has failed in the scorecard system.
+
+Reporting Date: {{ sync_run.reporting_date|date:"Y-m-d" }}
+Triggered By: {{ triggered_by_name }}
+Started: {{ sync_run.started_at|date:"Y-m-d H:i" }}
+Completed: {{ sync_run.completed_at|date:"Y-m-d H:i"|default:"-" }}
+Rows Synced: {{ sync_run.rows_synced }}
+
+Failure Reason:
+{{ sync_run.failure_message|default:sync_run.detail_message|default:"No failure details were captured." }}
+
+Open Auto Sync:
+{{ action_url|default:"-" }}
+
+This email was sent because the event needs attention.

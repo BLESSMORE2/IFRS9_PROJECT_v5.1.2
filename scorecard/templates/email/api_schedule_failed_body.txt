@@ -1,0 +1,17 @@
+Hello,
+
+A scheduled API import has failed in the scorecard system.
+
+Schedule: {{ schedule_name }}
+Endpoint: {{ endpoint_name }}
+Frequency: {{ frequency_label }}
+Last Run: {{ last_run_at|date:"Y-m-d H:i"|default:"-" }}
+Next Run: {{ next_run_at|date:"Y-m-d H:i"|default:"-" }}
+
+Failure Reason:
+{{ failure_reason }}
+
+Open Automation:
+{{ action_url|default:"-" }}
+
+This email was sent because the scheduled import needs attention.

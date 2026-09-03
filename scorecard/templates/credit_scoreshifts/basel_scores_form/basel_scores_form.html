@@ -1,0 +1,3072 @@
+{% extends "credit_scoreshifts/base.html" %}
+{% load dict_extras %}
+
+{% block title %}{{ template.name|default:"Questionnaire" }}{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        padding: 1rem 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #0066cc;
+    }
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .sheet-header {
+        border: none;
+        margin-bottom: 0.25rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .sheet-header td {
+        border: none;
+    }
+    .sheet-header-title {
+        font-weight: 600;
+        font-size: 1.05rem;
+        color: #333;
+    }
+    .sheet-header-code {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #333;
+        text-align: right;
+    }
+    .meta-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .meta-table td {
+        border: 1px solid #e0e0e0;
+        padding: 0.4rem 0.5rem;
+        font-size: 12px;
+    }
+    .meta-table td:first-child {
+        font-weight: 600;
+        color: #333;
+        background-color: #f5f5f5;
+        width: 18%;
+    }
+    .meta-table td:nth-child(2) {
+        background-color: #f9f9f9;
+        width: 32%;
+    }
+    .meta-table td:nth-child(3) {
+        font-weight: 600;
+        color: #333;
+        background-color: #f5f5f5;
+        width: 20%;
+    }
+    .meta-table td:nth-child(4) {
+        background-color: #f9f9f9;
+        width: 30%;
+    }
+    .branch-display {
+        padding: 0.45rem 0.6rem;
+        background-color: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .branch-display strong {
+        font-weight: 600;
+        color: #333;
+    }
+    .branch-code-text {
+        color: #666;
+        font-size: 0.85rem;
+    }
+    .no-branch-text {
+        color: #999;
+        font-style: italic;
+    }
+    .customer-search-wrapper {
+        position: relative;
+    }
+    input[type="text"] {
+        width: 100%;
+        border: 1px solid #cbd2e1;
+        padding: 0.5rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        transition: border-color 0.2s ease;
+    }
+    input[type="text"]:focus {
+        outline: none;
+        border-color: #0066cc;
+        box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    }
+    input[type="text"]:read-only {
+        background-color: #f5f5f5;
+        cursor: not-allowed;
+    }
+    .customer-search-results {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #cbd2e1;
+        border-top: none;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 10000;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        margin-top: 2px;
+    }
+    .customer-result-item {
+        padding: 0.5rem;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #333;
+    }
+    .customer-result-item:hover {
+        background-color: #f0f8ff;
+    }
+    .customer-result-item strong {
+        font-weight: 600;
+        color: #0066cc;
+    }
+    .warning-box {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .warning-box-icon {
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+    .warning-box-content {
+        flex: 1;
+    }
+    .warning-box-title {
+        color: #856404;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    .warning-box-message {
+        color: #856404;
+        font-size: 0.9rem;
+    }
+    .warning-box-link {
+        color: #0066cc;
+        text-decoration: underline;
+        font-weight: 600;
+    }
+    .warning-box-link:hover {
+        color: #0052a3;
+    }
+    .error {
+        background: #ffe9e9;
+        color: #b00020;
+        border-radius: 4px;
+        padding: 0.5rem 0.75rem;
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .error ul {
+        margin: 0.5rem 0 0 1.5rem;
+        padding: 0;
+    }
+    .formulas-box {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background-color: #f0f8ff;
+        border: 1px solid #0066cc;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .formulas-title {
+        margin-top: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0066cc;
+        margin-bottom: 0.75rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .formula-item {
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .formula-item:last-child {
+        margin-bottom: 0;
+    }
+    .formula-item strong {
+        color: #0066cc;
+        font-weight: 600;
+    }
+    .autofill-highlight-row td {
+        background: #eef9f1;
+        border-color: #b9dfc4;
+    }
+    .autofill-highlight-row .option-label {
+        color: #17643a;
+        font-weight: 600;
+    }
+    .autofill-highlight-row .option-label::after {
+        content: "Auto";
+        display: inline-block;
+        margin-left: 0.5rem;
+        padding: 0.08rem 0.4rem;
+        border-radius: 999px;
+        background: #17643a;
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 600;
+        vertical-align: middle;
+    }
+    .autofill-missing-row td {
+        background: #fff6e8;
+        border-color: #efc57e;
+    }
+    .autofill-missing-row .option-label,
+    .autofill-missing-row .none-option-text {
+        color: #8a5600;
+        font-weight: 600;
+    }
+    .autofill-profile-change-box {
+        margin-top: 1rem;
+        padding: 0.9rem 1rem;
+        background: #fff8ec;
+        border: 1px solid #efc57e;
+        border-radius: 6px;
+    }
+    .autofill-profile-change-title {
+        margin: 0 0 0.5rem;
+        color: #8a5600;
+        font-size: 0.95rem;
+        font-weight: 700;
+    }
+    .autofill-profile-change-list {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: #6e4d17;
+        font-size: 0.9rem;
+    }
+    .sticky-header-table {
+        position: relative;
+    }
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: #e3f2fd;
+    }
+    .sticky-header th {
+        background: #e3f2fd;
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.2);
+    }
+    .section-header {
+        margin-top: 1.5rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.75rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.5rem;
+        font-size: 12px;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    table thead th {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        padding: 0.4rem 0.5rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    table thead th.text-center {
+        text-align: center;
+    }
+    table tbody td {
+        border: 1px solid #e0e0e0;
+        padding: 0.3rem 0.5rem;
+        font-size: 12px;
+        color: #333;
+    }
+    table tbody td.text-center {
+        text-align: center;
+    }
+    .driver-header-row {
+        background-color: #f5f5f5;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .group-label-row {
+        background-color: #f9f9f9;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .highest-score-row {
+        background-color: #f0f0f0;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .driver-totals-row {
+        background-color: #e0e0e0;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .section-totals-row {
+        background-color: #d0d0d0;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .overall-totals-row {
+        background-color: #b0b0b0;
+        font-weight: 600;
+        font-size: 12px;
+        border-top: 3px solid #000;
+    }
+    .empty-attribute-row {
+        color: #999;
+        font-style: italic;
+        font-size: 12px;
+    }
+    .option-label {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+    }
+    .option-radio {
+        margin-right: 0.5rem;
+    }
+    .required-indicator {
+        color: #dc3545;
+        margin-left: 0.5rem;
+        font-size: 0.85rem;
+    }
+    .none-option-text {
+        font-style: italic;
+        color: #666;
+    }
+    .document-upload-section {
+        padding: 0.75rem;
+        background-color: #ffffff;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+    }
+    .document-upload-input {
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        border: 1px solid #cbd2e1;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background-color: #fff;
+        cursor: pointer;
+    }
+    .document-upload-input:hover {
+        border-color: #0066cc;
+    }
+    .document-upload-input:focus {
+        outline: none;
+        border-color: #0066cc;
+        box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    }
+    .uploaded-files-list {
+        font-size: 0.8rem;
+        color: #666;
+        margin-top: 0.5rem;
+    }
+    .uploaded-file-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0;
+    }
+    .uploaded-file-item::before {
+        content: "-";
+        font-size: 0.9rem;
+        color: #4f6f8f;
+        font-weight: 700;
+    }
+    .calculation-result-box {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background-color: #f0f8ff;
+        border: 2px solid #0066cc;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .calculation-result-title {
+        margin-top: 0;
+        margin-bottom: 1rem;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #0066cc;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .calculation-result-table {
+        width: 100%;
+        margin-bottom: 1rem;
+        border-collapse: collapse;
+    }
+    .calculation-result-table td {
+        padding: 0.75rem;
+        border: 1px solid #e0e0e0;
+        font-size: 0.9rem;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .calculation-result-table td:first-child {
+        font-weight: 600;
+        color: #333;
+        width: 40%;
+        vertical-align: middle;
+    }
+    .final-weighted-score {
+        color: #0066cc;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    .final-grade {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #0b8457;
+        background-color: #ffffff;
+        padding: 0.5rem 1rem;
+        border: 2px solid #0b8457;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    .grading-scale-section {
+        margin-top: 2rem;
+        page-break-inside: avoid;
+    }
+    .grading-scale-title {
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .grading-scale-table {
+        width: 50%;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .grading-scale-table thead th {
+        background-color: #f5f5f5;
+        border: 1px solid #cbd2e1;
+        text-align: left;
+        padding: 0.4rem 0.5rem;
+        font-weight: 600;
+        font-size: 12px;
+        color: #333;
+    }
+    .grading-scale-table tbody td {
+        border: 1px solid #cbd2e1;
+        padding: 0.4rem 0.5rem;
+        font-size: 12px;
+        color: #333;
+    }
+    .grading-scale-table tbody td:last-child {
+        font-weight: 600;
+    }
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .btn {
+        padding: 0.6rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+        font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .btn-primary {
+        background: #0066cc;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #0052a3;
+    }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+</style>
+
+    <!-- Sheet header -->
+<table class="sheet-header">
+    <tr>
+        <td class="sheet-header-title">
+                {{ template.name|upper }}
+            </td>
+        <td class="sheet-header-code text-right">
+                {{ template.code }}
+            </td>
+        </tr>
+    </table>
+
+<table class="meta-table">
+    <tr>
+        <td>Branch</td>
+        <td class="branch-display" id="selected-branch-display">
+            {% if current_branch %}
+                <strong>{{ current_branch.bank_name }} - {{ current_branch.branch_name }}</strong>
+                <span class="branch-code-text"> ({{ current_branch.branch_code }})</span>
+            {% else %}
+                <span class="no-branch-text">No branch selected</span>
+            {% endif %}
+            </td>
+        <td>Customer Code</td>
+        <td>
+            <div class="customer-search-wrapper">
+                <input type="text" 
+                       name="customer_search" 
+                       id="id_customer_search" 
+                       placeholder="Type customer code or name to search..."
+                       value="{% if form_data.customer_ref_code %}{{ form_data.customer_ref_code }}{% endif %}"
+                       autocomplete="off"
+                       required>
+                <input type="hidden" name="customer_ref_code" form="questionnaire-form" id="id_customer_ref_code" value="{% if form_data.customer_ref_code %}{{ form_data.customer_ref_code }}{% endif %}">
+                <input type="hidden" name="customer_name" form="questionnaire-form" id="id_customer_name" value="{% if form_data.customer_name %}{{ form_data.customer_name }}{% endif %}">
+                <input type="hidden" name="selected_branch_code" form="questionnaire-form" id="id_selected_branch_code" value="{% if form_data.branch_code %}{{ form_data.branch_code }}{% elif current_branch %}{{ current_branch.branch_code }}{% endif %}">
+                <input type="hidden" name="selected_branch_name" form="questionnaire-form" id="id_selected_branch_name" value="{% if form_data.branch_name %}{{ form_data.branch_name }}{% elif current_branch %}{{ current_branch.branch_name }}{% endif %}">
+                <div id="customer-search-results" class="customer-search-results"></div>
+            </div>
+            </td>
+        </tr>
+        <tr>
+        <td>Customer Name</td>
+        <td colspan="3">
+            <div class="customer-search-wrapper">
+                <input type="text" 
+                       id="id_customer_name_display" 
+                       name="customer_name_display"
+                       value="{% if form_data.customer_name %}{{ form_data.customer_name }}{% endif %}"
+                       placeholder="Type customer code or name to search..."
+                       autocomplete="off">
+                <div id="customer-name-search-results" class="customer-search-results"></div>
+            </div>
+            </td>
+        </tr>
+    </table>
+
+    <div id="autofill-status-box" class="formulas-box" {% if not autofill_applied_labels and not autofill_missing_labels %}style="display: none;"{% endif %}>
+        <div class="formulas-title">Auto-Populated Profile Data</div>
+        <div class="formula-item" id="autofill-status-text">
+            {% if autofill_applied_labels %}
+                Auto-selected: {{ autofill_applied_labels|join:", " }}.
+            {% elif autofill_missing_labels %}
+                No profile-based defaults were matched for this customer.
+            {% endif %}
+        </div>
+        <div class="formula-item" id="autofill-missing-text">
+            {% if autofill_missing_labels %}
+                Still requiring your input: {{ autofill_missing_labels|join:", " }}.
+            {% endif %}
+        </div>
+    </div>
+
+    {% if autofill_profile_changes %}
+    <div class="autofill-profile-change-box" id="autofill-profile-change-box">
+        <div class="autofill-profile-change-title">Customer profile values changed since this form was last captured.</div>
+        <ul class="autofill-profile-change-list">
+            {% for change in autofill_profile_changes %}
+            <li><strong>{{ change.label }}</strong>: {{ change.previous_value }} -> {{ change.current_value }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {{ autofill_applied_attribute_ids|json_script:"initial-autofill-applied-ids" }}
+    {{ autofill_missing_attribute_ids|json_script:"initial-autofill-missing-ids" }}
+
+{% if existing_evaluation %}
+    <div id="existing-questionnaire-warning" class="warning-box">
+        <span class="warning-box-icon">Warning</span>
+        <div class="warning-box-content">
+            <div class="warning-box-title">Warning: This customer already has a submitted Basel II scoresheet.</div>
+            <div class="warning-box-message">
+                A Basel II Scoresheet for this customer at this branch already exists. 
+                <a href="{% url 'scorecard:basel_scores_edit' evaluation_id=existing_evaluation.id %}" class="warning-box-link">
+                    Click here to edit the existing Basel II Scoresheet
+                </a> instead of creating a new one.
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+    {% if errors %}
+    <div class="error">
+            {% if errors.missing_meta %}
+            <div>Please select a Branch and Customer from the database.</div>
+            {% endif %}
+            {% if errors.missing_attributes %}
+                <div>The following questions are required:</div>
+                <ul>
+                    {% for attr in errors.missing_attributes %}
+                        <li>{{ attr.label }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <form method="post" id="questionnaire-form" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        {% for section in sections %}
+            <h2 class="section-header">{{ section.code }}) {{ section.name|upper }}</h2>
+            <table class="sticky-header-table">
+                <thead class="sticky-header">
+                <tr>
+                    <th style="width: 40%;">RISK DRIVERS</th>
+                    <th style="width: 12%;" class="text-center">ALLOCATED<br>SCORE</th>
+                    <th style="width: 12%;" class="text-center">ACTUAL<br>SCORE</th>
+                    <th style="width: 12%;" class="text-center">WEIGHT</th>
+                    <th style="width: 12%;" class="text-center">WEIGHTED<br>SCORE %</th>
+                    <th style="width: 12%;" class="text-center">PROOF</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for driver in drivers_by_section|get_item:section.id %}
+                    {% with driver_attrs=attributes_by_driver|get_item:driver.id %}
+                        <!-- Risk Driver Header Row -->
+                        <tr class="driver-row driver-header-row" data-driver-id="{{ driver.id }}">
+                            <td colspan="6" class="driver-header">
+                                {{ driver.code }}. {{ driver.name }}
+                            </td>
+                        </tr>
+                        
+                        {% if driver_attrs %}
+                            {% for attribute in driver_attrs %}
+                                <!-- Attribute label row mirrors the template view before selectable options. -->
+                                <tr class="group-label-row">
+                                    <td colspan="6" style="padding-left: 1rem;">
+                                        {{ attribute.group_label|default:attribute.label }}
+                                        {% if attribute.scoring_rule %}
+                                            <span style="color:#d62828; font-weight:600;">( {{ attribute.get_scoring_rule_note }} )</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                
+                                {% if attribute.input_type == "checkbox" or attribute.scoring_rule %}
+                                    {% with attr_value=form_data.attribute_values|get_item:attribute.id %}
+                                        {% for option in attribute.options.all %}
+                                            <tr>
+                                                <td style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %};">
+                                                    <label class="option-label">
+                                                        <input type="checkbox"
+                                                               name="attr_{{ attribute.id }}"
+                                                               value="{{ option.id }}"
+                                                               class="option-checkbox combo-option"
+                                                               data-attribute-id="{{ attribute.id }}"
+                                                               data-option-order="{{ option.display_order }}"
+                                                               data-allocated-score="{{ option.allocated_score }}"
+                                                               data-scoring-rule="{{ attribute.scoring_rule }}"
+                                                               {% if attribute.is_required %}data-required="true"{% endif %}
+                                                               {% if attr_value and option.id|stringformat:"s" in attr_value %}checked{% endif %}>
+                                                        {{ option.label }}
+                                                    </label>
+                                                </td>
+                                                <td class="text-center">{{ option.allocated_score }}</td>
+                                                <td class="text-center actual-score-cell" 
+                                                    data-attribute-id="{{ attribute.id }}"
+                                                    data-option-id="{{ option.id }}">-</td>
+                                                <td class="text-center">
+                                                    {{ attribute.weight_percent|floatformat:2 }}%
+                                                </td>
+                                                <td class="text-center weighted-score-cell" 
+                                                    data-attribute-id="{{ attribute.id }}"
+                                                    data-option-id="{{ option.id }}">-</td>
+                                                <td class="text-center proof-cell" 
+                                                    data-attribute-id="{{ attribute.id }}"
+                                                    data-option-id="{{ option.id }}">-</td>
+                                            </tr>
+                                        {% endfor %}
+                                    {% endwith %}
+                                    <tr class="highest-score-row combo-summary-row" data-attribute-id="{{ attribute.id }}" data-scoring-rule="{{ attribute.scoring_rule }}">
+                                        <td style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %};">
+                                            Highest Possible Score
+                                        </td>
+                                        <td class="text-center highest-score-cell" 
+                                            data-attribute-id="{{ attribute.id }}"
+                                            data-highest-score="{{ attribute.get_highest_possible_score }}">{{ attribute.get_highest_possible_score }}</td>
+                                        <td class="text-center combo-summary-actual" data-attribute-id="{{ attribute.id }}">-</td>
+                                        <td class="text-center weight-cell" 
+                                            data-attribute-id="{{ attribute.id }}"
+                                            data-weight="{{ attribute.weight_percent }}">{{ attribute.weight_percent|floatformat:2 }}%</td>
+                                        <td class="text-center combo-summary-weighted" data-attribute-id="{{ attribute.id }}">-</td>
+                                        <td class="text-center combo-summary-proof" data-attribute-id="{{ attribute.id }}">-</td>
+                                    </tr>
+                                    {% with combo_error=errors.invalid_attribute_rules|get_item:attribute.id %}
+                                        <tr class="combo-validation-row" data-attribute-id="{{ attribute.id }}" {% if not combo_error %}style="display:none;"{% endif %}>
+                                            <td colspan="6" style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %}; color:#c94747; font-size:0.9rem;">
+                                                <span class="combo-validation-message">{{ combo_error|default:'' }}</span>
+                                            </td>
+                                        </tr>
+                                    {% endwith %}
+                                {% else %}
+                                    <!-- Individual Options as Rows -->
+                                    {% for option in attribute.options.all %}
+                                        <tr>
+                                            <td style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %};">
+                                                <label class="option-label">
+                                                    <input type="radio"
+                                                           name="attr_{{ attribute.id }}"
+                                                           value="{{ option.id }}"
+                                                           class="option-radio"
+                                                           data-attribute-id="{{ attribute.id }}"
+                                                           data-allocated-score="{{ option.allocated_score }}"
+                                                           data-requires-document="{% if attribute.requires_document %}true{% else %}false{% endif %}"
+                                                           {% if form_data.attribute_values %}
+                                                               {% with attr_value=form_data.attribute_values|get_item:attribute.id %}
+                                                                   {% if attr_value == option.id|stringformat:"s" or attr_value == option.id %}checked{% endif %}
+                                                               {% endwith %}
+                                                           {% endif %}
+                                                           {% if attribute.is_required %}required data-required="true"{% endif %}>
+                                                    {{ option.label }}
+                                                </label>
+                                            </td>
+                                            <td class="text-center">{{ option.allocated_score }}</td>
+                                            <td class="text-center actual-score-cell" 
+                                                data-attribute-id="{{ attribute.id }}"
+                                                data-option-id="{{ option.id }}">-</td>
+                                            <td class="text-center">
+                                                {{ attribute.weight_percent|floatformat:2 }}%
+                                            </td>
+                                            <td class="text-center weighted-score-cell" 
+                                                data-attribute-id="{{ attribute.id }}"
+                                                data-option-id="{{ option.id }}">-</td>
+                                            <td class="text-center proof-cell" 
+                                                data-attribute-id="{{ attribute.id }}"
+                                                data-option-id="{{ option.id }}">-</td>
+                                        </tr>
+                                        {% if attribute.requires_document %}
+                                        <!-- Document Upload Section for this Option -->
+                                        <tr class="document-upload-row" 
+                                                data-attribute-id="{{ attribute.id }}"
+                                                data-option-id="{{ option.id }}"
+                                            style="display: none;">
+                                            <td colspan="6" style="padding-left: {% if attribute.group_label %}3rem{% else %}2rem{% endif %}; padding-top: 0.5rem; padding-bottom: 0.5rem; background-color: #f9f9f9;">
+                                                <div class="document-upload-section">
+                                                    <label style="font-weight: 600; font-size: 0.85rem; color: #333; margin-bottom: 0.5rem; display: block;">
+                                                        Supporting Documents for "{{ option.label }}":
+                                                    </label>
+                                                    <input type="file" 
+                                                           name="doc_attr_{{ attribute.id }}_option_{{ option.id }}"
+                                                           id="doc_attr_{{ attribute.id }}_option_{{ option.id }}"
+                                                           class="document-upload-input"
+                                                           data-attribute-id="{{ attribute.id }}"
+                                                           data-option-id="{{ option.id }}"
+                                                           multiple
+                                                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx">
+                                                    <div class="uploaded-files-list" 
+                                                         id="files_list_attr_{{ attribute.id }}_option_{{ option.id }}"
+                                                         style="margin-top: 0.5rem; font-size: 0.8rem; color: #666;">
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    <!-- Highest Possible Score Row for this Attribute -->
+                                    <tr class="highest-score-row">
+                                        <td style="padding-left: {% if attribute.group_label %}2rem{% else %}1rem{% endif %};">
+                                            Highest Possible Score
+                                        </td>
+                                        <td class="text-center highest-score-cell" 
+                                            data-attribute-id="{{ attribute.id }}"
+                                            data-highest-score="{{ attribute.get_highest_possible_score }}">{{ attribute.get_highest_possible_score }}</td>
+                                        <td class="text-center">-</td>
+                                        <td class="text-center weight-cell" 
+                                            data-attribute-id="{{ attribute.id }}"
+                                            data-weight="{{ attribute.weight_percent }}">-</td>
+                                        <td class="text-center">-</td>
+                                        <td class="text-center">-</td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <!-- Totals Row for this Driver (show after all attributes for each driver) -->
+                            <tr class="driver-totals-row">
+                                <td style="padding-left: 1rem;">
+                                    Totals for {{ driver.name }}
+                                </td>
+                                <td class="text-center driver-total-allocated" 
+                                    data-driver-id="{{ driver.id }}"
+                                    data-total-highest="0">-</td>
+                                <td class="text-center driver-total-actual" 
+                                    data-driver-id="{{ driver.id }}">-</td>
+                                <td class="text-center driver-total-weight" 
+                                    data-driver-id="{{ driver.id }}"
+                                    data-total-weight="{{ driver.get_total_weight_percent }}">{{ driver.get_total_weight_percent|floatformat:2 }}%</td>
+                                <td class="text-center driver-total-weighted" 
+                                    data-driver-id="{{ driver.id }}">-</td>
+                                <td class="text-center">-</td>
+                            </tr>
+                        {% else %}
+                            <tr class="empty-attribute-row">
+                                <td colspan="6" style="padding-left: 1rem;">
+                                    No attributes configured
+                                </td>
+                            </tr>
+                        {% endif %}
+                     {% endwith %}
+                 {% endfor %}
+                 
+                 <!-- Section Totals Row (show after all drivers in the section) -->
+                 <tr class="section-totals-row">
+                     <td style="padding-left: 1rem;">
+                         Totals for {{ section.name }}
+                     </td>
+                     <td class="text-center section-total-allocated" 
+                         data-section-id="{{ section.id }}">-</td>
+                     <td class="text-center section-total-actual" 
+                         data-section-id="{{ section.id }}">-</td>
+                     <td class="text-center section-total-weight" 
+                         data-section-id="{{ section.id }}"
+                         data-total-weight="{{ section.get_total_weight_percent }}">{{ section.get_total_weight_percent|floatformat:2 }}%</td>
+                     <td class="text-center section-total-weighted" 
+                         data-section-id="{{ section.id }}">-</td>
+                     <td class="text-center">-</td>
+                 </tr>
+                 </tbody>
+             </table>
+         {% endfor %}
+
+         <!-- Overall Totals Row (show after all sections) -->
+         <div style="margin-top: 2rem;">
+             <table class="sticky-header-table">
+                 <thead class="sticky-header">
+                 <tr>
+                     <th style="width: 40%;">RISK DRIVERS</th>
+                     <th style="width: 12%;" class="text-center">ALLOCATED<br>SCORE</th>
+                     <th style="width: 12%;" class="text-center">ACTUAL<br>SCORE</th>
+                     <th style="width: 12%;" class="text-center">WEIGHT</th>
+                     <th style="width: 12%;" class="text-center">WEIGHTED<br>SCORE %</th>
+                     <th style="width: 12%;" class="text-center">PROOF</th>
+                 </tr>
+                 </thead>
+                 <tbody>
+                     <tr class="overall-totals-row">
+                         <td style="padding-left: 1rem;">
+                             Overall Totals
+                         </td>
+                         <td class="text-center overall-total-allocated">-</td>
+                         <td class="text-center overall-total-actual">-</td>
+                         <td class="text-center overall-total-weight">-</td>
+                         <td class="text-center overall-total-weighted">-</td>
+                         <td class="text-center">-</td>
+                     </tr>
+                 </tbody>
+             </table>
+         </div>
+
+         <!-- Calculation Result and Grade Achieved -->
+         <div class="calculation-result-box">
+             <h3 class="calculation-result-title">Calculation Result & Grade Achieved</h3>
+             
+             <table class="calculation-result-table">
+                 <tbody>
+                     <tr>
+                         <td>Total Weighted Score:</td>
+                         <td>
+                             <span class="final-weighted-score">-</span>
+                             <span style="font-size: 0.9rem; font-weight: 600; margin-left: 0.5rem;">%</span>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Grade Achieved:</td>
+                         <td>
+                             <span class="final-grade">-</span>
+                         </td>
+                     </tr>
+                 </tbody>
+             </table>
+         </div>
+
+         {% if grade_bands %}
+            <div class="grading-scale-section">
+                <h2 class="grading-scale-title">Grading Scale</h2>
+                <table class="grading-scale-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 60%;">Score Range</th>
+                            <th style="width: 40%;">Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for band in grade_bands %}
+                            <tr>
+                                <td>
+                                    {% if band.min_percent == 0 and band.max_percent == 30.99 %}
+                                        Below 31%
+                                    {% elif band.min_percent == 85 and band.max_percent == 100 %}
+                                        85% & Above
+                                    {% else %}
+                                        [{{ band.min_percent|floatformat:0 }}% - {{ band.max_percent|floatformat:0 }}%]
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ band.grade_code }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        <div class="actions">
+            <button type="reset" class="btn btn-secondary">Clear</button>
+            <button type="submit" name="save_draft" value="true" class="btn btn-secondary" style="background-color: #6c757d;">Save Draft</button>
+            <button type="submit" class="btn btn-success" style="background-color: #28a745; color: white;">Submit for Review</button>
+        </div>
+    </form>
+
+    <div class="actions">
+        <a href="{% url 'scorecard:basel_scores_template_select' %}" class="btn btn-secondary">
+            Back to Template Selection
+        </a>
+    </div>
+
+    <script>
+        // Formula configuration from template
+        const formulaConfig = {
+            actualScore: "{{ template.formula_actual_score|default:'ALLOCATED_SCORE'|escapejs }}",
+            weightedScore: "{{ template.formula_weighted_score|default:'ACTUAL_SCORE / Highest_Possible_Score * WEIGHT'|escapejs }}",
+            proof: "{{ template.formula_proof|default:'IF(ACTUAL_SCORE = \'\', \'\', IF(ACTUAL_SCORE != ALLOCATED_SCORE, \'ERROR\', \'\')) + ALLOCATED_SCORE'|escapejs }}"
+        };
+
+        // Simple formula evaluator
+        function evaluateFormula(formula, variables, options = {}) {
+            const numericOnly = options.numericOnly === true;
+            let result = formula;
+            
+            // Replace variables with their values
+            // Replace in order: longest variable names first to avoid partial matches
+            const sortedKeys = Object.keys(variables).sort((a, b) => b.length - a.length);
+            
+            for (const key of sortedKeys) {
+                const value = variables[key];
+                // Escape special regex characters in the variable name
+                const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                // Use word boundaries to match whole words only
+                const regex = new RegExp('\\b' + escapedKey + '\\b', 'g');
+                result = result.replace(regex, value);
+            }
+            
+            // Debug: log the formula after variable replacement
+            console.log('Formula evaluation:', {
+                original: formula,
+                afterReplacement: result,
+                variables: variables
+            });
+            
+            // Handle nested IF statements from innermost to outermost
+            // We need to process from right to left (innermost first) to handle nested IFs
+            while (result.includes('IF(')) {
+                // Find all IF( occurrences and process from rightmost (innermost) first
+                let ifIndices = [];
+                let searchIndex = 0;
+                while (true) {
+                    const index = result.indexOf('IF(', searchIndex);
+                    if (index === -1) break;
+                    ifIndices.push(index);
+                    searchIndex = index + 3;
+                }
+                
+                if (ifIndices.length === 0) break;
+                
+                // Process the rightmost (innermost) IF first
+                const ifIndex = ifIndices[ifIndices.length - 1];
+                
+                // Find the matching closing parenthesis by tracking nested parentheses
+                let depth = 0;
+                let endIndex = ifIndex + 3; // Start after 'IF('
+                let comma1Index = -1;
+                let comma2Index = -1;
+                
+                for (let i = endIndex; i < result.length; i++) {
+                    if (result[i] === '(') {
+                        depth++;
+                    } else if (result[i] === ')') {
+                        if (depth === 0) {
+                            endIndex = i;
+                            break;
+                        }
+                        depth--;
+                    } else if (result[i] === ',' && depth === 0) {
+                        if (comma1Index === -1) {
+                            comma1Index = i;
+                        } else if (comma2Index === -1) {
+                            comma2Index = i;
+                        }
+                    }
+                }
+                
+                if (comma1Index === -1 || comma2Index === -1) break;
+                
+                const condition = result.substring(ifIndex + 3, comma1Index).trim();
+                let trueValue = result.substring(comma1Index + 1, comma2Index).trim();
+                let falseValue = result.substring(comma2Index + 1, endIndex).trim();
+                
+                // Remove quotes from values, but preserve empty strings
+                if (trueValue.match(/^['"].*['"]$/)) {
+                    trueValue = trueValue.slice(1, -1);
+                }
+                if (falseValue.match(/^['"].*['"]$/)) {
+                    falseValue = falseValue.slice(1, -1);
+                }
+                
+                let conditionResult = false;
+                
+                // Evaluate conditions - handle empty string comparisons
+                if (condition.includes(' != ')) {
+                    const parts = condition.split(' != ').map(s => {
+                        s = s.trim();
+                        if (s.match(/^['"]/)) {
+                            return s.slice(1, -1);
+                        }
+                        return s;
+                    });
+                    conditionResult = parts[0] !== parts[1];
+                } else if (condition.includes(' = ') && !condition.includes('==')) {
+                    const parts = condition.split(' = ').map(s => {
+                        s = s.trim();
+                        if (s.match(/^['"]/)) {
+                            return s.slice(1, -1);
+                        }
+                        return s;
+                    });
+                    conditionResult = parts[0] === parts[1];
+                } else if (condition.includes(' == ')) {
+                    const parts = condition.split(' == ').map(s => {
+                        s = s.trim();
+                        if (s.match(/^['"]/)) {
+                            return s.slice(1, -1);
+                        }
+                        return s;
+                    });
+                    conditionResult = parts[0] === parts[1];
+                }
+                
+                // Replace the IF statement with the result
+                const ifStatement = result.substring(ifIndex, endIndex + 1);
+                const replacement = conditionResult ? trueValue : falseValue;
+                result = result.replace(ifStatement, replacement);
+            }
+            
+            // Handle string concatenation with + operator
+            if (result.includes(' + ')) {
+                const parts = result.split(/\s*\+\s*/);
+                const evaluatedParts = parts.map(part => {
+                    part = part.trim();
+                    // Remove quotes if present
+                    if ((part.startsWith("'") && part.endsWith("'")) || (part.startsWith('"') && part.endsWith('"'))) {
+                        part = part.slice(1, -1);
+                    }
+                    // Try to evaluate as number
+                    const num = parseFloat(part);
+                    // If it's a valid number and not part of a string (like 'ERROR'), return as number
+                    // Otherwise keep as string
+                    if (!isNaN(num) && part === num.toString()) {
+                        return num;
+                    }
+                    return part;
+                });
+                
+                // Check if all non-empty parts are numeric
+                const nonEmptyParts = evaluatedParts.filter(p => p !== '');
+                const allNumeric = nonEmptyParts.every(p => typeof p === 'number' || (!isNaN(parseFloat(p)) && parseFloat(p).toString() === p.toString()));
+                
+                // If all parts are numbers, sum them; otherwise concatenate as strings
+                if (allNumeric && nonEmptyParts.length > 0) {
+                    const numericParts = nonEmptyParts.map(p => typeof p === 'number' ? p : parseFloat(p));
+                    result = numericParts.reduce((a, b) => a + b, 0).toString();
+                } else {
+                    // String concatenation - join all parts including empty strings
+                    result = evaluatedParts.join('');
+                }
+            } else {
+                // Evaluate as mathematical expression
+                try {
+                    // Clean up the expression - remove quotes and trim
+                    result = result.replace(/['"]/g, '').trim();
+                    
+                    // Check if it's a valid mathematical expression
+                    // Allow numbers, operators, spaces, parentheses, and decimal points
+                    if (/^[\d\s+\-*/().]+$/.test(result)) {
+                        // Use Function constructor to safely evaluate the expression
+                        const evaluated = Function('"use strict"; return (' + result + ')')();
+                        // Ensure we return a valid number string
+                        if (!isNaN(evaluated) && isFinite(evaluated)) {
+                            result = evaluated.toString();
+                        } else {
+                            // If evaluation resulted in NaN or Infinity, try parsing as float
+                            const parsed = parseFloat(result);
+                            result = (!isNaN(parsed) && isFinite(parsed)) ? parsed.toString() : '0';
+                        }
+                    } else {
+                        // For numeric score formulas, do not silently collapse to the
+                        // first numeric token when the expression was not fully resolved.
+                        if (numericOnly) {
+                            result = 'NaN';
+                        } else {
+                            const parsed = parseFloat(result);
+                            if (!isNaN(parsed) && isFinite(parsed)) {
+                                result = parsed.toString();
+                            } else {
+                                result = '0';
+                            }
+                        }
+                    }
+                } catch (e) {
+                    if (numericOnly) {
+                        result = 'NaN';
+                    } else {
+                        try {
+                            const parsed = parseFloat(result);
+                            result = (!isNaN(parsed) && isFinite(parsed)) ? parsed.toString() : '0';
+                        } catch (e2) {
+                            result = '0';
+                        }
+                    }
+                }
+            }
+            
+            return result;
+        }
+
+        function parseNumericFormulaResult(value) {
+            if (typeof value === 'number') {
+                return Number.isFinite(value) ? value : NaN;
+            }
+
+            const text = (value ?? '').toString().trim();
+            if (!text) {
+                return NaN;
+            }
+
+            if (/^-?\d+(\.\d+)?$/.test(text)) {
+                return parseFloat(text);
+            }
+
+            if (/^[\d\s+\-*/().]+$/.test(text)) {
+                try {
+                    const evaluated = Function('"use strict"; return (' + text + ')')();
+                    return Number.isFinite(evaluated) ? Number(evaluated) : NaN;
+                } catch (e) {
+                    return NaN;
+                }
+            }
+
+            return NaN;
+        }
+
+        function buildFormulaVariables({ allocatedScore = 0, actualScore = 0, highestScore = 0, weight = 0, weightedScore = 0 } = {}) {
+            const highest = highestScore || 0;
+            return {
+                'ALLOCATED_SCORE': allocatedScore.toString(),
+                'ACTUAL_SCORE': actualScore.toString(),
+                'WEIGHTED_SCORE': weightedScore.toString(),
+                'Highest_Possible_Score': highest.toString(),
+                'HIGHEST_POSSIBLE_SCORE': highest.toString(),
+                'MAX_SCORE': highest.toString(),
+                'WEIGHT': weight.toString()
+            };
+        }
+
+        // Calculate scores for an attribute
+        function calculateAttributeScores(attributeId) {
+            const selectedRadio = document.querySelector(`input[name="attr_${attributeId}"]:checked`);
+            const highestScoreCell = document.querySelector(`.highest-score-cell[data-attribute-id="${attributeId}"]`);
+            const weightCell = document.querySelector(`.weight-cell[data-attribute-id="${attributeId}"]`);
+            
+            // Get all cells for this attribute
+            const allActualScoreCells = document.querySelectorAll(`.actual-score-cell[data-attribute-id="${attributeId}"]`);
+            const allWeightedScoreCells = document.querySelectorAll(`.weighted-score-cell[data-attribute-id="${attributeId}"]`);
+            const allProofCells = document.querySelectorAll(`.proof-cell[data-attribute-id="${attributeId}"]`);
+            
+            // Clear all cells first
+            allActualScoreCells.forEach(cell => cell.textContent = '-');
+            allWeightedScoreCells.forEach(cell => cell.textContent = '-');
+            allProofCells.forEach(cell => cell.textContent = '-');
+            
+            if (!selectedRadio || selectedRadio.value === '') {
+                // No scored option selected, all cells already cleared
+                // Still update driver totals, section totals, overall totals, and final grade
+                const tbody = selectedRadio ? selectedRadio.closest('tbody') : document.querySelector('tbody');
+                if (tbody) {
+                    // Find the driver this attribute belongs to
+                    let driverId = null;
+                    const driverRows = tbody.querySelectorAll('tr.driver-row');
+                    for (let driverRow of driverRows) {
+                        let currentRow = driverRow.nextElementSibling;
+                        while (currentRow && !currentRow.classList.contains('driver-row')) {
+                            if (currentRow.contains(selectedRadio)) {
+                                driverId = driverRow.dataset.driverId;
+                                break;
+                            }
+                            if (currentRow.querySelector('.driver-total-actual')) {
+                                break;
+                            }
+                            currentRow = currentRow.nextElementSibling;
+                        }
+                        if (driverId) break;
+                    }
+                    
+                    // Update driver totals
+                    if (driverId) {
+                        calculateDriverTotals(driverId);
+                    } else {
+                        // If we can't find the specific driver, update all drivers
+                        for (let driverRow of driverRows) {
+                            const id = driverRow.dataset.driverId;
+                            if (id) {
+                                calculateDriverTotals(id);
+                            }
+                        }
+                    }
+                    
+                    // Update section totals, overall totals, and final grade
+                    const sectionTotalRows = document.querySelectorAll('.section-total-allocated');
+                    sectionTotalRows.forEach(sectionTotalRow => {
+                        const sectionId = sectionTotalRow.dataset.sectionId;
+                        if (sectionId) {
+                            calculateSectionTotals(sectionId);
+                        }
+                    });
+                    calculateOverallTotals();
+                }
+                return;
+            }
+            
+            const selectedOptionId = selectedRadio.value;
+            const allocatedScore = parseFloat(selectedRadio.dataset.allocatedScore) || 0;
+            const highestScore = highestScoreCell ? parseFloat(highestScoreCell.dataset.highestScore) : 1;
+            
+            // Get weight from data attribute - ensure it's properly parsed
+            let weight = 0;
+            if (weightCell && weightCell.dataset.weight) {
+                weight = parseFloat(weightCell.dataset.weight);
+                if (isNaN(weight)) {
+                    weight = 0;
+                }
+            }
+            
+            // Debug: log values for troubleshooting (remove in production)
+            // console.log('Attribute ID:', attributeId, 'Allocated:', allocatedScore, 'Highest:', highestScore, 'Weight:', weight);
+            
+            // Find the cells for the selected option only
+            const selectedActualScoreCell = document.querySelector(`.actual-score-cell[data-attribute-id="${attributeId}"][data-option-id="${selectedOptionId}"]`);
+            const selectedWeightedScoreCell = document.querySelector(`.weighted-score-cell[data-attribute-id="${attributeId}"][data-option-id="${selectedOptionId}"]`);
+            const selectedProofCell = document.querySelector(`.proof-cell[data-attribute-id="${attributeId}"][data-option-id="${selectedOptionId}"]`);
+            
+            // Calculate ACTUAL_SCORE (default: ALLOCATED_SCORE)
+            let actualScore = allocatedScore;
+            if (formulaConfig.actualScore !== 'ALLOCATED_SCORE') {
+                const actualScoreResult = evaluateFormula(
+                    formulaConfig.actualScore,
+                    buildFormulaVariables({
+                        allocatedScore: allocatedScore,
+                        actualScore: allocatedScore,
+                        highestScore: highestScore,
+                        weight: weight,
+                        weightedScore: 0
+                    }),
+                    { numericOnly: true }
+                );
+                const parsedActualScore = parseNumericFormulaResult(actualScoreResult);
+                actualScore = Number.isFinite(parsedActualScore) ? parsedActualScore : allocatedScore;
+            }
+            
+            // Calculate WEIGHTED_SCORE using the formula from template configuration
+            let weightedScore = 0;
+            if (highestScore > 0 && weight > 0 && Number.isFinite(actualScore)) {
+                // Use the same evaluateFormula approach as ACTUAL_SCORE
+                // Ensure all values are properly formatted as strings for variable replacement
+                // The formula should be: ACTUAL_SCORE / Highest_Possible_Score * WEIGHT
+                const formulaBefore = formulaConfig.weightedScore;
+                const weightedScoreResult = evaluateFormula(
+                    formulaConfig.weightedScore,
+                    buildFormulaVariables({
+                        allocatedScore: allocatedScore,
+                        actualScore: actualScore,
+                        highestScore: highestScore,
+                        weight: weight,
+                        weightedScore: 0
+                    }),
+                    { numericOnly: true }
+                );
+                
+                // Debug logging (remove in production)
+                console.log('WEIGHTED_SCORE Calculation:', {
+                    formula: formulaBefore,
+                    actualScore: actualScore,
+                    highestScore: highestScore,
+                    weight: weight,
+                    result: weightedScoreResult
+                });
+                
+                // Parse the result - handle both string and number results
+                weightedScore = parseNumericFormulaResult(weightedScoreResult);
+                
+                // Validate the result - if formula evaluation failed or returned invalid value
+                if (!Number.isFinite(weightedScore)) {
+                    // If formula evaluation failed, use the standard weighted-score formula as a fallback
+                    weightedScore = (actualScore / highestScore) * weight;
+                    
+                    console.log('Using fallback calculation:', weightedScore);
+                    
+                    // Ensure it's a valid number
+                    if (!Number.isFinite(weightedScore)) {
+                        weightedScore = 0;
+                    }
+                }
+            } else {
+                console.log('WEIGHTED_SCORE skipped - missing values:', {
+                    highestScore: highestScore,
+                    weight: weight,
+                    actualScore: actualScore
+                });
+            }
+            
+            // Calculate PROOF
+            // Default PROOF formula: IF(ACTUAL_SCORE = '', '', IF(ACTUAL_SCORE != ALLOCATED_SCORE, 'ERROR', '')) + ALLOCATED_SCORE
+            // When ACTUAL_SCORE == ALLOCATED_SCORE, return null/empty instead of ALLOCATED_SCORE
+            let proof = '';
+            
+            // For empty ACTUAL_SCORE, PROOF should be empty
+            if (actualScore === 0 || actualScore === '') {
+                proof = '';
+            } else {
+                // Check if ACTUAL_SCORE equals ALLOCATED_SCORE - if so, return empty
+                if (actualScore === allocatedScore) {
+                    proof = '';
+                } else {
+                    // Evaluate the PROOF formula (only when they don't match)
+                const proofResult = evaluateFormula(
+                    formulaConfig.proof,
+                    buildFormulaVariables({
+                        allocatedScore: allocatedScore,
+                        actualScore: actualScore,
+                        highestScore: highestScore,
+                        weight: weight,
+                        weightedScore: weightedScore
+                    })
+                );
+                    
+                    // Clean up the result
+                    proof = proofResult.toString();
+                    
+                    // If result is empty or invalid, it means no error, so return empty
+                    if (proof === '' || proof === 'undefined' || proof === 'null') {
+                        proof = '';
+                    }
+                }
+            }
+            
+            // Update only the selected option's cells
+            if (selectedActualScoreCell) {
+                selectedActualScoreCell.textContent = actualScore.toFixed(2);
+            }
+            if (selectedWeightedScoreCell) {
+                selectedWeightedScoreCell.textContent = weightedScore.toFixed(2);
+            }
+            if (selectedProofCell) {
+                selectedProofCell.textContent = proof;
+            }
+            
+            // Find and update driver totals after updating attribute scores
+            // Find the driver row that contains this attribute
+            const tbody = selectedRadio.closest('tbody');
+            if (tbody) {
+                // Find all driver rows
+                const driverRows = tbody.querySelectorAll('tr.driver-row');
+                for (let driverRow of driverRows) {
+                    const driverId = driverRow.dataset.driverId;
+                    // Check if our selected radio is within this driver's section
+                    let currentRow = driverRow.nextElementSibling;
+                    let found = false;
+                    while (currentRow && !currentRow.classList.contains('driver-row')) {
+                        if (currentRow.contains(selectedRadio)) {
+                            found = true;
+                            break;
+                        }
+                        // Stop if we hit the totals row
+                        if (currentRow.querySelector('.driver-total-actual')) {
+                            break;
+                        }
+                        currentRow = currentRow.nextElementSibling;
+                    }
+                    if (found && driverId) {
+                        calculateDriverTotals(driverId);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function getComboValidationMessage(ruleType) {
+            if (ruleType === 'retail_liquidity_combo') {
+                return 'Select d(i) or d(ii) together with d(iii), or score d(iv) on its own.';
+            }
+            if (ruleType === 'retail_inventory_combo') {
+                return 'Select any combination of e(i) to e(iii), or score e(iv) or e(v) on its own.';
+            }
+            return 'Invalid combination selected.';
+        }
+
+        function setComboValidationRow(attributeId, message) {
+            const validationRow = document.querySelector(`.combo-validation-row[data-attribute-id="${attributeId}"]`);
+            if (!validationRow) {
+                return;
+            }
+            const messageNode = validationRow.querySelector('.combo-validation-message');
+            if (message) {
+                if (messageNode) {
+                    messageNode.textContent = message;
+                }
+                validationRow.style.display = '';
+            } else {
+                if (messageNode) {
+                    messageNode.textContent = '';
+                }
+                validationRow.style.display = 'none';
+            }
+        }
+
+        function isValidComboSelection(ruleType, selectedOrders) {
+            if (ruleType === 'retail_liquidity_combo') {
+                const hasPrimary = selectedOrders.includes(1) || selectedOrders.includes(2);
+                const primaryCount = [1, 2].filter(order => selectedOrders.includes(order)).length;
+                const hasAdditive = selectedOrders.includes(3);
+                const standaloneOnly = selectedOrders.length === 1 && selectedOrders.includes(4);
+                return standaloneOnly || (selectedOrders.length === 2 && hasPrimary && primaryCount === 1 && hasAdditive);
+            }
+            if (ruleType === 'retail_inventory_combo') {
+                const standaloneOnly = selectedOrders.length === 1 && (selectedOrders.includes(4) || selectedOrders.includes(5));
+                const positiveOnly = selectedOrders.length > 0 && selectedOrders.every(order => order >= 1 && order <= 3);
+                return standaloneOnly || positiveOnly;
+            }
+            return true;
+        }
+
+        function isStandaloneOnlyCombo(ruleType, selectedOrders) {
+            if (ruleType === 'retail_liquidity_combo') {
+                return selectedOrders.length === 1 && selectedOrders.includes(4);
+            }
+            if (ruleType === 'retail_inventory_combo') {
+                return selectedOrders.length === 1 && (selectedOrders.includes(4) || selectedOrders.includes(5));
+            }
+            return false;
+        }
+
+        function calculateComboAttributeScores(attributeId) {
+            const selectedCheckboxes = Array.from(document.querySelectorAll(`input[name="attr_${attributeId}"]:checked`));
+            const summaryRow = document.querySelector(`.combo-summary-row[data-attribute-id="${attributeId}"]`);
+            const highestScoreCell = document.querySelector(`.highest-score-cell[data-attribute-id="${attributeId}"]`);
+            const weightCell = document.querySelector(`.weight-cell[data-attribute-id="${attributeId}"]`);
+            const summaryActualCell = document.querySelector(`.combo-summary-actual[data-attribute-id="${attributeId}"]`);
+            const summaryWeightedCell = document.querySelector(`.combo-summary-weighted[data-attribute-id="${attributeId}"]`);
+            const summaryProofCell = document.querySelector(`.combo-summary-proof[data-attribute-id="${attributeId}"]`);
+
+            document.querySelectorAll(`.actual-score-cell[data-attribute-id="${attributeId}"]`).forEach(cell => cell.textContent = '-');
+            document.querySelectorAll(`.weighted-score-cell[data-attribute-id="${attributeId}"]`).forEach(cell => cell.textContent = '-');
+            document.querySelectorAll(`.proof-cell[data-attribute-id="${attributeId}"]`).forEach(cell => cell.textContent = '-');
+
+            if (!summaryRow || !highestScoreCell || !weightCell) {
+                return;
+            }
+
+            const ruleType = summaryRow.dataset.scoringRule;
+            const selectedOrders = selectedCheckboxes
+                .map(checkbox => parseInt(checkbox.dataset.optionOrder || '0', 10))
+                .filter(order => order > 0);
+
+            let currentRowForDriver = summaryRow;
+            let driverId = null;
+            while (currentRowForDriver) {
+                if (currentRowForDriver.classList && currentRowForDriver.classList.contains('driver-row')) {
+                    driverId = currentRowForDriver.dataset.driverId;
+                    break;
+                }
+                currentRowForDriver = currentRowForDriver.previousElementSibling;
+            }
+
+            if (selectedCheckboxes.length === 0) {
+                if (summaryActualCell) summaryActualCell.textContent = '-';
+                if (summaryWeightedCell) summaryWeightedCell.textContent = '-';
+                if (summaryProofCell) summaryProofCell.textContent = '-';
+                setComboValidationRow(attributeId, '');
+                if (driverId) {
+                    calculateDriverTotals(driverId);
+                }
+                return;
+            }
+
+            const isValid = isValidComboSelection(ruleType, selectedOrders);
+            setComboValidationRow(attributeId, isValid ? '' : getComboValidationMessage(ruleType));
+            const standaloneOnly = isStandaloneOnlyCombo(ruleType, selectedOrders);
+
+            const highestScore = parseFloat(highestScoreCell.dataset.highestScore) || 0;
+            const weight = parseFloat(weightCell.dataset.weight) || 0;
+            let rawScore = 0;
+            selectedCheckboxes.forEach(checkbox => {
+                const optionId = checkbox.value;
+                const allocatedScore = parseFloat(checkbox.dataset.allocatedScore) || 0;
+                rawScore += allocatedScore;
+                const actualCell = document.querySelector(`.actual-score-cell[data-attribute-id="${attributeId}"][data-option-id="${optionId}"]`);
+                if (actualCell) {
+                    actualCell.textContent = allocatedScore.toFixed(2);
+                }
+            });
+
+            let actualScore = rawScore;
+            if (formulaConfig.actualScore !== 'ALLOCATED_SCORE') {
+                const actualScoreResult = evaluateFormula(
+                    formulaConfig.actualScore,
+                    buildFormulaVariables({
+                        allocatedScore: rawScore,
+                        actualScore: rawScore,
+                        highestScore: highestScore,
+                        weight: weight,
+                        weightedScore: 0
+                    }),
+                    { numericOnly: true }
+                );
+                const parsedActualScore = parseNumericFormulaResult(actualScoreResult);
+                actualScore = Number.isFinite(parsedActualScore) ? parsedActualScore : rawScore;
+            }
+
+            let weightedScore = 0;
+            if (highestScore > 0 && Number.isFinite(actualScore)) {
+                const weightedScoreResult = evaluateFormula(
+                    formulaConfig.weightedScore,
+                    buildFormulaVariables({
+                        allocatedScore: rawScore,
+                        actualScore: actualScore,
+                        highestScore: highestScore,
+                        weight: weight,
+                        weightedScore: 0
+                    }),
+                    { numericOnly: true }
+                );
+                weightedScore = parseNumericFormulaResult(weightedScoreResult);
+                if (!Number.isFinite(weightedScore)) {
+                    weightedScore = (actualScore / highestScore) * weight;
+                    if (!Number.isFinite(weightedScore)) {
+                        weightedScore = 0;
+                    }
+                }
+                const maxWeightedMagnitude = Math.abs(weight);
+                weightedScore = Math.min(Math.abs(weightedScore), maxWeightedMagnitude) * (weightedScore < 0 ? -1 : 1);
+            }
+            const proofScore = Math.max(weight - Math.abs(weightedScore), 0);
+
+            selectedCheckboxes.forEach(checkbox => {
+                const optionId = checkbox.value;
+                const allocatedScore = parseFloat(checkbox.dataset.allocatedScore) || 0;
+                const weightedCell = document.querySelector(`.weighted-score-cell[data-attribute-id="${attributeId}"][data-option-id="${optionId}"]`);
+                if (weightedCell) {
+                    const rowWeightedScoreResult = evaluateFormula(
+                        formulaConfig.weightedScore,
+                        buildFormulaVariables({
+                            allocatedScore: allocatedScore,
+                            actualScore: allocatedScore,
+                            highestScore: highestScore,
+                            weight: weight,
+                            weightedScore: 0
+                        }),
+                        { numericOnly: true }
+                    );
+                    let rowWeightedScore = parseNumericFormulaResult(rowWeightedScoreResult);
+                    if (!Number.isFinite(rowWeightedScore)) {
+                        rowWeightedScore = highestScore > 0 ? (allocatedScore / highestScore) * weight : 0;
+                    }
+                    weightedCell.textContent = rowWeightedScore.toFixed(2);
+                }
+            });
+
+            if (summaryActualCell) {
+                summaryActualCell.textContent = actualScore.toFixed(2);
+                summaryActualCell.dataset.actualScore = actualScore.toFixed(2);
+            }
+            if (summaryWeightedCell) {
+                summaryWeightedCell.textContent = weightedScore.toFixed(2);
+                summaryWeightedCell.dataset.weightedScore = weightedScore.toFixed(2);
+            }
+            if (summaryProofCell) {
+                summaryProofCell.textContent = isValid ? proofScore.toFixed(2) : 'ERROR';
+            }
+
+            if (driverId) {
+                calculateDriverTotals(driverId);
+            }
+        }
+
+        function formatNumericTotal(value, hasValue) {
+            return hasValue ? value.toFixed(2) : '-';
+        }
+
+        // Calculate driver totals for all attributes under a driver
+        function calculateDriverTotals(driverId) {
+
+            // Find the driver row
+            const driverRow = document.querySelector(`tr.driver-row[data-driver-id="${driverId}"]`);
+            if (!driverRow) return;
+            
+            let totalHighest = 0;
+            let totalActual = 0;
+            let totalWeighted = 0;
+            const processedAttributes = new Set();
+            let hasSelections = false;
+            
+            // Traverse rows after the driver header until we hit the totals row or next driver
+            let currentRow = driverRow.nextElementSibling;
+            while (currentRow) {
+                // Stop if we hit the totals row (which we created) or next driver
+                if (currentRow.querySelector('.driver-total-actual') || currentRow.classList.contains('driver-row')) {
+                    break;
+                }
+                
+                // Check for highest score cells (these are on the "Highest Possible Score" rows)
+                const highestScoreCell = currentRow.querySelector('.highest-score-cell');
+                if (highestScoreCell) {
+                    const attributeId = highestScoreCell.dataset.attributeId;
+                    
+                    // Only process each attribute once
+                    if (attributeId && !processedAttributes.has(attributeId)) {
+                        processedAttributes.add(attributeId);
+                        
+                        // Add the highest score for this attribute
+                        const highestScore = parseFloat(highestScoreCell.dataset.highestScore) || parseFloat(highestScoreCell.textContent) || 0;
+                        totalHighest += highestScore;
+
+                        if (currentRow.classList.contains('combo-summary-row')) {
+                            const comboActualCell = currentRow.querySelector(`.combo-summary-actual[data-attribute-id="${attributeId}"]`);
+                            const comboWeightedCell = currentRow.querySelector(`.combo-summary-weighted[data-attribute-id="${attributeId}"]`);
+                            if (comboActualCell && comboActualCell.textContent !== '-') {
+                                hasSelections = true;
+                                totalActual += parseFloat(comboActualCell.textContent) || 0;
+                            }
+                            if (comboWeightedCell && comboWeightedCell.textContent !== '-') {
+                                totalWeighted += parseFloat(comboWeightedCell.textContent) || 0;
+                            }
+                        } else {
+                            // Get the selected option for this attribute
+                            const selectedRadio = document.querySelector(`input[name="attr_${attributeId}"]:checked`);
+                            if (selectedRadio) {
+                                hasSelections = true;
+                                const selectedOptionId = selectedRadio.value;
+                                const selectedActualCell = document.querySelector(`.actual-score-cell[data-attribute-id="${attributeId}"][data-option-id="${selectedOptionId}"]`);
+                                const selectedWeightedCell = document.querySelector(`.weighted-score-cell[data-attribute-id="${attributeId}"][data-option-id="${selectedOptionId}"]`);
+                                
+                                if (selectedActualCell && selectedActualCell.textContent !== '-') {
+                                    totalActual += parseFloat(selectedActualCell.textContent) || 0;
+                                }
+                                if (selectedWeightedCell && selectedWeightedCell.textContent !== '-') {
+                                    totalWeighted += parseFloat(selectedWeightedCell.textContent) || 0;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                currentRow = currentRow.nextElementSibling;
+            }
+            
+            // Update driver totals
+            const driverTotalAllocated = document.querySelector(`.driver-total-allocated[data-driver-id="${driverId}"]`);
+            const driverTotalActual = document.querySelector(`.driver-total-actual[data-driver-id="${driverId}"]`);
+            const driverTotalWeighted = document.querySelector(`.driver-total-weighted[data-driver-id="${driverId}"]`);
+            
+             if (driverTotalAllocated) {
+                 driverTotalAllocated.textContent = totalHighest > 0 ? totalHighest.toFixed(2) : '-';
+             }
+             if (driverTotalActual) {
+                 driverTotalActual.textContent = formatNumericTotal(totalActual, hasSelections);
+             }
+             if (driverTotalWeighted) {
+                 driverTotalWeighted.textContent = formatNumericTotal(totalWeighted, hasSelections);
+             }
+             
+             // Update section totals after updating driver totals
+             const tbody = driverRow.closest('tbody');
+             if (tbody) {
+                 // Find the section ID from the section totals row
+                 const sectionTotalRow = tbody.querySelector('.section-total-allocated');
+                 if (sectionTotalRow) {
+                     const sectionId = sectionTotalRow.dataset.sectionId;
+                     if (sectionId) {
+                         calculateSectionTotals(sectionId);
+                     }
+                 }
+             }
+         }
+         
+         // Calculate section totals for all drivers under a section
+         function calculateSectionTotals(sectionId) {
+             // Find the section's tbody
+             const sectionTotalRow = document.querySelector(`.section-total-allocated[data-section-id="${sectionId}"]`);
+             if (!sectionTotalRow) return;
+             
+             const tbody = sectionTotalRow.closest('tbody');
+             if (!tbody) return;
+             
+             let totalAllocated = 0;
+             let totalActual = 0;
+             let totalWeight = 0;
+             let totalWeighted = 0;
+             let hasActualTotals = false;
+             let hasWeightedTotals = false;
+             
+             // Find all driver totals in this section - calculate from driver level
+             const driverRows = tbody.querySelectorAll('tr.driver-row');
+             driverRows.forEach(driverRow => {
+                 const driverId = driverRow.dataset.driverId;
+                 if (driverId) {
+                     const driverTotalAllocated = tbody.querySelector(`.driver-total-allocated[data-driver-id="${driverId}"]`);
+                     const driverTotalActual = tbody.querySelector(`.driver-total-actual[data-driver-id="${driverId}"]`);
+                     const driverTotalWeight = tbody.querySelector(`.driver-total-weight[data-driver-id="${driverId}"]`);
+                     const driverTotalWeighted = tbody.querySelector(`.driver-total-weighted[data-driver-id="${driverId}"]`);
+                     
+                     if (driverTotalAllocated && driverTotalAllocated.textContent !== '-') {
+                         totalAllocated += parseFloat(driverTotalAllocated.textContent) || 0;
+                     }
+                     if (driverTotalActual && driverTotalActual.textContent !== '-') {
+                         hasActualTotals = true;
+                         totalActual += parseFloat(driverTotalActual.textContent) || 0;
+                     }
+                     // Sum driver weights (each driver weight is sum of its attributes)
+                     if (driverTotalWeight) {
+                         // Get weight from data attribute or text content
+                         const weightValue = parseFloat(driverTotalWeight.dataset.totalWeight) || parseFloat(driverTotalWeight.textContent.replace('%', '')) || 0;
+                         totalWeight += weightValue;
+                     }
+                     if (driverTotalWeighted && driverTotalWeighted.textContent !== '-') {
+                         hasWeightedTotals = true;
+                         totalWeighted += parseFloat(driverTotalWeighted.textContent) || 0;
+                     }
+                 }
+             });
+             
+             // Update section totals
+             const sectionTotalAllocated = document.querySelector(`.section-total-allocated[data-section-id="${sectionId}"]`);
+             const sectionTotalActual = document.querySelector(`.section-total-actual[data-section-id="${sectionId}"]`);
+             const sectionTotalWeight = document.querySelector(`.section-total-weight[data-section-id="${sectionId}"]`);
+             const sectionTotalWeighted = document.querySelector(`.section-total-weighted[data-section-id="${sectionId}"]`);
+             
+             if (sectionTotalAllocated) {
+                 sectionTotalAllocated.textContent = totalAllocated > 0 ? totalAllocated.toFixed(2) : '-';
+             }
+             if (sectionTotalActual) {
+                 sectionTotalActual.textContent = formatNumericTotal(totalActual, hasActualTotals);
+             }
+             // Update section weight from sum of driver weights
+             if (sectionTotalWeight) {
+                 sectionTotalWeight.textContent = totalWeight > 0 ? totalWeight.toFixed(2) + '%' : '-';
+                 // Also update the data attribute
+                 sectionTotalWeight.dataset.totalWeight = totalWeight.toString();
+             }
+             if (sectionTotalWeighted) {
+                 sectionTotalWeighted.textContent = formatNumericTotal(totalWeighted, hasWeightedTotals);
+             }
+             
+             // Update overall totals after updating section totals
+             calculateOverallTotals();
+         }
+         
+         // Calculate overall totals for all sections
+         function calculateOverallTotals() {
+             let totalAllocated = 0;
+             let totalActual = 0;
+             let totalWeight = 0;
+             let totalWeighted = 0;
+             let hasActualTotals = false;
+             let hasWeightedTotals = false;
+             
+             // Find all section totals
+             const sectionTotalRows = document.querySelectorAll('.section-total-allocated');
+             sectionTotalRows.forEach(sectionTotalRow => {
+                 const sectionId = sectionTotalRow.dataset.sectionId;
+                 if (sectionId) {
+                     const sectionTotalAllocated = document.querySelector(`.section-total-allocated[data-section-id="${sectionId}"]`);
+                     const sectionTotalActual = document.querySelector(`.section-total-actual[data-section-id="${sectionId}"]`);
+                     const sectionTotalWeight = document.querySelector(`.section-total-weight[data-section-id="${sectionId}"]`);
+                     const sectionTotalWeighted = document.querySelector(`.section-total-weighted[data-section-id="${sectionId}"]`);
+                     
+                     if (sectionTotalAllocated && sectionTotalAllocated.textContent !== '-') {
+                         totalAllocated += parseFloat(sectionTotalAllocated.textContent) || 0;
+                     }
+                     if (sectionTotalActual && sectionTotalActual.textContent !== '-') {
+                         hasActualTotals = true;
+                         totalActual += parseFloat(sectionTotalActual.textContent) || 0;
+                     }
+                     if (sectionTotalWeight) {
+                         // Get weight from text content (remove % sign)
+                         const weightText = sectionTotalWeight.textContent.replace('%', '');
+                         const weightValue = parseFloat(weightText) || 0;
+                         totalWeight += weightValue;
+                     }
+                     if (sectionTotalWeighted && sectionTotalWeighted.textContent !== '-') {
+                         hasWeightedTotals = true;
+                         totalWeighted += parseFloat(sectionTotalWeighted.textContent) || 0;
+                     }
+                 }
+             });
+             
+             // Update overall totals
+             const overallTotalAllocated = document.querySelector('.overall-total-allocated');
+             const overallTotalActual = document.querySelector('.overall-total-actual');
+             const overallTotalWeight = document.querySelector('.overall-total-weight');
+             const overallTotalWeighted = document.querySelector('.overall-total-weighted');
+             
+             if (overallTotalAllocated) {
+                 overallTotalAllocated.textContent = totalAllocated > 0 ? totalAllocated.toFixed(2) : '-';
+             }
+             if (overallTotalActual) {
+                 overallTotalActual.textContent = formatNumericTotal(totalActual, hasActualTotals);
+             }
+             if (overallTotalWeight) {
+                 overallTotalWeight.textContent = totalWeight > 0 ? totalWeight.toFixed(2) + '%' : '-';
+             }
+             if (overallTotalWeighted) {
+                 overallTotalWeighted.textContent = formatNumericTotal(totalWeighted, hasWeightedTotals);
+             }
+             
+             // Update final calculation and grade
+             updateFinalGrade(totalWeighted, hasWeightedTotals);
+         }
+         
+         // Update final weighted score and grade achieved
+         function updateFinalGrade(weightedScore, hasWeightedScore = false) {
+             const finalWeightedScore = document.querySelector('.final-weighted-score');
+             const finalGrade = document.querySelector('.final-grade');
+             
+             if (finalWeightedScore) {
+                 finalWeightedScore.textContent = formatNumericTotal(weightedScore, hasWeightedScore);
+             }
+             
+             if (finalGrade) {
+                 if (!hasWeightedScore || weightedScore <= 0) {
+                     finalGrade.textContent = '-';
+                     finalGrade.style.color = '#999';
+                     finalGrade.style.borderColor = '#999';
+                 } else {
+                     // Find the grade band that matches this weighted score
+                     const gradeBand = findGradeBand(weightedScore);
+                     if (gradeBand) {
+                         finalGrade.textContent = gradeBand.grade_code;
+                         finalGrade.style.color = '#0b8457';
+                         finalGrade.style.borderColor = '#0b8457';
+                     } else {
+                         finalGrade.textContent = 'N/A';
+                         finalGrade.style.color = '#dc3545';
+                         finalGrade.style.borderColor = '#dc3545';
+                     }
+                 }
+             }
+         }
+         
+         // Find grade band based on weighted score
+         function findGradeBand(weightedScore) {
+             // Grade bands data from template
+             const gradeBandsData = [
+                 {% if grade_bands %}
+                     {% for band in grade_bands %}
+                     { min_percent: {{ band.min_percent }}, max_percent: {{ band.max_percent }}, grade_code: "{{ band.grade_code }}" }{% if not forloop.last %},{% endif %}
+                     {% endfor %}
+                 {% endif %}
+             ];
+             
+             // Find the grade band where min_percent <= weightedScore <= max_percent
+             for (let band of gradeBandsData) {
+                 if (weightedScore >= parseFloat(band.min_percent) && weightedScore <= parseFloat(band.max_percent)) {
+                     return band;
+                 }
+             }
+             
+             // If no exact match, find the closest (for ranges like "85% & Above")
+             // Sort by min_percent descending to check highest ranges first
+             const sortedBands = [...gradeBandsData].sort((a, b) => parseFloat(b.min_percent) - parseFloat(a.min_percent));
+             for (let band of sortedBands) {
+                 if (weightedScore >= parseFloat(band.min_percent)) {
+                     return band;
+                 }
+             }
+             
+             return null;
+         }
+
+        // Customer search autocomplete functionality - search by customer code or name across all customers
+        let customerSearchTimeout = null;
+        let customerNameSearchTimeout = null;
+        const customerSearchInput = document.getElementById('id_customer_search');
+        const customerRefCodeInput = document.getElementById('id_customer_ref_code');
+        const customerNameInput = document.getElementById('id_customer_name');
+        const customerNameDisplay = document.getElementById('id_customer_name_display');
+        const customerSearchResults = document.getElementById('customer-search-results');
+        const customerNameSearchResults = document.getElementById('customer-name-search-results');
+        const selectedBranchCodeInput = document.getElementById('id_selected_branch_code');
+        const selectedBranchNameInput = document.getElementById('id_selected_branch_name');
+        
+        // Get current branch from context as the initial fallback display only
+        let currentBranchCode = '{% if current_branch %}{{ current_branch.branch_code }}{% endif %}';
+        let currentBranchName = '{% if current_branch %}{{ current_branch.branch_name }}{% endif %}';
+        
+        // Debug: Log branch code on page load
+        console.log('Current branch code on load:', currentBranchCode);
+        
+        // Function to perform customer search
+        function performCustomerSearch(query) {
+            // Clear timeout if user is still typing
+            if (customerSearchTimeout) {
+                clearTimeout(customerSearchTimeout);
+            }
+            
+            // Clear customer name if input is cleared
+            if (query.length === 0) {
+                customerSearchResults.style.display = 'none';
+                customerRefCodeInput.value = '';
+                customerNameInput.value = '';
+                if (customerNameDisplay) {
+                    customerNameDisplay.value = '';
+                }
+                return;
+            }
+            
+            if (customerSearchInput) {
+                customerSearchInput.setAttribute('placeholder', 'Type customer code or name to search...');
+            }
+            
+            // Hide results if query is empty
+            if (query.length < 1) {
+                customerSearchResults.style.display = 'none';
+                return;
+            }
+            
+            // Debounce search - wait 150ms after user stops typing for real-time feel
+            customerSearchTimeout = setTimeout(function() {
+                // Build URL with query and current branch filter
+                // Ensure query is properly trimmed and encoded
+                const searchQuery = query.trim();
+                // Debug logging
+                console.log('=== Customer Search Debug ===');
+                console.log('Search query:', searchQuery);
+                console.log('Query length:', searchQuery.length);
+                
+                let url = '{% url "scorecard:basel_scores_customer_search" %}?q=' + encodeURIComponent(searchQuery);
+                
+                console.log('Fetching URL:', url);
+                
+                fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin'
+                })
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        console.log('Response ok:', response.ok);
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok: ' + response.status);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Search results received:', data);
+                        console.log('Number of customers found:', data.customers ? data.customers.length : 0);
+                        
+                        // Ensure dropdown element exists
+                        if (!customerSearchResults) {
+                            console.error('customerSearchResults element is null! Cannot display results.');
+                            return;
+                        }
+                        
+                        if (!data.customers || data.customers.length === 0) {
+                            // Show "No customers found" message
+                            customerSearchResults.innerHTML = '<div style="padding: 0.5rem; color: #999; font-style: italic; font-family: Calibri, sans-serif;">No customers found matching "' + searchQuery + '"</div>';
+                            customerSearchResults.style.display = 'block';
+                            customerSearchResults.style.setProperty('display', 'block', 'important');
+                            console.log('Showing "no results" message');
+                            return;
+                        }
+                        
+                        // Always show dropdown with all matching results for both code and name searches
+                        // This allows user to see all options and select the one they want
+                        console.log('About to display', data.customers.length, 'customers');
+                        console.log('Sample customer data:', data.customers[0]);
+                        displayCustomerResults(data.customers, searchQuery);
+                        
+                        // Double-check dropdown is visible after display
+                        setTimeout(function() {
+                            const computedStyle = window.getComputedStyle(customerSearchResults);
+                            const isVisible = computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
+                            console.log('Dropdown visibility check (after 100ms):', isVisible ? 'VISIBLE' : 'HIDDEN');
+                            if (!isVisible) {
+                                console.warn('Dropdown should be visible but is not! Forcing display...');
+                                customerSearchResults.style.setProperty('display', 'block', 'important');
+                                customerSearchResults.style.setProperty('visibility', 'visible', 'important');
+                                customerSearchResults.style.setProperty('opacity', '1', 'important');
+                            }
+                        }, 100);
+                    })
+                    .catch(error => {
+                        console.error('Error searching customers:', error);
+                        console.error('Error details:', error.message);
+                        customerSearchResults.innerHTML = '<div style="padding: 0.5rem; color: #d32f2f; font-style: italic; font-family: Calibri, sans-serif;">Error searching customers: ' + error.message + '. Please check console for details.</div>';
+                        customerSearchResults.style.display = 'block';
+                    });
+            }, 150);
+        }
+        
+        if (customerSearchInput) {
+            // Real-time search on every keystroke - triggers immediately as user types
+            customerSearchInput.addEventListener('input', function(e) {
+                const query = this.value.trim();
+                console.log('Input event triggered, query:', query, 'length:', query.length);
+                
+                // Immediately trigger search for real-time results
+                performCustomerSearch(query);
+            });
+            
+            // Also add paste event for when user pastes text
+            customerSearchInput.addEventListener('paste', function(e) {
+                setTimeout(function() {
+                    const query = customerSearchInput.value.trim();
+                    console.log('Paste event, query:', query);
+                    performCustomerSearch(query);
+                }, 10);
+            });
+            
+            // Allow user to clear and search again - clear hidden fields when input is cleared
+            customerSearchInput.addEventListener('keydown', function(e) {
+                // If user presses Delete or Backspace and input becomes empty, clear hidden fields
+                if ((e.key === 'Delete' || e.key === 'Backspace') && this.value.length <= 1) {
+                    setTimeout(function() {
+                        if (customerSearchInput.value.trim() === '') {
+                            customerRefCodeInput.value = '';
+                            customerNameInput.value = '';
+                            if (customerNameDisplay) {
+                                customerNameDisplay.value = '';
+                            }
+                            customerSearchResults.style.display = 'none';
+                        }
+                    }, 0);
+                }
+            });
+            
+            customerSearchInput.removeAttribute('disabled');
+            customerSearchInput.setAttribute('placeholder', 'Type customer code or name to search...');
+            
+            // Hide results when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!customerSearchInput.contains(e.target) && !customerSearchResults.contains(e.target)) {
+                    customerSearchResults.style.display = 'none';
+                }
+            });
+        }
+        
+        // Function to perform customer search from Customer Name field (same as Customer Code field)
+        function performCustomerNameSearch(query) {
+            // Clear timeout if user is still typing
+            if (customerNameSearchTimeout) {
+                clearTimeout(customerNameSearchTimeout);
+            }
+            
+            // Clear customer fields if input is cleared
+            if (query.length === 0) {
+                if (customerNameSearchResults) {
+                    customerNameSearchResults.style.display = 'none';
+                }
+                customerRefCodeInput.value = '';
+                customerNameInput.value = '';
+                return;
+            }
+            
+            if (customerNameDisplay) {
+                customerNameDisplay.setAttribute('placeholder', 'Type customer code or name to search...');
+            }
+            
+            // Hide results if query is empty
+            if (query.length < 1) {
+                if (customerNameSearchResults) {
+                    customerNameSearchResults.style.display = 'none';
+                }
+                return;
+            }
+            
+            // Debounce search - wait 150ms after user stops typing for real-time feel
+            customerNameSearchTimeout = setTimeout(function() {
+                // Build URL with query and current branch filter
+                const searchQuery = query.trim();
+                // Debug logging
+                console.log('=== Customer Name Search Debug ===');
+                console.log('Search query:', searchQuery);
+                
+                let url = '{% url "scorecard:basel_scores_customer_search" %}?q=' + encodeURIComponent(searchQuery);
+                
+                console.log('Fetching URL (from Customer Name):', url);
+                
+                fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin'
+                })
+                    .then(response => {
+                        console.log('Response status (Customer Name):', response.status);
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok: ' + response.status);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Search results received (Customer Name):', data);
+                        console.log('Number of customers found:', data.customers ? data.customers.length : 0);
+                        
+                        // Ensure dropdown element exists
+                        if (!customerNameSearchResults) {
+                            console.error('customerNameSearchResults element is null! Cannot display results.');
+                            return;
+                        }
+                        
+                        if (!data.customers || data.customers.length === 0) {
+                            // Show "No customers found" message
+                            customerNameSearchResults.innerHTML = '<div style="padding: 0.5rem; color: #999; font-style: italic; font-family: Calibri, sans-serif;">No customers found matching "' + searchQuery + '"</div>';
+                            customerNameSearchResults.style.display = 'block';
+                            customerNameSearchResults.style.setProperty('display', 'block', 'important');
+                            console.log('Showing "no results" message (Customer Name)');
+                            return;
+                        }
+                        
+                        // Always show dropdown with all matching results
+                        console.log('About to display', data.customers.length, 'customers (Customer Name)');
+                        displayCustomerNameResults(data.customers, searchQuery);
+                        
+                        // Double-check dropdown is visible after display
+                        setTimeout(function() {
+                            const computedStyle = window.getComputedStyle(customerNameSearchResults);
+                            const isVisible = computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
+                            console.log('Dropdown visibility check (Customer Name, after 100ms):', isVisible ? 'VISIBLE' : 'HIDDEN');
+                            if (!isVisible) {
+                                console.warn('Dropdown should be visible but is not! Forcing display...');
+                                customerNameSearchResults.style.setProperty('display', 'block', 'important');
+                                customerNameSearchResults.style.setProperty('visibility', 'visible', 'important');
+                                customerNameSearchResults.style.setProperty('opacity', '1', 'important');
+                            }
+                        }, 100);
+                    })
+                    .catch(error => {
+                        console.error('Error searching customers (Customer Name):', error);
+                        if (customerNameSearchResults) {
+                            customerNameSearchResults.innerHTML = '<div style="padding: 0.5rem; color: #d32f2f; font-style: italic; font-family: Calibri, sans-serif;">Error searching customers: ' + error.message + '. Please check console for details.</div>';
+                            customerNameSearchResults.style.display = 'block';
+                        }
+                    });
+            }, 150);
+        }
+        
+        // Function to display customer results in Customer Name dropdown (same as Customer Code)
+        function displayCustomerNameResults(customers, query) {
+            console.log('displayCustomerNameResults called with', customers ? customers.length : 0, 'customers for query:', query);
+            
+            if (!customers || customers.length === 0) {
+                if (customerNameSearchResults) {
+                    customerNameSearchResults.innerHTML = '<div style="padding: 0.5rem; color: #999; font-style: italic; font-family: Calibri, sans-serif;">No customers found</div>';
+                    customerNameSearchResults.style.display = 'block';
+                }
+                console.log('No customers found, showing empty message (Customer Name)');
+                return;
+            }
+            
+            // Helper function to highlight matching text (case-insensitive)
+            function highlightMatch(text, query) {
+                if (!query || !text) return text;
+                // Escape special regex characters and create case-insensitive regex
+                const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp('(' + escapedQuery + ')', 'gi');
+                return text.replace(regex, '<strong>$1</strong>');
+            }
+            
+            let html = '';
+            customers.forEach(function(customer) {
+                // Highlight matches in both code and name (case-insensitive)
+                const highlightedCode = highlightMatch(customer.customer_ref_code || '', query);
+                const highlightedName = highlightMatch(customer.customer_name || '', query);
+                
+                // Escape HTML in data attributes to prevent XSS
+                const safeCode = (customer.customer_ref_code || '').replace(/"/g, '&quot;');
+                const safeName = (customer.customer_name || '').replace(/"/g, '&quot;');
+                const safeBranchCode = (customer.branch_code || '').replace(/"/g, '&quot;');
+                const safeBranchName = (customer.branch_name || '').replace(/"/g, '&quot;');
+                
+                html += '<div class="customer-result-item" ' +
+                       'data-customer-code="' + safeCode + '" ' +
+                       'data-customer-name="' + safeName + '" ' +
+                       'data-branch-code="' + safeBranchCode + '" ' +
+                       'data-branch-name="' + safeBranchName + '" ' +
+                       'onclick="selectCustomerFromName(this)">' +
+                       '<strong>' + highlightedCode + '</strong> - ' + highlightedName +
+                       '</div>';
+            });
+            
+            // Ensure dropdown element exists
+            if (!customerNameSearchResults) {
+                console.error('customerNameSearchResults element not found!');
+                return;
+            }
+            
+            customerNameSearchResults.innerHTML = html;
+            customerNameSearchResults.style.display = 'block';
+            
+            // Force display with important to ensure it shows
+            customerNameSearchResults.style.setProperty('display', 'block', 'important');
+            customerNameSearchResults.style.setProperty('visibility', 'visible', 'important');
+            customerNameSearchResults.style.setProperty('opacity', '1', 'important');
+            
+            console.log('Dropdown displayed (Customer Name) with', customers.length, 'items, query was:', query);
+            
+            // Double-check visibility after a brief delay
+            setTimeout(function() {
+                const computedStyle = window.getComputedStyle(customerNameSearchResults);
+                const isVisible = computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
+                console.log('Dropdown visibility check (Customer Name, after 100ms):', isVisible ? 'VISIBLE' : 'HIDDEN');
+                if (!isVisible) {
+                    console.warn('Dropdown should be visible but is not! Forcing display...');
+                    customerNameSearchResults.style.setProperty('display', 'block', 'important');
+                    customerNameSearchResults.style.setProperty('visibility', 'visible', 'important');
+                    customerNameSearchResults.style.setProperty('opacity', '1', 'important');
+                }
+            }, 100);
+        }
+        
+        // Function to select customer from Customer Name dropdown
+        function selectCustomerFromName(element) {
+            const customerCode = element.dataset.customerCode;
+            const customerName = element.dataset.customerName;
+            const branchCode = element.dataset.branchCode;
+            
+            selectCustomerByData({
+                customer_ref_code: customerCode,
+                customer_name: customerName,
+                branch_code: branchCode
+            });
+            
+            // Hide the Customer Name dropdown
+            if (customerNameSearchResults) {
+                customerNameSearchResults.style.display = 'none';
+            }
+        }
+        
+        // Sync customer name display field with hidden field when user types
+        if (customerNameDisplay) {
+            // Real-time search on every keystroke - triggers immediately as user types
+            customerNameDisplay.addEventListener('input', function(e) {
+                const query = this.value.trim();
+                console.log('Customer Name input event triggered, query:', query, 'length:', query.length);
+                
+                // Update the hidden customer_name field when user types in display field
+                if (customerNameInput) {
+                    customerNameInput.value = this.value;
+                }
+                
+                // Immediately trigger search for real-time results
+                performCustomerNameSearch(query);
+            });
+            
+            // Also add paste event for when user pastes text
+            customerNameDisplay.addEventListener('paste', function(e) {
+                setTimeout(function() {
+                    const query = customerNameDisplay.value.trim();
+                    console.log('Paste event (Customer Name), query:', query);
+                    performCustomerNameSearch(query);
+                }, 10);
+            });
+            
+            // Allow user to clear and search again - clear hidden fields when input is cleared
+            customerNameDisplay.addEventListener('keydown', function(e) {
+                // If user presses Delete or Backspace and input becomes empty, clear hidden fields
+                if ((e.key === 'Delete' || e.key === 'Backspace') && this.value.length <= 1) {
+                    setTimeout(function() {
+                        if (customerNameDisplay.value.trim() === '') {
+                            customerRefCodeInput.value = '';
+                            customerNameInput.value = '';
+                            if (customerNameSearchResults) {
+                                customerNameSearchResults.style.display = 'none';
+                            }
+                        }
+                    }, 0);
+                }
+            });
+            
+            customerNameDisplay.removeAttribute('disabled');
+            customerNameDisplay.setAttribute('placeholder', 'Type customer code or name to search...');
+            
+            // Hide results when clicking outside
+            document.addEventListener('click', function(e) {
+                if (customerNameDisplay && customerNameSearchResults) {
+                    if (!customerNameDisplay.contains(e.target) && !customerNameSearchResults.contains(e.target)) {
+                        customerNameSearchResults.style.display = 'none';
+                    }
+                }
+            });
+            
+            // Also sync on blur to ensure it's updated
+            customerNameDisplay.addEventListener('blur', function() {
+                if (customerNameInput) {
+                    customerNameInput.value = this.value;
+                }
+            });
+        }
+        
+        function displayCustomerResults(customers, query) {
+            console.log('displayCustomerResults called with', customers ? customers.length : 0, 'customers for query:', query);
+            
+            if (!customers || customers.length === 0) {
+                customerSearchResults.innerHTML = '<div style="padding: 0.5rem; color: #999; font-style: italic; font-family: Calibri, sans-serif;">No customers found</div>';
+                customerSearchResults.style.display = 'block';
+                console.log('No customers found, showing empty message');
+                return;
+            }
+            
+            const queryUpper = query ? query.toUpperCase() : '';
+            
+            // Helper function to highlight matching text (case-insensitive)
+            function highlightMatch(text, query) {
+                if (!query || !text) return text;
+                // Escape special regex characters and create case-insensitive regex
+                const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp('(' + escapedQuery + ')', 'gi');
+                return text.replace(regex, '<strong>$1</strong>');
+            }
+            
+            let html = '';
+            customers.forEach(function(customer) {
+                // Highlight matches in both code and name (case-insensitive)
+                const highlightedCode = highlightMatch(customer.customer_ref_code || '', query);
+                const highlightedName = highlightMatch(customer.customer_name || '', query);
+                
+                // Escape HTML in data attributes to prevent XSS
+                const safeCode = (customer.customer_ref_code || '').replace(/"/g, '&quot;');
+                const safeName = (customer.customer_name || '').replace(/"/g, '&quot;');
+                const safeBranchCode = (customer.branch_code || '').replace(/"/g, '&quot;');
+                const safeBranchName = (customer.branch_name || '').replace(/"/g, '&quot;');
+                
+                html += '<div class="customer-result-item" ' +
+                       'data-customer-code="' + safeCode + '" ' +
+                       'data-customer-name="' + safeName + '" ' +
+                       'data-branch-code="' + safeBranchCode + '" ' +
+                       'data-branch-name="' + safeBranchName + '" ' +
+                       'onclick="selectCustomer(this)">' +
+                       '<strong>' + highlightedCode + '</strong> - ' + highlightedName +
+                       '</div>';
+            });
+            
+            // Ensure dropdown element exists
+            if (!customerSearchResults) {
+                console.error('customerSearchResults element not found!');
+                return;
+            }
+            
+            customerSearchResults.innerHTML = html;
+            customerSearchResults.style.display = 'block';
+            
+            // Force display with important to ensure it shows
+            customerSearchResults.style.setProperty('display', 'block', 'important');
+            customerSearchResults.style.setProperty('visibility', 'visible', 'important');
+            customerSearchResults.style.setProperty('opacity', '1', 'important');
+            
+            console.log('Dropdown displayed with', customers.length, 'items, query was:', query);
+            console.log('Dropdown element:', customerSearchResults);
+            console.log('Dropdown computed style display:', window.getComputedStyle(customerSearchResults).display);
+            console.log('Dropdown HTML length:', html.length);
+            
+            // Double-check visibility after a brief delay
+            setTimeout(function() {
+                const computedStyle = window.getComputedStyle(customerSearchResults);
+                const isVisible = computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden';
+                console.log('Dropdown visibility check (after 100ms):', isVisible ? 'VISIBLE' : 'HIDDEN');
+                if (!isVisible) {
+                    console.warn('Dropdown should be visible but is not! Forcing display...');
+                    customerSearchResults.style.setProperty('display', 'block', 'important');
+                    customerSearchResults.style.setProperty('visibility', 'visible', 'important');
+                    customerSearchResults.style.setProperty('opacity', '1', 'important');
+                }
+            }, 100);
+        }
+        
+        function selectCustomer(element) {
+            const customerCode = element.dataset.customerCode;
+            const customerName = element.dataset.customerName;
+            const branchCode = element.dataset.branchCode;
+            selectCustomerByData({
+                customer_ref_code: customerCode,
+                customer_name: customerName,
+                branch_code: branchCode
+            });
+        }
+        
+        function selectCustomerByData(customer) {
+            if (
+                currentSelectedCustomerCode &&
+                customer.customer_ref_code &&
+                currentSelectedCustomerCode !== customer.customer_ref_code &&
+                hasMeaningfulFormState()
+            ) {
+                const shouldContinue = window.confirm(
+                    'Changing customer will replace the current auto-selected profile answers and may not match answers already chosen on this form. Continue?'
+                );
+                if (!shouldContinue) {
+                    return;
+                }
+            }
+            // Update inputs - show only customer code in search input for easier editing
+            if (customerSearchInput) {
+                customerSearchInput.value = customer.customer_ref_code;
+            }
+            if (customerRefCodeInput) {
+                customerRefCodeInput.value = customer.customer_ref_code;
+            }
+            if (customerNameInput) {
+                customerNameInput.value = customer.customer_name;
+            }
+            if (selectedBranchCodeInput) {
+                selectedBranchCodeInput.value = currentBranchCode || '';
+            }
+            if (selectedBranchNameInput) {
+                selectedBranchNameInput.value = currentBranchName || '';
+            }
+            
+            // Update customer name display
+            if (customerNameDisplay) {
+                customerNameDisplay.value = customer.customer_name;
+            }
+            currentSelectedCustomerCode = customer.customer_ref_code || '';
+            
+            // Hide both dropdowns
+            if (customerSearchResults) {
+                customerSearchResults.style.display = 'none';
+            }
+            if (customerNameSearchResults) {
+                customerNameSearchResults.style.display = 'none';
+            }
+            
+            // Check if customer already has a submitted questionnaire
+            checkExistingQuestionnaire(customer.customer_ref_code, currentBranchCode || '', currentBranchName || '');
+            fetchAutofillSelections(customer.customer_ref_code, currentBranchCode || '', currentBranchName || '');
+        }
+
+        function setAutofillStatus(message) {
+            const statusBox = document.getElementById('autofill-status-box');
+            const statusText = document.getElementById('autofill-status-text');
+            if (!statusBox || !statusText) {
+                return;
+            }
+            if (message) {
+                statusText.textContent = message;
+                statusBox.style.display = 'block';
+            } else {
+                statusText.textContent = '';
+                statusBox.style.display = 'none';
+            }
+        }
+
+        function setAutofillMissing(message) {
+            const statusBox = document.getElementById('autofill-status-box');
+            const missingText = document.getElementById('autofill-missing-text');
+            if (!statusBox || !missingText) {
+                return;
+            }
+            missingText.textContent = message || '';
+            if (message) {
+                statusBox.style.display = 'block';
+            }
+        }
+
+        let isApplyingAutofillSelection = false;
+        let currentSelectedCustomerCode = document.getElementById('id_customer_ref_code')?.value || '';
+
+        function hasMeaningfulFormState() {
+            const hasSelectedAnswers = Array.from(document.querySelectorAll('input[type="radio"][name^="attr_"]')).some(radio => radio.checked);
+            const hasDocuments = Array.from(document.querySelectorAll('.document-upload-input')).some(input => input.files && input.files.length > 0);
+            return hasSelectedAnswers || hasDocuments;
+        }
+
+        function clearAutofillHighlightForAttribute(attributeId) {
+            document.querySelectorAll(`tr.autofill-highlight-row input[name="attr_${attributeId}"]`).forEach(input => {
+                const row = input.closest('tr');
+                if (row) {
+                    row.classList.remove('autofill-highlight-row');
+                }
+            });
+        }
+
+        function clearMissingHighlightForAttribute(attributeId) {
+            document.querySelectorAll(`tr.autofill-missing-row input[name="attr_${attributeId}"]`).forEach(input => {
+                const row = input.closest('tr');
+                if (row) {
+                    row.classList.remove('autofill-missing-row');
+                }
+            });
+        }
+
+        function markAutofillSelections(attributeValues) {
+            document.querySelectorAll('tr.autofill-highlight-row').forEach(row => {
+                row.classList.remove('autofill-highlight-row');
+            });
+
+            Object.entries(attributeValues || {}).forEach(([attributeId, optionId]) => {
+                const selector = `input[name="attr_${attributeId}"][value="${optionId}"]`;
+                const radio = document.querySelector(selector);
+                const row = radio ? radio.closest('tr') : null;
+                if (row) {
+                    row.classList.add('autofill-highlight-row');
+                }
+            });
+        }
+
+        function markMissingAutofillFields(attributeIds) {
+            document.querySelectorAll('tr.autofill-missing-row').forEach(row => {
+                row.classList.remove('autofill-missing-row');
+            });
+
+            (attributeIds || []).forEach(attributeId => {
+                document.querySelectorAll(`input[name="attr_${attributeId}"]`).forEach(input => {
+                    const row = input.closest('tr');
+                    if (row && !row.classList.contains('autofill-highlight-row')) {
+                        row.classList.add('autofill-missing-row');
+                    }
+                });
+            });
+        }
+
+        function applyAutofillSelections(attributeValues) {
+            if (!attributeValues || typeof attributeValues !== 'object') {
+                return;
+            }
+
+            isApplyingAutofillSelection = true;
+            document.querySelectorAll('input[type="radio"][name^="attr_"]').forEach(radio => {
+                radio.checked = false;
+            });
+
+            Object.entries(attributeValues).forEach(([attributeId, optionId]) => {
+                const selector = `input[name="attr_${attributeId}"][value="${optionId}"]`;
+                const radio = document.querySelector(selector);
+                if (radio) {
+                    radio.checked = true;
+                    radio.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+            markAutofillSelections(attributeValues);
+            isApplyingAutofillSelection = false;
+        }
+
+        function fetchAutofillSelections(customerCode, branchCode, branchName) {
+            if (!customerCode) {
+                setAutofillStatus('');
+                setAutofillMissing('');
+                markAutofillSelections({});
+                markMissingAutofillFields([]);
+                return;
+            }
+            let url = '{% url "scorecard:basel_scores_autofill" template.id %}?customer_code=' + encodeURIComponent(customerCode);
+            if (branchCode) {
+                url += '&branch_code=' + encodeURIComponent(branchCode);
+            }
+            if (branchName) {
+                url += '&branch_name=' + encodeURIComponent(branchName);
+            }
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    applyAutofillSelections(data.attribute_values || {});
+                    markMissingAutofillFields(data.missing_required_attribute_ids || []);
+                    if (Array.isArray(data.applied_labels) && data.applied_labels.length) {
+                        setAutofillStatus('Auto-selected: ' + data.applied_labels.join(', ') + '.');
+                    } else {
+                        setAutofillStatus('No profile-based defaults were matched for this customer.');
+                    }
+                    if (Array.isArray(data.missing_required_labels) && data.missing_required_labels.length) {
+                        setAutofillMissing('Still requiring your input: ' + data.missing_required_labels.join(', ') + '.');
+                    } else {
+                        setAutofillMissing('');
+                    }
+                })
+                .catch(() => {
+                    setAutofillStatus('Auto-population could not be loaded right now.');
+                    setAutofillMissing('');
+                    markMissingAutofillFields([]);
+                });
+        }
+
+        document.querySelectorAll('input[type="radio"][name^="attr_"]').forEach(radio => {
+            radio.addEventListener('change', function () {
+                if (isApplyingAutofillSelection) {
+                    return;
+                }
+                const attributeId = this.dataset.attributeId;
+                if (attributeId) {
+                    clearAutofillHighlightForAttribute(attributeId);
+                    clearMissingHighlightForAttribute(attributeId);
+                }
+            });
+        });
+        
+        // Function to check if customer already has a submitted questionnaire
+        function checkExistingQuestionnaire(customerCode, branchCode, branchName) {
+            if (!customerCode || !branchCode) {
+                hideExistingQuestionnaireWarning();
+                return;
+            }
+
+            let url = '{% url "scorecard:basel_scores_check_existing" %}?customer_code=' + encodeURIComponent(customerCode) + '&branch_code=' + encodeURIComponent(branchCode);
+            if (branchName) {
+                url += '&branch_name=' + encodeURIComponent(branchName);
+            }
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.exists && data.evaluation_id) {
+                        showExistingQuestionnaireWarning(data);
+                    } else {
+                        hideExistingQuestionnaireWarning();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking existing questionnaire:', error);
+                    hideExistingQuestionnaireWarning();
+                });
+        }
+
+        function setBaselScoreFormSubmissionDisabled(disabled) {
+            document.querySelectorAll('button[type="submit"]').forEach(button => {
+                button.disabled = disabled;
+                button.style.opacity = disabled ? '0.6' : '1';
+                button.style.cursor = disabled ? 'not-allowed' : 'pointer';
+            });
+        }
+
+        // Function to show warning about existing questionnaire
+        function showExistingQuestionnaireWarning(data) {
+            let warningDiv = document.getElementById('existing-questionnaire-warning');
+
+            if (!warningDiv) {
+                warningDiv = document.createElement('div');
+                warningDiv.id = 'existing-questionnaire-warning';
+                warningDiv.className = 'warning-box';
+
+                const customerNameDisplay = document.getElementById('id_customer_name_display');
+                if (customerNameDisplay && customerNameDisplay.parentElement) {
+                    customerNameDisplay.parentElement.parentElement.parentElement.insertAdjacentElement('afterend', warningDiv);
+                }
+            }
+
+            const isViewOnly = data.action_mode === 'view';
+            const branchLabel = data.branch_name ? " at branch '" + data.branch_name + "'" : '';
+            const timeLabel = data.timestamp_label ? ' on ' + data.timestamp_label : '';
+            const linkUrl = isViewOnly
+                ? (data.view_url || ('/scorecard/basel-scores/view/' + data.evaluation_id + '/?preview=1'))
+                : (data.edit_url || ('/scorecard/basel-scores/edit/' + data.evaluation_id + '/'));
+            const previewRecords = Array.isArray(data.preview_records) ? data.preview_records : [];
+            const warningTitle = isViewOnly
+                ? 'Warning: This customer has already been scored.'
+                : 'Warning: This customer already has a submitted Basel II scoresheet.';
+            let warningMessage;
+            if (isViewOnly && previewRecords.length > 1) {
+                const previewLinks = previewRecords.map(function(record) {
+                    const previewUrl = record.view_url || ('/scorecard/basel-scores/view/' + record.evaluation_id + '/?preview=1');
+                    const recordBranch = record.branch_name ? record.branch_name : 'Unknown branch';
+                    const recordTime = record.timestamp_label ? ' on ' + record.timestamp_label : '';
+                    return '<div style="margin-top:0.35rem;">' +
+                        '<strong>' + recordBranch + '</strong>' + recordTime +
+                        ' - <a href="' + previewUrl + '" class="warning-box-link">Preview</a></div>';
+                }).join('');
+                warningMessage = 'This customer already has Basel II scores in other branches. Workflow Rules are blocking new scoring for this customer.' +
+                    '<div style="margin-top:0.5rem;">' + previewLinks + '</div>';
+            } else {
+                warningMessage = isViewOnly
+                    ? 'A Basel II score for this customer already exists' + branchLabel + timeLabel + '. Workflow Rules are blocking new scoring for this customer. <a href="' + linkUrl + '" class="warning-box-link">Click here to preview the existing Basel II scored information</a> in read-only mode.'
+                    : 'A Basel II scoresheet for this customer at this branch already exists. <a href="' + linkUrl + '" class="warning-box-link">Click here to edit the existing Basel II scoresheet</a> instead of creating a new one.';
+            }
+
+            warningDiv.innerHTML = '<span class="warning-box-icon">Warning</span>' +
+                '<div class="warning-box-content">' +
+                '<div class="warning-box-title">' + warningTitle + '</div>' +
+                '<div class="warning-box-message">' + warningMessage + '</div>' +
+                '</div>';
+
+            warningDiv.style.display = 'flex';
+            setBaselScoreFormSubmissionDisabled(true);
+        }
+
+        // Function to hide warning
+        function hideExistingQuestionnaireWarning() {
+            const warningDiv = document.getElementById('existing-questionnaire-warning');
+            if (warningDiv) {
+                warningDiv.style.display = 'none';
+            }
+            setBaselScoreFormSubmissionDisabled(false);
+        }
+
+        // Function to toggle document upload sections
+        function toggleDocumentUploadSections(attributeId) {
+            // Hide all document upload rows for this attribute
+            const allUploadRows = document.querySelectorAll(`tr.document-upload-row[data-attribute-id="${attributeId}"]`);
+            allUploadRows.forEach(row => {
+                row.style.display = 'none';
+            });
+            
+            // Find the selected radio button for this attribute
+            const selectedRadio = document.querySelector(`input[name="attr_${attributeId}"]:checked`);
+            if (selectedRadio && selectedRadio.dataset.requiresDocument === 'true') {
+                const optionId = selectedRadio.value;
+                const uploadRow = document.querySelector(`tr.document-upload-row[data-attribute-id="${attributeId}"][data-option-id="${optionId}"]`);
+                if (uploadRow) {
+                    uploadRow.style.display = '';
+                }
+            }
+        }
+        
+        // Function to display uploaded file names
+        function updateUploadedFilesList(input) {
+            const attributeId = input.dataset.attributeId;
+            const optionId = input.dataset.optionId;
+            const filesList = document.getElementById(`files_list_attr_${attributeId}_option_${optionId}`);
+            
+            if (filesList && input.files && input.files.length > 0) {
+                let html = '<div style="font-weight: 600; margin-bottom: 0.25rem;">Selected files:</div>';
+                for (let i = 0; i < input.files.length; i++) {
+                    html += `<div class="uploaded-file-item">${input.files[i].name}</div>`;
+                }
+                filesList.innerHTML = html;
+            } else if (filesList) {
+                filesList.innerHTML = '';
+            }
+        }
+        
+        // Custom validation for required fields
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('questionnaire-form');
+            const saveDraftButton = document.querySelector('button[name="save_draft"]');
+            const submitButton = document.querySelector('button[type="submit"]:not([name="save_draft"])');
+
+            function lockSubmitButtons(activeButton) {
+                if (!form) {
+                    return;
+                }
+                const submitButtons = form.querySelectorAll('button[type="submit"]');
+                submitButtons.forEach(button => {
+                    if (!button.dataset.originalText) {
+                        button.dataset.originalText = button.innerHTML;
+                    }
+                    button.disabled = true;
+                    button.style.opacity = '0.7';
+                    button.style.cursor = 'not-allowed';
+                });
+
+                if (activeButton) {
+                    const isDraftButton = activeButton.name === 'save_draft';
+                    activeButton.innerHTML = isDraftButton ? 'Saving Draft...' : 'Submitting...';
+                }
+            }
+            
+            // Function to validate required attributes
+            function validateRequiredAttributes() {
+                const missingFields = [];
+                
+                // Get all radio groups that have at least one required option
+                const allRadioGroups = {};
+                document.querySelectorAll('input[type="radio"][name^="attr_"]').forEach(radio => {
+                    const name = radio.name;
+                    if (!allRadioGroups[name]) {
+                        allRadioGroups[name] = [];
+                    }
+                    allRadioGroups[name].push(radio);
+                });
+                
+                // Check each radio group
+                Object.keys(allRadioGroups).forEach(name => {
+                    const radios = allRadioGroups[name];
+                    const hasRequired = radios.some(radio => radio.dataset.required === 'true' || radio.hasAttribute('required'));
+                    
+                    if (hasRequired) {
+                        const checkedRadio = radios.find(radio => radio.checked && radio.value !== '');
+                        
+                        // Required fields must have a real scored option selected.
+                        if (!checkedRadio) {
+                            missingFields.push(name);
+                            
+                            // Find the first required radio in this group and show validation
+                            const firstRequiredRadio = radios.find(radio => radio.dataset.required === 'true' || radio.hasAttribute('required'));
+                            if (firstRequiredRadio) {
+                                firstRequiredRadio.setCustomValidity('Please select one of these options.');
+                                // Focus and report validity
+                                setTimeout(() => {
+                                    firstRequiredRadio.focus();
+                                    firstRequiredRadio.reportValidity();
+                                }, 100);
+                            }
+                        } else {
+                            // Clear any custom validation message once a real option is selected.
+                            radios.forEach(radio => {
+                                radio.setCustomValidity('');
+                            });
+                        }
+                    }
+                });
+
+                const checkboxGroups = {};
+                document.querySelectorAll('input[type="checkbox"][name^="attr_"]').forEach(checkbox => {
+                    if (!checkboxGroups[checkbox.name]) {
+                        checkboxGroups[checkbox.name] = [];
+                    }
+                    checkboxGroups[checkbox.name].push(checkbox);
+                });
+
+                Object.keys(checkboxGroups).forEach(name => {
+                    const checkboxes = checkboxGroups[name];
+                    const isRequired = checkboxes.some(checkbox => checkbox.dataset.required === 'true');
+                    const checked = checkboxes.filter(checkbox => checkbox.checked);
+
+                    if (isRequired && checked.length === 0) {
+                        missingFields.push(name);
+                        const firstCheckbox = checkboxes[0];
+                        const attributeId = firstCheckbox.dataset.attributeId;
+                        setComboValidationRow(attributeId, 'Please select at least one option.');
+                        firstCheckbox.setCustomValidity('Please select at least one option.');
+                        setTimeout(() => {
+                            firstCheckbox.focus();
+                            firstCheckbox.reportValidity();
+                        }, 100);
+                    } else {
+                        if (checkboxes[0] && checkboxes[0].dataset.attributeId) {
+                            setComboValidationRow(checkboxes[0].dataset.attributeId, '');
+                        }
+                        checkboxes.forEach(checkbox => checkbox.setCustomValidity(''));
+                    }
+
+                    if (checked.length > 0) {
+                        const ruleType = checked[0].dataset.scoringRule;
+                        const attributeId = checked[0].dataset.attributeId;
+                        const selectedOrders = checked
+                            .map(checkbox => parseInt(checkbox.dataset.optionOrder || '0', 10))
+                            .filter(order => order > 0);
+                        if (!isValidComboSelection(ruleType, selectedOrders)) {
+                            missingFields.push(name);
+                            const firstCheckbox = checkboxes[0];
+                            setComboValidationRow(attributeId, getComboValidationMessage(ruleType));
+                            firstCheckbox.setCustomValidity(getComboValidationMessage(ruleType));
+                            setTimeout(() => {
+                                firstCheckbox.focus();
+                                firstCheckbox.reportValidity();
+                            }, 100);
+                        } else {
+                            setComboValidationRow(attributeId, '');
+                        }
+                    }
+                });
+                
+                return missingFields.length === 0;
+            }
+            
+            if (form && saveDraftButton) {
+                // When clicking Save Draft, disable validation
+                saveDraftButton.addEventListener('click', function(e) {
+                    form.noValidate = true; // Disable HTML5 validation
+                    // Clear any validation messages
+                    const allInputs = form.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+                    allInputs.forEach(input => input.setCustomValidity(''));
+                });
+            }
+            
+            if (form && submitButton) {
+                // When clicking Submit, validate required fields
+                submitButton.addEventListener('click', function(e) {
+                    // Clear previous validation messages
+                    const allInputs = form.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+                    allInputs.forEach(input => input.setCustomValidity(''));
+                    
+                    // Validate required attributes
+                    if (!validateRequiredAttributes()) {
+                        e.preventDefault(); // Prevent form submission
+                        e.stopPropagation(); // Stop event propagation
+                        return false;
+                    }
+                    
+                    // If validation passes, enable HTML5 validation for any other checks
+                    form.noValidate = false;
+                });
+            }
+            
+            // Also validate on form submit event (as a backup)
+            form.addEventListener('submit', function(e) {
+                if (form.dataset.isSubmitting === 'true') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+
+                const isDraftSave = e.submitter && e.submitter.name === 'save_draft';
+                
+                if (!isDraftSave) {
+                    // For submit, validate required attributes
+                    if (!validateRequiredAttributes()) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                }
+
+                form.dataset.isSubmitting = 'true';
+                lockSubmitButtons(e.submitter || submitButton);
+            });
+            
+            // Clear validation messages when user selects an option
+            form.addEventListener('change', function(e) {
+                if (e.target.type === 'radio' && e.target.checked) {
+                    const allRadiosInGroup = form.querySelectorAll(`input[name="${e.target.name}"]`);
+                    allRadiosInGroup.forEach(radio => {
+                        radio.setCustomValidity('');
+                    });
+                }
+                if (e.target.type === 'checkbox') {
+                    const allCheckboxesInGroup = form.querySelectorAll(`input[name="${e.target.name}"]`);
+                    allCheckboxesInGroup.forEach(checkbox => checkbox.setCustomValidity(''));
+                }
+            });
+            
+            // Add event listeners to all radio buttons
+            const radioButtons = document.querySelectorAll('.option-radio');
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const attributeId = this.dataset.attributeId;
+                    calculateAttributeScores(attributeId);
+                    toggleDocumentUploadSections(attributeId);
+                });
+                
+                // Calculate scores for pre-selected options (when form is re-displayed with errors)
+                if (radio.checked) {
+                    const attributeId = radio.dataset.attributeId;
+                    if (attributeId) {
+                        calculateAttributeScores(attributeId);
+                        toggleDocumentUploadSections(attributeId);
+                    }
+                }
+            });
+
+            const comboCheckboxes = document.querySelectorAll('.combo-option');
+            comboCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const attributeId = this.dataset.attributeId;
+                    calculateComboAttributeScores(attributeId);
+                });
+            });
+            
+            // Add event listeners to document upload inputs
+            const documentUploadInputs = document.querySelectorAll('.document-upload-input');
+            documentUploadInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    updateUploadedFilesList(this);
+                });
+            });
+            
+            // Initialize document upload sections for all attributes
+            const allAttributes = new Set();
+            radioButtons.forEach(radio => {
+                if (radio.dataset.attributeId) {
+                    allAttributes.add(radio.dataset.attributeId);
+                }
+            });
+            allAttributes.forEach(attributeId => {
+                toggleDocumentUploadSections(attributeId);
+            });
+
+            const comboAttributes = new Set();
+            comboCheckboxes.forEach(checkbox => {
+                if (checkbox.dataset.attributeId) {
+                    comboAttributes.add(checkbox.dataset.attributeId);
+                }
+            });
+            comboAttributes.forEach(attributeId => {
+                calculateComboAttributeScores(attributeId);
+            });
+            
+             // Calculate initial driver totals on page load
+             const driverRows = document.querySelectorAll('tr.driver-row');
+             driverRows.forEach(driverRow => {
+                 const driverId = driverRow.dataset.driverId;
+                 if (driverId) {
+                     calculateDriverTotals(driverId);
+                 }
+             });
+             
+             // Calculate initial section totals on page load
+             const sectionTotalRows = document.querySelectorAll('.section-total-allocated');
+             sectionTotalRows.forEach(sectionTotalRow => {
+                 const sectionId = sectionTotalRow.dataset.sectionId;
+                 if (sectionId) {
+                     calculateSectionTotals(sectionId);
+                 }
+             });
+             
+             // Calculate initial overall totals on page load
+             calculateOverallTotals();
+             
+             // Update final grade on page load
+            const initialWeightedText = document.querySelector('.overall-total-weighted')?.textContent?.trim() || '-';
+            const initialWeightedScore = initialWeightedText !== '-' ? parseFloat(initialWeightedText) || 0 : 0;
+            updateFinalGrade(initialWeightedScore, initialWeightedText !== '-');
+
+            const initialAutofillApplied = JSON.parse(document.getElementById('initial-autofill-applied-ids')?.textContent || '[]');
+            const initialAutofillMissing = JSON.parse(document.getElementById('initial-autofill-missing-ids')?.textContent || '[]');
+            const initialAttributeValues = {};
+            initialAutofillApplied.forEach(attributeId => {
+                const checkedRadio = document.querySelector(`input[name="attr_${attributeId}"]:checked`);
+                if (checkedRadio) {
+                    initialAttributeValues[String(attributeId)] = checkedRadio.value;
+                }
+            });
+            markAutofillSelections(initialAttributeValues);
+            markMissingAutofillFields(initialAutofillMissing);
+        });
+    </script>
+{% endblock %}

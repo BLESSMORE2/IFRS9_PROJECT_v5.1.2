@@ -1,0 +1,25 @@
+Hello,
+
+An API import has failed in the scorecard system.
+
+Endpoint: {{ endpoint_name }}{% if endpoint_code %} ({{ endpoint_code }}){% endif %}
+Target Table: {{ target_table }}
+Triggered By: {{ triggered_by_name }}
+Started: {{ import_run.started_at|date:"Y-m-d H:i" }}
+Reporting Date: {{ import_run.reporting_date|date:"Y-m-d"|default:"-" }}
+
+Fetched: {{ import_run.fetched }}
+Created: {{ import_run.created }}
+Updated: {{ import_run.updated }}
+Unchanged: {{ import_run.unchanged }}
+Skipped: {{ import_run.skipped }}
+Duplicate Skipped: {{ import_run.duplicate_skipped }}
+Missing Required: {{ import_run.missing_required }}
+
+Failure Reason:
+{{ import_run.failure_message|default:"No failure details were captured." }}
+
+Open Import History:
+{{ action_url|default:"-" }}
+
+This email was sent because the event needs attention.
