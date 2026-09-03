@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import calendar
+import inspect
 from collections.abc import Iterable
 from datetime import time as datetime_time
 from importlib import import_module
@@ -19,6 +20,22 @@ AUTO_REFRESH_ENGINE_CANDIDATES = (
     ("scorecard.functions_view.scorecard_autofill", "refresh_autofilled_scores"),
 )
 VALID_AUTO_REFRESH_FREQUENCIES = {"daily", "weekly", "monthly"}
+AUTO_REFRESH_BATCH_DEFAULT = 1000
+AUTO_REFRESH_BATCH_MIN = 1
+AUTO_REFRESH_BATCH_MAX = 10000
+
+
+def _clean_positive_int(
+    value: Any,
+    default: int,
+    minimum: int = AUTO_REFRESH_BATCH_MIN,
+    maximum: int = AUTO_REFRESH_BATCH_MAX,
+) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(minimum, min(maximum, parsed))
 
 
 def _local_target_for_today(settings_obj: Any, now) -> Any:
@@ -104,6 +121,22 @@ def _auto_refresh_schedule_context(settings_obj: Any, now) -> dict[str, Any]:
         "scheduled_for": _local_target_for_today(settings_obj, now),
         "checked_at": timezone.localtime(now),
         "last_run_at": timezone.localtime(last_run) if last_run else None,
+        "batch_size": _clean_positive_int(
+            getattr(settings_obj, "auto_refresh_autofilled_scores_batch_size", AUTO_REFRESH_BATCH_DEFAULT),
+            AUTO_REFRESH_BATCH_DEFAULT,
+        ),
+        "basel_cursor_id": _clean_positive_int(
+            getattr(settings_obj, "auto_refresh_autofilled_scores_basel_cursor_id", 0),
+            0,
+            minimum=0,
+            maximum=2147483647,
+        ),
+        "ifrs9_cursor_id": _clean_positive_int(
+            getattr(settings_obj, "auto_refresh_autofilled_scores_ifrs9_cursor_id", 0),
+            0,
+            minimum=0,
+            maximum=2147483647,
+        ),
     }
     if frequency == "weekly":
         context["weekday"] = int(getattr(settings_obj, "auto_refresh_autofilled_scores_weekday", 0) or 0)
@@ -126,11 +159,53 @@ def _load_auto_refresh_engine() -> Callable[..., Any] | None:
     return None
 
 
-def _call_engine(engine: Callable[..., Any], now) -> Any:
+def _call_engine(engine: Callable[..., Any], now, schedule_context: dict[str, Any]) -> Any:
     try:
-        return engine(now=now)
-    except TypeError:
+        parameters = inspect.signature(engine).parameters
+    except (TypeError, ValueError):
+        parameters = {}
+
+    if not parameters:
         return engine()
+
+    kwargs: dict[str, Any] = {}
+    if "now" in parameters:
+        kwargs["now"] = now
+    if "batch_size" in parameters:
+        kwargs["batch_size"] = schedule_context.get("batch_size")
+    if "basel_after_id" in parameters:
+        kwargs["basel_after_id"] = schedule_context.get("basel_cursor_id")
+    if "ifrs9_after_id" in parameters:
+        kwargs["ifrs9_after_id"] = schedule_context.get("ifrs9_cursor_id")
+    return engine(**kwargs)
+
+
+def _save_auto_refresh_completion_state(
+    settings_obj: Any,
+    schedule_context: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
+    update_fields = ["auto_refresh_autofilled_scores_last_run_at"]
+    settings_obj.auto_refresh_autofilled_scores_last_run_at = schedule_context["scheduled_for"]
+
+    for field_name, result_key in (
+        ("auto_refresh_autofilled_scores_basel_cursor_id", "basel_cursor_id"),
+        ("auto_refresh_autofilled_scores_ifrs9_cursor_id", "ifrs9_cursor_id"),
+    ):
+        if hasattr(settings_obj, field_name):
+            setattr(
+                settings_obj,
+                field_name,
+                _clean_positive_int(
+                    result.get(result_key),
+                    0,
+                    minimum=0,
+                    maximum=2147483647,
+                ),
+            )
+            update_fields.append(field_name)
+
+    settings_obj.save(update_fields=update_fields)
 
 
 def _list_or_empty(value: Any) -> list[Any]:
@@ -175,7 +250,7 @@ def run_due_autofilled_score_refresh(now=None) -> dict[str, Any]:
     if engine is None:
         return {"performed": False, "reason": "no_engine", **schedule_context}
 
-    normalized = _normalize_engine_result(_call_engine(engine, now))
+    normalized = _normalize_engine_result(_call_engine(engine, now, schedule_context))
     updated_items = normalized.pop("updated_items", [])
     notification_result = notify_auto_update_completed(
         updated_items,
@@ -183,8 +258,7 @@ def run_due_autofilled_score_refresh(now=None) -> dict[str, Any]:
         summary=normalized,
     )
 
-    settings_obj.auto_refresh_autofilled_scores_last_run_at = schedule_context["scheduled_for"]
-    settings_obj.save(update_fields=["auto_refresh_autofilled_scores_last_run_at"])
+    _save_auto_refresh_completion_state(settings_obj, schedule_context, normalized)
 
     return {
         "performed": True,

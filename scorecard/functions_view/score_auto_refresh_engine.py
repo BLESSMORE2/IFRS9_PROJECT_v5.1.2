@@ -51,6 +51,9 @@ from scorecard.models import (
 
 
 APPROVED_SCORE_STATUSES = ("approved", "completed")
+AUTO_REFRESH_BATCH_DEFAULT = 1000
+AUTO_REFRESH_BATCH_MIN = 1
+AUTO_REFRESH_BATCH_MAX = 10000
 
 
 def _as_int_set(value: Any) -> set[int]:
@@ -912,14 +915,34 @@ def _base_result(*, dry_run: bool) -> dict[str, Any]:
     return {
         "performed": not dry_run,
         "dry_run": dry_run,
+        "batch_size": None,
         "checked_count": 0,
+        "basel_checked_count": 0,
+        "ifrs9_checked_count": 0,
         "updated_count": 0,
         "updated_items": [],
         "skipped_count": 0,
         "adopted_count": 0,
         "error_count": 0,
         "errors": [],
+        "basel_cursor_id": 0,
+        "ifrs9_cursor_id": 0,
+        "basel_cycle_complete": False,
+        "ifrs9_cycle_complete": False,
     }
+
+
+def _clean_positive_int(
+    value: Any,
+    default: int,
+    minimum: int = AUTO_REFRESH_BATCH_MIN,
+    maximum: int = AUTO_REFRESH_BATCH_MAX,
+) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(minimum, min(maximum, parsed))
 
 
 def _remaining_checks(result: dict[str, Any], max_checked: int | None) -> int | None:
@@ -928,14 +951,49 @@ def _remaining_checks(result: dict[str, Any], max_checked: int | None) -> int | 
     return max(max_checked - int(result.get("checked_count", 0) or 0), 0)
 
 
+def _window_limit(
+    result: dict[str, Any],
+    max_checked: int | None,
+    batch_size: int | None,
+) -> int | None:
+    remaining = _remaining_checks(result, max_checked)
+    if batch_size is None:
+        return remaining
+    if remaining is None:
+        return batch_size
+    return min(batch_size, remaining)
+
+
 def _batched_ids(ids: list[int], batch_size: int = 100) -> list[list[int]]:
     return [ids[index : index + batch_size] for index in range(0, len(ids), batch_size)]
 
 
 def _materialized_candidate_ids(queryset, max_checked: int | None) -> list[int]:
+    if max_checked is not None and max_checked <= 0:
+        return []
+    ids = list(queryset.values_list("pk", flat=True))
     if max_checked is not None:
-        queryset = queryset[:max_checked]
-    return list(queryset.values_list("pk", flat=True))
+        return ids[:max_checked]
+    return ids
+
+
+def _candidate_window(
+    queryset,
+    *,
+    after_id: Any = 0,
+    max_checked: int | None = None,
+) -> tuple[list[int], int, bool]:
+    cursor_id = _clean_positive_int(after_id, 0, minimum=0, maximum=2147483647)
+    window_qs = queryset.filter(pk__gt=cursor_id) if cursor_id else queryset
+    ids = _materialized_candidate_ids(window_qs, max_checked)
+    if not ids and cursor_id:
+        ids = _materialized_candidate_ids(queryset, max_checked)
+    if not ids:
+        return [], 0, True
+
+    last_id = int(ids[-1])
+    cycle_complete = not queryset.filter(pk__gt=last_id).exists()
+    return ids, 0 if cycle_complete else last_id, cycle_complete
 
 
 def _load_basel_candidate_batch(candidate_ids: list[int]) -> list[CreditEvaluation]:
@@ -959,6 +1017,9 @@ def run_autofilled_score_auto_update(
     now=None,
     limit: int | None = None,
     max_checked: int | None = None,
+    batch_size: int | None = None,
+    basel_after_id: int | None = None,
+    ifrs9_after_id: int | None = None,
     customer_code: str | None = None,
     score_types: Any = None,
     dry_run: bool = False,
@@ -971,6 +1032,24 @@ def run_autofilled_score_auto_update(
     result = _base_result(dry_run=dry_run)
     allowed_score_types = _normalize_score_types(score_types)
     customer_code = (customer_code or "").strip()
+    normalized_batch_size = (
+        _clean_positive_int(batch_size, AUTO_REFRESH_BATCH_DEFAULT)
+        if batch_size is not None
+        else None
+    )
+    result["batch_size"] = normalized_batch_size
+    result["basel_cursor_id"] = _clean_positive_int(
+        basel_after_id,
+        0,
+        minimum=0,
+        maximum=2147483647,
+    )
+    result["ifrs9_cursor_id"] = _clean_positive_int(
+        ifrs9_after_id,
+        0,
+        minimum=0,
+        maximum=2147483647,
+    )
 
     if _matches_score_types("basel", allowed_score_types):
         basel_qs = (
@@ -986,15 +1065,21 @@ def run_autofilled_score_auto_update(
         # SQL Server/ODBC can raise HY010 if a streaming cursor is still being
         # fetched while the loop performs writes. Materialize IDs first, then
         # reload each small batch before doing any update work.
-        basel_ids = _materialized_candidate_ids(
+        basel_ids, basel_next_cursor_id, basel_cycle_complete = _candidate_window(
             basel_qs,
-            _remaining_checks(result, max_checked),
+            after_id=0 if customer_code else basel_after_id,
+            max_checked=_window_limit(result, max_checked, normalized_batch_size),
         )
+        basel_last_processed_id: int | None = None
+        basel_stopped_early = False
         for candidate_ids in _batched_ids(basel_ids):
             for evaluation in _load_basel_candidate_batch(candidate_ids):
                 if max_checked is not None and result["checked_count"] >= max_checked:
+                    basel_stopped_early = True
                     break
                 result["checked_count"] += 1
+                result["basel_checked_count"] += 1
+                basel_last_processed_id = int(evaluation.pk)
                 try:
                     updated_item = _refresh_one_basel_score(
                         evaluation,
@@ -1017,12 +1102,19 @@ def run_autofilled_score_auto_update(
                 result["updated_items"].append(updated_item)
                 result["updated_count"] = len(result["updated_items"])
                 if limit is not None and result["updated_count"] >= limit:
+                    basel_stopped_early = True
                     break
             if (
                 (max_checked is not None and result["checked_count"] >= max_checked)
                 or (limit is not None and result["updated_count"] >= limit)
             ):
                 break
+        if basel_stopped_early and basel_last_processed_id is not None:
+            result["basel_cursor_id"] = basel_last_processed_id
+            result["basel_cycle_complete"] = False
+        else:
+            result["basel_cursor_id"] = basel_next_cursor_id
+            result["basel_cycle_complete"] = basel_cycle_complete
 
     if (
         (limit is None or result["updated_count"] < limit)
@@ -1039,15 +1131,21 @@ def run_autofilled_score_auto_update(
         if customer_code:
             ifrs9_qs = ifrs9_qs.filter(customer_id=customer_code)
 
-        ifrs9_ids = _materialized_candidate_ids(
+        ifrs9_ids, ifrs9_next_cursor_id, ifrs9_cycle_complete = _candidate_window(
             ifrs9_qs,
-            _remaining_checks(result, max_checked),
+            after_id=0 if customer_code else ifrs9_after_id,
+            max_checked=_window_limit(result, max_checked, normalized_batch_size),
         )
+        ifrs9_last_processed_id: int | None = None
+        ifrs9_stopped_early = False
         for candidate_ids in _batched_ids(ifrs9_ids):
             for evaluation in _load_ifrs9_candidate_batch(candidate_ids):
                 if max_checked is not None and result["checked_count"] >= max_checked:
+                    ifrs9_stopped_early = True
                     break
                 result["checked_count"] += 1
+                result["ifrs9_checked_count"] += 1
+                ifrs9_last_processed_id = int(evaluation.pk)
                 try:
                     updated_item = _refresh_one_ifrs9_score(
                         evaluation,
@@ -1070,12 +1168,19 @@ def run_autofilled_score_auto_update(
                 result["updated_items"].append(updated_item)
                 result["updated_count"] = len(result["updated_items"])
                 if limit is not None and result["updated_count"] >= limit:
+                    ifrs9_stopped_early = True
                     break
             if (
                 (max_checked is not None and result["checked_count"] >= max_checked)
                 or (limit is not None and result["updated_count"] >= limit)
             ):
                 break
+        if ifrs9_stopped_early and ifrs9_last_processed_id is not None:
+            result["ifrs9_cursor_id"] = ifrs9_last_processed_id
+            result["ifrs9_cycle_complete"] = False
+        else:
+            result["ifrs9_cursor_id"] = ifrs9_next_cursor_id
+            result["ifrs9_cycle_complete"] = ifrs9_cycle_complete
 
     return result
 

@@ -444,6 +444,9 @@ def run_scheduler_cycle(
             f"skipped={auto_refresh_result.get('skipped_count', 0)}, "
             f"adopted={auto_refresh_result.get('adopted_count', 0)}, "
             f"errors={auto_refresh_result.get('error_count', 0)}, "
+            f"batch={auto_refresh_result.get('batch_size', '-')}, "
+            f"basel_cursor={auto_refresh_result.get('basel_cursor_id', 0)}, "
+            f"ifrs9_cursor={auto_refresh_result.get('ifrs9_cursor_id', 0)}, "
             f"document={notification.get('document_name', '-')}, "
             f"notifications={notification.get('notifications_sent', 0)}.",
         )
@@ -455,7 +458,10 @@ def run_scheduler_cycle(
                 f"updated={auto_refresh_result.get('updated', 0)}, "
                 f"skipped={auto_refresh_result.get('skipped_count', 0)}, "
                 f"adopted={auto_refresh_result.get('adopted_count', 0)}, "
-                f"errors={auto_refresh_result.get('error_count', 0)}."
+                f"errors={auto_refresh_result.get('error_count', 0)}, "
+                f"batch={auto_refresh_result.get('batch_size', '-')}, "
+                f"basel_cursor={auto_refresh_result.get('basel_cursor_id', 0)}, "
+                f"ifrs9_cursor={auto_refresh_result.get('ifrs9_cursor_id', 0)}."
             ),
             details=auto_refresh_result,
         )

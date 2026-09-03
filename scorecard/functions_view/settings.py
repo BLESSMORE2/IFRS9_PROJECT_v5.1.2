@@ -241,6 +241,9 @@ AUTO_REFRESH_WEEKDAY_CHOICES = [
 ]
 
 AUTO_REFRESH_MONTH_DAY_CHOICES = list(range(1, 32))
+AUTO_REFRESH_BATCH_DEFAULT = 1000
+AUTO_REFRESH_BATCH_MIN = 1
+AUTO_REFRESH_BATCH_MAX = 10000
 
 AUDIT_MODEL_LABELS = {
     "ScorecardPermissionAssignment": "Permission Role Assignment",
@@ -934,6 +937,19 @@ def _serialize_workflow_approval_settings(settings_obj):
         auto_refresh_month_day = 1
     auto_refresh_month_day = max(1, min(31, auto_refresh_month_day))
     auto_refresh_time = getattr(settings_obj, "auto_refresh_autofilled_scores_time", None) or datetime_time(2, 0)
+    auto_refresh_batch_size = _post_int_range(
+        {
+            "auto_refresh_autofilled_scores_batch_size": getattr(
+                settings_obj,
+                "auto_refresh_autofilled_scores_batch_size",
+                AUTO_REFRESH_BATCH_DEFAULT,
+            )
+        },
+        "auto_refresh_autofilled_scores_batch_size",
+        AUTO_REFRESH_BATCH_DEFAULT,
+        AUTO_REFRESH_BATCH_MIN,
+        AUTO_REFRESH_BATCH_MAX,
+    )
     auto_frequency_labels = dict(AUTO_REFRESH_FREQUENCY_CHOICES)
     auto_weekday_labels = dict(AUTO_REFRESH_WEEKDAY_CHOICES)
     auto_refresh = {
@@ -944,6 +960,9 @@ def _serialize_workflow_approval_settings(settings_obj):
         "weekday": auto_refresh_weekday,
         "weekday_label": auto_weekday_labels.get(auto_refresh_weekday, "Monday"),
         "month_day": auto_refresh_month_day,
+        "batch_size": auto_refresh_batch_size,
+        "basel_cursor_id": getattr(settings_obj, "auto_refresh_autofilled_scores_basel_cursor_id", 0) or 0,
+        "ifrs9_cursor_id": getattr(settings_obj, "auto_refresh_autofilled_scores_ifrs9_cursor_id", 0) or 0,
         "last_run_at": getattr(settings_obj, "auto_refresh_autofilled_scores_last_run_at", None),
         "frequency_choices": [
             {
@@ -1170,6 +1189,13 @@ def settings_workflow_approvals(request):
             1,
             31,
         )
+        workflow_settings.auto_refresh_autofilled_scores_batch_size = _post_int_range(
+            request.POST,
+            "auto_refresh_autofilled_scores_batch_size",
+            AUTO_REFRESH_BATCH_DEFAULT,
+            AUTO_REFRESH_BATCH_MIN,
+            AUTO_REFRESH_BATCH_MAX,
+        )
 
         workflow_settings.updated_by = request.user
         workflow_settings.save()
@@ -1224,6 +1250,12 @@ def settings_workflow_approvals(request):
                 current_auto_refresh.get("month_day"),
                 previous_auto_refresh.get("month_day"),
                 current_auto_refresh.get("month_day"),
+            ),
+            (
+                "Auto-update batch size",
+                current_auto_refresh.get("batch_size"),
+                previous_auto_refresh.get("batch_size"),
+                current_auto_refresh.get("batch_size"),
             ),
         ]
         for label, display_value, previous_value, current_value in auto_refresh_changes:

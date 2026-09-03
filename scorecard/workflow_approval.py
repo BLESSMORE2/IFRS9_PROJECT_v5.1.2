@@ -56,6 +56,9 @@ def ensure_scorecard_workflow_approval_settings_schema():
         "auto_refresh_autofilled_scores_time",
         "auto_refresh_autofilled_scores_weekday",
         "auto_refresh_autofilled_scores_month_day",
+        "auto_refresh_autofilled_scores_batch_size",
+        "auto_refresh_autofilled_scores_basel_cursor_id",
+        "auto_refresh_autofilled_scores_ifrs9_cursor_id",
         "auto_refresh_autofilled_scores_last_run_at",
     ]
 

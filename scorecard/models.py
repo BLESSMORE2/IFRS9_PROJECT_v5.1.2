@@ -3953,6 +3953,18 @@ class ScorecardWorkflowApprovalSetting(models.Model):
         default=1,
         help_text="Day of month for monthly auto-refresh runs.",
     )
+    auto_refresh_autofilled_scores_batch_size = models.PositiveIntegerField(
+        default=1000,
+        help_text="Maximum approved Basel and IFRS9 score forms to check per scheduled auto-refresh run.",
+    )
+    auto_refresh_autofilled_scores_basel_cursor_id = models.PositiveIntegerField(
+        default=0,
+        help_text="Internal resume cursor for batched Basel score auto-refresh runs.",
+    )
+    auto_refresh_autofilled_scores_ifrs9_cursor_id = models.PositiveIntegerField(
+        default=0,
+        help_text="Internal resume cursor for batched IFRS9 score auto-refresh runs.",
+    )
     auto_refresh_autofilled_scores_last_run_at = models.DateTimeField(
         null=True,
         blank=True,

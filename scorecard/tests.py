@@ -921,6 +921,132 @@ class ScoreAutoRefreshCursorSafetyTests(SimpleTestCase):
         self.assertEqual(updated_values[101], "2")
         self.assertEqual(changed_fields, ["Loan Amount: Old loan band -> Latest loan band"])
 
+    def test_candidate_window_advances_resume_cursor(self):
+        from scorecard.functions_view.score_auto_refresh_engine import _candidate_window
+
+        class FakeQuerySet:
+            def __init__(self, ids):
+                self.ids = list(ids)
+
+            def filter(self, **kwargs):
+                if "pk__gt" in kwargs:
+                    return FakeQuerySet([item for item in self.ids if item > kwargs["pk__gt"]])
+                return self
+
+            def __getitem__(self, value):
+                return FakeQuerySet(self.ids[value])
+
+            def values_list(self, *_args, **_kwargs):
+                return list(self.ids)
+
+            def exists(self):
+                return bool(self.ids)
+
+        ids, cursor_id, cycle_complete = _candidate_window(
+            FakeQuerySet([1, 2, 3, 4]),
+            after_id=0,
+            max_checked=2,
+        )
+
+        self.assertEqual(ids, [1, 2])
+        self.assertEqual(cursor_id, 2)
+        self.assertFalse(cycle_complete)
+
+    def test_candidate_window_resets_cursor_when_cycle_completes(self):
+        from scorecard.functions_view.score_auto_refresh_engine import _candidate_window
+
+        class FakeQuerySet:
+            def __init__(self, ids):
+                self.ids = list(ids)
+
+            def filter(self, **kwargs):
+                if "pk__gt" in kwargs:
+                    return FakeQuerySet([item for item in self.ids if item > kwargs["pk__gt"]])
+                return self
+
+            def __getitem__(self, value):
+                return FakeQuerySet(self.ids[value])
+
+            def values_list(self, *_args, **_kwargs):
+                return list(self.ids)
+
+            def exists(self):
+                return bool(self.ids)
+
+        ids, cursor_id, cycle_complete = _candidate_window(
+            FakeQuerySet([1, 2, 3, 4]),
+            after_id=2,
+            max_checked=2,
+        )
+
+        self.assertEqual(ids, [3, 4])
+        self.assertEqual(cursor_id, 0)
+        self.assertTrue(cycle_complete)
+
+    def test_candidate_window_restarts_when_saved_cursor_is_stale(self):
+        from scorecard.functions_view.score_auto_refresh_engine import _candidate_window
+
+        class FakeQuerySet:
+            def __init__(self, ids):
+                self.ids = list(ids)
+
+            def filter(self, **kwargs):
+                if "pk__gt" in kwargs:
+                    return FakeQuerySet([item for item in self.ids if item > kwargs["pk__gt"]])
+                return self
+
+            def __getitem__(self, value):
+                return FakeQuerySet(self.ids[value])
+
+            def values_list(self, *_args, **_kwargs):
+                return list(self.ids)
+
+            def exists(self):
+                return bool(self.ids)
+
+        ids, cursor_id, cycle_complete = _candidate_window(
+            FakeQuerySet([1, 2, 3, 4]),
+            after_id=99,
+            max_checked=2,
+        )
+
+        self.assertEqual(ids, [1, 2])
+        self.assertEqual(cursor_id, 2)
+        self.assertFalse(cycle_complete)
+
+    def test_scheduler_passes_batch_and_cursor_values_to_refresh_engine(self):
+        from datetime import datetime
+
+        from django.utils import timezone
+
+        from scorecard.functions_view.score_auto_refresh import _call_engine
+
+        current_tz = timezone.get_current_timezone()
+        now = timezone.make_aware(datetime(2026, 9, 3, 14, 30), current_tz)
+
+        def engine(now=None, batch_size=None, basel_after_id=None, ifrs9_after_id=None):
+            return {
+                "now": now,
+                "batch_size": batch_size,
+                "basel_after_id": basel_after_id,
+                "ifrs9_after_id": ifrs9_after_id,
+            }
+
+        result = _call_engine(
+            engine,
+            now,
+            {
+                "batch_size": 500,
+                "basel_cursor_id": 123,
+                "ifrs9_cursor_id": 456,
+            },
+        )
+
+        self.assertEqual(result["now"], now)
+        self.assertEqual(result["batch_size"], 500)
+        self.assertEqual(result["basel_after_id"], 123)
+        self.assertEqual(result["ifrs9_after_id"], 456)
+
 
 class ScoreAutoRefreshScheduleSlotTests(SimpleTestCase):
     def test_daily_refresh_allows_new_time_slot_on_same_day(self):
