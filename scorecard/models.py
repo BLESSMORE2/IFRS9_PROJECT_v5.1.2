@@ -3321,6 +3321,48 @@ class CustomerOverdraft(models.Model):
         return f"{self.customer_name or self.customer_code} ({self.account_number})"
 
 
+class ManualOverdraftCustomer(models.Model):
+    """
+    Manually maintained overdraft customer rows added or uploaded by users.
+    Each customer code may only appear once, so a manual overdraft customer is
+    owned by one branch at a time.
+    These rows keep a separate audit trail from the API overdraft staging table.
+    """
+
+    customer_code = models.CharField(max_length=30)
+    customer_name = models.CharField(max_length=255)
+    branch_code = models.CharField(max_length=50, blank=True, default="")
+    branch_name = models.CharField(max_length=150)
+    account_number = models.CharField(max_length=50, blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="manual_overdraft_customers",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "SCORECARD_MANUAL_OVERDRAFT_CUSTOMER"
+        verbose_name = "Manual Overdraft Customer"
+        verbose_name_plural = "Manual Overdraft Customers"
+        ordering = ["branch_name", "customer_name", "customer_code"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["customer_code"],
+                name="UQ_MANUAL_OD_CUSTOMER_CODE",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["branch_code", "customer_code"], name="SC_MOD_BRANCH_CODE_IDX"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.customer_name} ({self.customer_code}) - {self.branch_name}"
+
+
 class MainCustomer(models.Model):
     """
     Branch-aware scorecard customer base.

@@ -90,6 +90,7 @@ SCORECARD_TEMPLATE_ROUTE_NAMES = (
     "maker_ifrs9_scores_submitted_list",
     "maker_ifrs9_scores_view",
     "maker_submitted_list",
+    "manual_overdraft_customer_list",
     "notifications",
     "scorecard_dashboard",
     "scorecard_document_list",
@@ -295,6 +296,7 @@ def _build_scorecard_route_access(request) -> tuple[dict[str, bool], dict[str, b
             for route_name in (
                 "customer_list",
                 "add_customer",
+                "manual_overdraft_customer_list",
                 "customer_without_questionnaire_list",
                 "customer_without_ifrs9_list",
             )
@@ -639,7 +641,12 @@ def _customer_queue_counts_cache_key(user, branch_context: dict[str, object]) ->
     )
 
 
-def _get_customer_queue_counts(request, *, refresh_if_stale: bool = False) -> dict[str, int]:
+def _get_customer_queue_counts(
+    request,
+    *,
+    refresh_if_stale: bool = False,
+    cache_only: bool = False,
+) -> dict[str, int]:
     user = getattr(request, "user", None)
     branch_context = _resolve_scorecard_branch_context(request)
     cache_key = _customer_queue_counts_cache_key(user, branch_context)
@@ -651,6 +658,14 @@ def _get_customer_queue_counts(request, *, refresh_if_stale: bool = False) -> di
         not refresh_if_stale or cached_counts.get("_summary_version") == summary_version
     ):
         return cached_counts
+
+    if cache_only:
+        return {
+            "without_basel_total": 0,
+            "without_ifrs9_total": 0,
+            "total": 0,
+            "_summary_version": summary_version,
+        }
 
     try:
         summary_counts = _get_customer_list_summary_counts(request)
@@ -731,7 +746,7 @@ def scorecard_base_context(request):
         else _empty_maker_queue_counts()
     )
     context["scorecard_customer_counts"] = (
-        _get_customer_queue_counts(request)
+        _get_customer_queue_counts(request, cache_only=True)
         if nav_visibility.get("customers")
         else _empty_customer_queue_counts()
     )

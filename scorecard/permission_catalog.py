@@ -485,6 +485,7 @@ CUSTOMER_VIEW_ROUTES = [
 
 CUSTOMER_MANAGE_ROUTES = [
     "add_customer",
+    "manual_overdraft_customer_list",
 ]
 
 BRANCH_VIEW_ROUTES = [

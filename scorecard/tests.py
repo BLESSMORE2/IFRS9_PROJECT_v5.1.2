@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from django.contrib.auth.models import Permission
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.middleware import SessionMiddleware
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory
 from django.test import SimpleTestCase
@@ -27,6 +28,10 @@ from scorecard.functions_view.basel_scores_form import (
     _finalize_basel_auto_approval,
 )
 from scorecard.functions_view.dashboard import _build_dashboard_access
+from scorecard.functions_view.customers import (
+    _parse_overdraft_upload_rows_from_values,
+    build_without_score_customer_snapshot_for_branch_scope,
+)
 from scorecard.functions_view.scorecard_autofill import (
     _age_option,
     _gender_option,
@@ -53,6 +58,8 @@ from scorecard.models import (
     BankBranch,
     CreditEvaluation,
     CustomerCorporate,
+    MainCustomer,
+    ManualOverdraftCustomer,
     IFRS9Evaluation,
     IFRS9ScoreSheetTemplate,
     ScorecardWorkflowApprovalSetting,
@@ -62,6 +69,93 @@ from scorecard.workflow_approval import (
     can_user_self_review_score_submission,
     get_scorecard_workflow_approval_settings,
 )
+
+
+class ManualOverdraftCustomerUploadTests(SimpleTestCase):
+    def test_upload_parser_accepts_customer_id_and_skips_incomplete_rows(self):
+        rows, skipped, errors = _parse_overdraft_upload_rows_from_values(
+            [
+                ["Branch Name", "Customer ID", "Customer Name", "Account Number"],
+                ["8TH AVENUE", "1001", "ABC TEST", "OD123"],
+                ["8TH AVENUE", "", "MISSING CODE", ""],
+            ]
+        )
+
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "branch_name": "8TH AVENUE",
+                    "customer_code": "1001",
+                    "customer_name": "ABC TEST",
+                    "account_number": "OD123",
+                }
+            ],
+        )
+        self.assertEqual(skipped, 1)
+        self.assertEqual(errors, ["Row 3: Branch Name, Customer Code, and Customer Name are required."])
+
+    def test_upload_parser_accepts_branch_name_column_without_branch_code(self):
+        rows, skipped, errors = _parse_overdraft_upload_rows_from_values(
+            [
+                ["Branch Name", "Customer Code", "Customer Name", "Account Number"],
+                ["8TH AVENUE", "1002", "BRANCH CUSTOMER", "OD456"],
+            ]
+        )
+
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "branch_name": "8TH AVENUE",
+                    "customer_code": "1002",
+                    "customer_name": "BRANCH CUSTOMER",
+                    "account_number": "OD456",
+                }
+            ],
+        )
+        self.assertEqual(skipped, 0)
+        self.assertEqual(errors, [])
+
+
+class ManualOverdraftWithoutScoreTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.branch = BankBranch.objects.create(
+            branch_code="OD001",
+            branch_name="OD TEST BRANCH",
+            bank_name="AFC",
+        )
+        MainCustomer.objects.create(
+            reporting_date=date(2026, 9, 30),
+            customer_ref_code="ODCUST001",
+            customer_name="OD CUSTOMER ONE",
+            branch_code=self.branch.branch_code,
+            branch_name=self.branch.branch_name,
+            branch_description=self.branch.branch_name,
+            has_overdraft=True,
+            overdraft_count=1,
+            is_active_for_scoring=True,
+        )
+        ManualOverdraftCustomer.objects.create(
+            customer_code="ODCUST001",
+            customer_name="OD CUSTOMER ONE",
+            branch_code=self.branch.branch_code,
+            branch_name=self.branch.branch_name,
+            account_number="ODACC001",
+        )
+
+    def test_manual_overdraft_customers_are_included_when_api_sources_are_disabled(self):
+        snapshot = build_without_score_customer_snapshot_for_branch_scope(
+            [self.branch],
+            {"include_loans": False, "include_overdrafts": False},
+        )
+
+        self.assertEqual(snapshot["total_stage_rows"], 1)
+        self.assertEqual([row["customer_ref_code"] for row in snapshot["basel_rows"]], ["ODCUST001"])
+        self.assertEqual([row["customer_ref_code"] for row in snapshot["ifrs9_rows"]], ["ODCUST001"])
+        self.assertTrue(snapshot["basel_rows"][0]["has_overdraft"])
+        self.assertEqual(snapshot["basel_rows"][0]["primary_account_number"], "ODACC001")
 
 
 class AutofillOptionMappingTests(SimpleTestCase):

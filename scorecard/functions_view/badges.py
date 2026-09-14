@@ -28,7 +28,11 @@ def badge_counts_view(request):
         else _empty_maker_queue_counts()
     )
     customers = (
-        _get_customer_queue_counts(request, refresh_if_stale=refresh_customers)
+        _get_customer_queue_counts(
+            request,
+            refresh_if_stale=refresh_customers,
+            cache_only=not refresh_customers,
+        )
         if nav_visibility.get("customers")
         else _empty_customer_queue_counts()
     )
@@ -42,6 +46,7 @@ def badge_counts_view(request):
             "checker": checker,
             "maker": maker,
             "customers": customers,
+            "customers_deferred": bool(nav_visibility.get("customers") and not refresh_customers),
             "notifications": {
                 "unread": int(notifications.get("scorecard_notification_unread_count", 0) or 0),
             },

@@ -262,6 +262,7 @@ AUDIT_MODEL_LABELS = {
     "ScorecardCheckerApprovals": "Checker My Approvals",
     "ScorecardIFRS9Results": "IFRS9 Results",
     "ScorecardHistoricalScore": "Historical Scores",
+    "ScorecardManualOverdraftCustomer": "Manual Overdraft Customers",
 }
 
 
@@ -316,6 +317,8 @@ def _audit_action_label(action_name):
         "returned": "Return",
         "assign": "Assign",
         "import": "Import",
+        "bulk_upload": "Bulk Upload",
+        "bulk_upload_failed": "Bulk Upload Failed",
         "retry": "Retry",
         "download": "Download",
         "run": "Run",

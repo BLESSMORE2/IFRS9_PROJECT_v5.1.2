@@ -741,6 +741,11 @@ urlpatterns = [
         name="add_customer",
     ),
     path(
+        "customers/overdraft/",
+        customers.manual_overdraft_customer_list_view,
+        name="manual_overdraft_customer_list",
+    ),
+    path(
         "notifications/",
         notifications.notification_list_view,
         name="notifications",

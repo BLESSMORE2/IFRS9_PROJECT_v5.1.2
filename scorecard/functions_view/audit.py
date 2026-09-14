@@ -30,6 +30,7 @@ SCORECARD_AUDIT_MODELS = (
     "ScorecardCheckerApprovals",
     "ScorecardIFRS9Results",
     "ScorecardHistoricalScore",
+    "ScorecardManualOverdraftCustomer",
 )
 
 
@@ -235,4 +236,37 @@ def log_historical_score_audit(user, action: str, details: str = "", object_id=N
         object_id=object_id,
         change_description=details,
         branch_name=branch_name,
+    )
+
+
+def log_manual_overdraft_customer_audit(
+    user,
+    action: str,
+    customer=None,
+    details: str = "",
+    object_id=None,
+    branch_name: str = "",
+) -> None:
+    if customer is not None:
+        summary = _append_details(
+            f"Customer: {getattr(customer, 'customer_name', '') or '-'}",
+            f"Customer Code: {getattr(customer, 'customer_code', '') or '-'}",
+            f"Branch: {getattr(customer, 'branch_name', '') or '-'}",
+            f"Account Number: {getattr(customer, 'account_number', '') or '-'}",
+            details,
+        )
+        resolved_object_id = getattr(customer, "pk", None)
+        resolved_branch_name = getattr(customer, "branch_name", "") or branch_name
+    else:
+        summary = details
+        resolved_object_id = object_id
+        resolved_branch_name = branch_name
+
+    log_scorecard_audit(
+        user,
+        "ScorecardManualOverdraftCustomer",
+        action,
+        object_id=resolved_object_id,
+        change_description=summary,
+        branch_name=resolved_branch_name,
     )

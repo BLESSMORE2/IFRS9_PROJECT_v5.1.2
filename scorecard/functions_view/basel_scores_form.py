@@ -712,6 +712,16 @@ def _reset_basel_evaluation_for_template(
     previous_raw_score = evaluation.total_raw_score
     previous_status = evaluation.status
     had_existing_template = bool(evaluation.template_id)
+    preserved_import_version_number = ""
+
+    if not had_existing_template and not evaluation.versions.exists():
+        import_version = _create_evaluation_version(
+            evaluation,
+            version_number=1,
+            user=performed_by,
+            change_description="Imported Basel II score preserved before template assignment.",
+        )
+        preserved_import_version_number = str(import_version.version_number)
 
     metadata = dict(evaluation.autofill_metadata or {})
     metadata["template_assignment"] = {
@@ -724,6 +734,7 @@ def _reset_basel_evaluation_for_template(
         "previous_weighted_percent": str(previous_score) if previous_score is not None else "",
         "previous_grade": previous_grade or "",
         "previous_raw_score": str(previous_raw_score) if previous_raw_score is not None else "",
+        "preserved_import_version_number": preserved_import_version_number,
     }
 
     evaluation.template = template
@@ -2434,11 +2445,10 @@ def basel_scores_template_assignment_view(request: HttpRequest, evaluation_id: i
             else:
                 messages.success(
                     request,
-                    f"Template '{selected_template.code}' has been assigned. The existing score, grade, and status were kept unchanged.",
+                    f"Template '{selected_template.code}' has been assigned. "
+                    "The imported score is preserved as version 1, and the edit screen will create the next version when saved.",
                 )
-            if evaluation.status in {"draft", "in_progress", "returned"}:
-                return redirect("scorecard:basel_scores_edit", evaluation_id=evaluation.id)
-            return redirect("scorecard:basel_scores_view_detail", evaluation_id=evaluation.id)
+            return redirect("scorecard:basel_scores_edit", evaluation_id=evaluation.id)
 
     templates = BaselScoreSheetTemplate.objects.filter(is_active=True, status="approved").order_by("name", "code")
     current_template = evaluation.template
@@ -3298,6 +3308,19 @@ def questionnaire_edit_view(request: HttpRequest, evaluation_id: int) -> HttpRes
     )
     saved_autofill_metadata = evaluation.autofill_metadata or {}
     autofill_profile_changes = _build_profile_change_rows(saved_autofill_metadata, current_autofill_payload)
+    display_autofill_metadata = saved_autofill_metadata
+    template_assignment_metadata = saved_autofill_metadata.get("template_assignment", {})
+    should_seed_autofill_values = (
+        not attribute_responses_list
+        and approved_evaluation_version is None
+        and not existing_responses
+        and not template_assignment_metadata.get("previous_template_code")
+        and bool(current_autofill_payload.get("attribute_values"))
+    )
+    if should_seed_autofill_values:
+        existing_responses = current_autofill_payload.get("attribute_values", {}) or {}
+        display_autofill_metadata = current_autofill_payload
+        autofill_profile_changes = []
 
     context = {
         "template": template,
@@ -3309,10 +3332,10 @@ def questionnaire_edit_view(request: HttpRequest, evaluation_id: int) -> HttpRes
         "attribute_responses": attribute_responses,
         "template_switch_notice": template_switch_notice,
         "errors": {},
-        "autofill_applied_labels": saved_autofill_metadata.get("applied_labels", []),
-        "autofill_applied_attribute_ids": saved_autofill_metadata.get("applied_attribute_ids", []),
-        "autofill_missing_labels": saved_autofill_metadata.get("missing_required_labels", []),
-        "autofill_missing_attribute_ids": saved_autofill_metadata.get("missing_required_attribute_ids", []),
+        "autofill_applied_labels": display_autofill_metadata.get("applied_labels", []),
+        "autofill_applied_attribute_ids": display_autofill_metadata.get("applied_attribute_ids", []),
+        "autofill_missing_labels": display_autofill_metadata.get("missing_required_labels", []),
+        "autofill_missing_attribute_ids": display_autofill_metadata.get("missing_required_attribute_ids", []),
         "autofill_profile_changes": autofill_profile_changes,
         # Pre-populate form with existing data
         "form_data": {

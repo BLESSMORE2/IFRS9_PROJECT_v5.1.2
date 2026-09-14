@@ -1,0 +1,302 @@
+{% extends "credit_scoreshifts/base.html" %}
+
+{% block title %}Overdraft Customers{% endblock %}
+{% block header_title %}Overdraft Customers{% endblock %}
+
+{% block content %}
+<style>
+    .page-header { padding: 1rem 0; margin-bottom: 1rem; border-bottom: 2px solid #0066cc; }
+    .page-title { font-size: 1.5rem; font-weight: 600; color: #333; font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .section-note { margin: -0.3rem 0 1rem; color: #49627f; font-size: 0.9rem; line-height: 1.5; }
+    .notice-card { background: #fff8e5; border: 1px solid #f5d083; color: #6f4b00; border-radius: 8px; padding: 0.9rem 1rem; margin-bottom: 1rem; font-size: 0.9rem; }
+    .workspace-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+    .form-container, .table-container { background: white; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5edf5; }
+    .form-section { padding: 1.25rem 1.5rem; }
+    .section-header { background: #f5f5f5; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.95rem; color: #333; margin: 0 0 1rem; border-radius: 4px; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group:last-child { margin-bottom: 0; }
+    label { display: block; font-weight: 600; margin-bottom: 0.5rem; color: #333; font-size: 0.9rem; }
+    input[type="text"], input[type="file"] { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #cbd2e1; border-radius: 4px; font-size: 0.9rem; font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    input[type="text"]:focus, input[type="file"]:focus { outline: none; border-color: #0066cc; box-shadow: 0 0 0 2px rgba(0,102,204,0.1); }
+    .readonly-field { background: #f5f5f5; color: #666; cursor: not-allowed; }
+    .required-indicator { color: #d32f2f; }
+    .help-text { font-size: 0.85rem; color: #666; margin-top: 0.5rem; line-height: 1.45; }
+    .template-actions { display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.8rem; }
+    .form-actions { padding: 1rem 1.5rem; background: #f9f9f9; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 0.75rem; }
+    .btn, .pagination-btn { padding: 0.6rem 1.2rem; border: 1px solid #0066cc; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+    .btn-primary { background: #0066cc; color: white; }
+    .btn-primary:hover { background: #0052a3; }
+    .btn-secondary, .pagination-btn { background: white; color: #0066cc; }
+    .btn-secondary:hover, .pagination-btn:hover { background: #f5f5f5; }
+    .export-dropdown { position:relative; display:inline-block; }
+    .export-dropdown-menu { display:none; position:absolute; top:100%; left:0; background:white; min-width:150px; box-shadow:0 4px 12px rgba(0,0,0,0.15); border-radius:4px; margin-top:0.25rem; z-index:10000; overflow:hidden; border:1px solid #ddd; }
+    .export-dropdown-menu.show { display:block !important; }
+    .export-dropdown-item { display:block; width:100%; padding:0.75rem 1rem; color:#555; text-decoration:none; font-size:0.9rem; border:0; border-bottom:1px solid #f0f0f0; background:white; text-align:left; cursor:pointer; font-family:inherit; }
+    .export-dropdown-item:last-child { border-bottom:none; }
+    .export-dropdown-item:hover { background:#f5f5f5; }
+    .summary-strip { padding: 0.9rem 1.5rem; border-bottom: 1px solid #e5edf5; background: #f8fbff; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
+    .summary-card { display:inline-flex; align-items:center; gap:0.6rem; padding:0.55rem 0.8rem; border:1px solid #d4e3f1; border-radius:999px; background:white; color:#355777; font-size:12px; font-weight:600; }
+    .summary-value { color:#0f4f8a; font-size:16px; font-weight:700; }
+    .table-controls, .table-footer { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; padding:0.75rem 1.5rem; background:#f8f9fa; border-bottom:1px solid #dee2e6; }
+    .table-footer { border-top: 1px solid #dee2e6; border-bottom: none; }
+    .search-row { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
+    .search-input, .entries-select { border: 1px solid #cbd2e1; padding: 0.5rem 0.75rem; border-radius: 4px; font-size: 0.9rem; }
+    .search-input { width: 320px; max-width: 100%; }
+    .table-scroll { overflow-x: auto; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: "Calibri", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .data-table thead { background: #e3f2fd; }
+    .data-table th, .data-table td { padding: 0.65rem 0.75rem; text-align:left; border-bottom:1px solid #e0e0e0; color:#333; white-space:nowrap; }
+    .data-table th { font-weight:600; border-bottom:2px solid #0066cc; }
+    .data-table tbody tr:hover { background:#f5f5f5; }
+    .code-pill { display:inline-flex; padding:0.2rem 0.55rem; border-radius:999px; background:#eaf4ff; color:#0f5d9c; font-weight:700; }
+    .score-status { display:inline-flex; align-items:center; justify-content:center; width:1.7rem; height:1.7rem; border-radius:999px; font-size:1.15rem; font-weight:900; line-height:1; }
+    .score-status-scored { color:#05833f; background:#e6f8ee; border:1px solid #bce9cd; }
+    .score-status-missing { color:#c9242e; background:#fff0f1; border:1px solid #f3c2c6; }
+    .action-cell { display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap; }
+    .action-link { border:0; background:transparent; padding:0; font:inherit; font-size:12px; cursor:pointer; text-decoration:none; }
+    .action-link-edit { color:#00843d; }
+    .action-link-delete { color:#dc3545; }
+    .inline-delete-form { display:inline; margin:0; }
+    .no-data-message { padding: 2.5rem; text-align: center; color: #777; font-style: italic; }
+    .pagination-controls { display:flex; gap:0.5rem; align-items:center; }
+    .pagination-btn.disabled { opacity:0.5; pointer-events:none; }
+    @media (max-width: 900px) {
+        .workspace-grid { grid-template-columns: 1fr; }
+        .table-controls, .table-footer { align-items: stretch; }
+        .search-row { width: 100%; }
+        .search-input { width: 100%; }
+    }
+</style>
+
+<div class="page-header">
+    <div class="page-title">Overdraft Customers</div>
+</div>
+<p class="section-note">
+    Add or upload branch-scoped overdraft customers. Saved rows are kept separately from the API overdraft import, and the same customers are also marked as overdraft customers in the main customer register.
+</p>
+
+{% if not single_branch_selected and not editing_customer %}
+<div class="notice-card">
+    Choose one specific branch before adding one individual overdraft customer. Bulk upload can still import multiple branches when the file contains the Branch Name column.
+</div>
+{% elif not can_manage_current_branch and not editing_customer %}
+<div class="notice-card">
+    You do not have permission to add an individual overdraft customer for the selected branch.
+</div>
+{% endif %}
+
+{% if can_manage_current_branch or can_upload_overdraft_customers or editing_customer %}
+<div class="workspace-grid">
+    {% if can_manage_current_branch or editing_customer %}
+    <div id="manual-overdraft-form"></div>
+    <form method="post" action="{% url 'scorecard:manual_overdraft_customer_list' %}" class="form-container">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="{% if editing_customer %}manual_edit{% else %}manual_add{% endif %}">
+        {% if editing_customer %}
+        <input type="hidden" name="customer_pk" value="{{ editing_customer.id }}">
+        {% endif %}
+        <div class="form-section">
+            <div class="section-header">{% if editing_customer %}Edit Overdraft Customer{% else %}Add Overdraft Customer{% endif %}</div>
+            <div class="form-group">
+                <label for="branch_display">Branch <span class="required-indicator">*</span></label>
+                {% if editing_customer %}
+                <input type="text" id="branch_display" value="{{ editing_customer.branch_name }}{% if editing_branch and editing_branch.bank_name %} ({{ editing_branch.bank_name }}){% endif %}" class="readonly-field" readonly disabled>
+                {% else %}
+                <input type="text" id="branch_display" value="{{ current_branch.branch_name }}{% if current_branch.bank_name %} ({{ current_branch.bank_name }}){% endif %}" class="readonly-field" readonly disabled>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label for="customer_code">Customer Code <span class="required-indicator">*</span></label>
+                <input type="text" name="customer_code" id="customer_code" value="{{ form_data.customer_code|default:'' }}" placeholder="Enter Customer Code" required>
+            </div>
+            <div class="form-group">
+                <label for="customer_name">Customer Name <span class="required-indicator">*</span></label>
+                <input type="text" name="customer_name" id="customer_name" value="{{ form_data.customer_name|default:'' }}" placeholder="Enter Customer Name" required>
+            </div>
+            <div class="form-group">
+                <label for="account_number">Account Number</label>
+                <input type="text" name="account_number" id="account_number" value="{{ form_data.account_number|default:'' }}" placeholder="Optional overdraft account number">
+            </div>
+        </div>
+        <div class="form-actions">
+            {% if editing_customer %}
+            <a href="{% url 'scorecard:manual_overdraft_customer_list' %}{% if list_query_string %}?{{ list_query_string }}{% endif %}" class="btn btn-secondary">Cancel Edit</a>
+            <button type="submit" class="btn btn-primary">Save Overdraft Customer</button>
+            {% else %}
+            <button type="submit" class="btn btn-primary">Add Overdraft Customer</button>
+            {% endif %}
+        </div>
+    </form>
+    {% endif %}
+
+    {% if can_upload_overdraft_customers %}
+    <form method="post" action="{% url 'scorecard:manual_overdraft_customer_list' %}" enctype="multipart/form-data" class="form-container">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="upload">
+        <div class="form-section">
+            <div class="section-header">Upload Overdraft Customers</div>
+            <div class="form-group">
+                <label for="upload_file">Upload CSV or Excel File <span class="required-indicator">*</span></label>
+                <input type="file" name="upload_file" id="upload_file" accept=".csv,.xlsx,.xlsm,.xltx,.xltm" required>
+                <div class="help-text">
+                    Required columns: Branch Name, Customer Code or Customer ID, and Customer Name. Optional column: Account Number. Each row is imported into the branch named in the file, so the selected branch does not have to match.
+                </div>
+                <div class="template-actions">
+                    <a href="{% url 'scorecard:manual_overdraft_customer_list' %}?download_template=xlsx" class="btn btn-secondary">Download Excel Format</a>
+                    <a href="{% url 'scorecard:manual_overdraft_customer_list' %}?download_template=csv" class="btn btn-secondary">Download CSV Format</a>
+                </div>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Upload Customers</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="table-container">
+    <div class="summary-strip">
+        <div class="summary-card">
+            <span>Overdraft Customers</span>
+            <span class="summary-value">{{ customer_total|default:0 }}</span>
+        </div>
+        {% if current_branch %}
+        <div class="summary-card">
+            <span>Current Branch</span>
+            <span class="summary-value">{{ current_branch.branch_name }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <form method="get" action="{% url 'scorecard:manual_overdraft_customer_list' %}" class="table-controls">
+        <div class="search-row">
+            <input type="text" name="q" value="{{ search_query|default:'' }}" placeholder="Search by customer code, name, branch, or account..." class="search-input" autocomplete="off">
+            <select name="basel_status" class="entries-select">
+                <option value="" {% if not basel_status_filter %}selected{% endif %}>All Basel Statuses</option>
+                <option value="scored" {% if basel_status_filter == "scored" %}selected{% endif %}>Basel Scored</option>
+                <option value="not_scored" {% if basel_status_filter == "not_scored" %}selected{% endif %}>Basel Not Scored</option>
+            </select>
+            <select name="ifrs9_status" class="entries-select">
+                <option value="" {% if not ifrs9_status_filter %}selected{% endif %}>All IFRS9 Statuses</option>
+                <option value="scored" {% if ifrs9_status_filter == "scored" %}selected{% endif %}>IFRS9 Scored</option>
+                <option value="not_scored" {% if ifrs9_status_filter == "not_scored" %}selected{% endif %}>IFRS9 Not Scored</option>
+            </select>
+            <button type="submit" class="btn btn-secondary">Search</button>
+            <a href="{% url 'scorecard:manual_overdraft_customer_list' %}" class="btn btn-secondary">Clear</a>
+            <div class="export-dropdown">
+                <a href="#" class="btn btn-primary" id="manual-overdraft-export-btn">Export Data</a>
+                <div class="export-dropdown-menu" id="manual-overdraft-export-dropdown">
+                    <button type="submit" name="export" value="xlsx" class="export-dropdown-item">Excel</button>
+                    <button type="submit" name="export" value="csv" class="export-dropdown-item">CSV</button>
+                </div>
+            </div>
+        </div>
+        <div class="search-row">
+            <span>Show</span>
+            <select name="page_size" class="entries-select" onchange="this.form.submit()">
+                <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+            </select>
+            <span>entries</span>
+        </div>
+    </form>
+
+    {% if overdraft_customers %}
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Branch</th>
+                    <th>Customer Code</th>
+                    <th>Customer Name</th>
+                    <th>Account Number</th>
+                    <th>Basel Status</th>
+                    <th>IFRS9 Status</th>
+                    <th>Added By</th>
+                    <th>Last Updated</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in overdraft_customers %}
+                <tr>
+                    <td>{{ customer.branch_name }}</td>
+                    <td><span class="code-pill">{{ customer.customer_code }}</span></td>
+                    <td>{{ customer.customer_name }}</td>
+                    <td>{{ customer.account_number|default:"-" }}</td>
+                    <td>
+                        {% if customer.has_basel_score %}
+                        <span class="score-status score-status-scored" title="Basel scored">✓</span>
+                        {% else %}
+                        <span class="score-status score-status-missing" title="Basel not scored">X</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if customer.has_ifrs9_score %}
+                        <span class="score-status score-status-scored" title="IFRS9 scored">✓</span>
+                        {% else %}
+                        <span class="score-status score-status-missing" title="IFRS9 not scored">X</span>
+                        {% endif %}
+                    </td>
+                    <td>{% if customer.created_by and customer.created_by.email %}{{ customer.created_by.email }}{% else %}-{% endif %}</td>
+                    <td>{{ customer.updated_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        {% if customer.can_manage %}
+                        <div class="action-cell">
+                            <a class="action-link action-link-edit" href="?{% if list_query_string %}{{ list_query_string }}&{% endif %}p={{ page_obj.number }}&edit={{ customer.id }}#manual-overdraft-form">Edit</a>
+                            <form method="post" action="{% url 'scorecard:manual_overdraft_customer_list' %}" class="inline-delete-form" onsubmit="return confirm('Delete overdraft customer {{ customer.customer_code|escapejs }} - {{ customer.customer_name|escapejs }}?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="manual_delete">
+                                <input type="hidden" name="customer_pk" value="{{ customer.id }}">
+                                <button type="submit" class="action-link action-link-delete">Delete</button>
+                            </form>
+                        </div>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="table-footer">
+        <span>Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} entries</span>
+        <div class="pagination-controls">
+            {% if page_obj.has_previous %}
+            <a class="pagination-btn" href="?p={{ page_obj.previous_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}">Previous</a>
+            {% else %}
+            <span class="pagination-btn disabled">Previous</span>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a class="pagination-btn" href="?p={{ page_obj.next_page_number }}{% if list_query_string %}&{{ list_query_string }}{% endif %}">Next</a>
+            {% else %}
+            <span class="pagination-btn disabled">Next</span>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="no-data-message">No overdraft customers found for the selected branch scope.</div>
+    {% endif %}
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const exportButton = document.getElementById('manual-overdraft-export-btn');
+    const exportDropdown = document.getElementById('manual-overdraft-export-dropdown');
+    if (!exportButton || !exportDropdown) {
+        return;
+    }
+    exportButton.addEventListener('click', function(event) {
+        event.preventDefault();
+        exportDropdown.classList.toggle('show');
+    });
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.export-dropdown')) {
+            exportDropdown.classList.remove('show');
+        }
+    });
+});
+</script>
+{% endblock %}

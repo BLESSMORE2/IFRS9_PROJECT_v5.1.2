@@ -1470,6 +1470,7 @@ def _without_score_source_label(source_settings: dict[str, bool]) -> str:
         labels.append("Loans")
     if source_settings.get("include_overdrafts"):
         labels.append("Overdrafts")
+    labels.append("Manual Overdraft Customers")
     return ", ".join(labels) if labels else "No enabled source"
 
 
@@ -1566,17 +1567,6 @@ def send_due_without_score_summary_emails(now=None) -> dict[str, Any]:
     limit_to_single_branch_makers = should_limit_without_score_notifications_to_single_branch_makers()
     branch_results: list[dict[str, Any]] = []
     sent_total = 0
-
-    if not source_settings.get("include_loans") and not source_settings.get("include_overdrafts"):
-        configuration.without_score_summary_last_sent_at = now
-        configuration.save(update_fields=["without_score_summary_last_sent_at", "updated_at"])
-        return {
-            "performed": True,
-            "reason": "no_enabled_sources",
-            "sent": 0,
-            "branches": 0,
-            "source_settings": source_settings,
-        }
 
     branches = list(BankBranch.objects.all().order_by("bank_name", "branch_name", "branch_code"))
     for branch in branches:

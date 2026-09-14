@@ -222,9 +222,9 @@
             </h1>
             <p class="assignment-copy">
                 {% if is_change %}
-                    Changing the IFRS9 template resets the template-driven answers, scores, and version snapshots so the score form can be rebuilt cleanly against the new structure.
+                    Changing the IFRS9 template preserves the current score history, then opens the editor so the score form can be rebuilt cleanly against the new structure.
                 {% else %}
-                    This imported IFRS9 score form does not have a template yet. Choose the template you want to use, then we will open the normal editing screen with the customer details already carried in.
+                    This imported IFRS9 score form does not have a template yet. Choose the template you want to use, then we will preserve the imported score as version 1 and open the normal editing screen with the customer details already carried in.
                 {% endif %}
             </p>
         </div>
@@ -264,13 +264,13 @@
         <div class="card-header">
             <div>
                 <h2 class="card-title">Available IFRS9 templates</h2>
-                <p class="card-copy">Choose one active template. We will keep the customer and branch details, then reopen the record as a draft against the selected template.</p>
+                <p class="card-copy">Choose one active template. We will keep the customer and branch details, then open the record in edit mode against the selected template.</p>
             </div>
         </div>
 
         {% if is_change %}
             <div class="notice">
-                The current score form already has a template. Switching templates clears template-specific answers and scores to avoid mixing different IFRS9 structures in one record.
+                The current score form already has a template. Switching templates keeps the saved history, then lets you rebuild template-specific answers and scores without mixing different IFRS9 structures in one record.
             </div>
         {% endif %}
 

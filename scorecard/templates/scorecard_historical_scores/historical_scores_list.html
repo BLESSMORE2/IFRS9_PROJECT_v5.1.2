@@ -82,22 +82,16 @@
         overflow: hidden;
     }
     .history-panel-body {
-        padding: 1rem;
-        background: #f8fbff;
+        padding: 0;
+        background: #fff;
         border-bottom: 2px solid #0067d7;
-    }
-    .history-filter-grid {
-        display: grid;
-        grid-template-columns: minmax(220px, 1.2fr) minmax(160px, 0.9fr) minmax(170px, 1fr) minmax(170px, 0.9fr) 90px auto;
-        gap: 0.65rem;
-        align-items: end;
     }
     .history-action-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 0.75rem;
-        margin-top: 0.8rem;
+        padding: 1.15rem 1.25rem;
         flex-wrap: wrap;
     }
     .history-action-group {
@@ -105,6 +99,28 @@
         align-items: center;
         gap: 0.65rem;
         flex-wrap: wrap;
+    }
+    .history-filter-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.8rem 1.25rem;
+        background: #f8f9fa;
+        border-top: 1px solid #e5edf5;
+    }
+    .history-filter-left {
+        display: flex;
+        align-items: end;
+        gap: 0.55rem;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .history-filter-right {
+        display: flex;
+        align-items: end;
+        gap: 0.5rem;
+        flex: 0 0 auto;
     }
     .history-field label {
         display: block;
@@ -114,6 +130,19 @@
         letter-spacing: 0.08em;
         text-transform: uppercase;
         margin-bottom: 0.28rem;
+    }
+    .history-field.search {
+        flex: 1 1 300px;
+        min-width: 240px;
+    }
+    .history-field.select-wide {
+        flex: 0 1 230px;
+    }
+    .history-field.select-medium {
+        flex: 0 1 190px;
+    }
+    .history-field.select-small {
+        flex: 0 0 90px;
     }
     .history-input,
     .history-select {
@@ -284,14 +313,39 @@
         .history-summary-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
-        .history-filter-grid {
-            grid-template-columns: 1fr 1fr;
+        .history-filter-row {
+            align-items: stretch;
+            flex-direction: column;
+        }
+        .history-filter-left,
+        .history-filter-right {
+            width: 100%;
+            flex-wrap: wrap;
+        }
+        .history-filter-right {
+            justify-content: flex-end;
         }
     }
     @media (max-width: 680px) {
-        .history-summary-grid,
-        .history-filter-grid {
+        .history-summary-grid {
             grid-template-columns: 1fr;
+        }
+        .history-action-row,
+        .history-action-group,
+        .history-refresh-form,
+        .history-filter-left,
+        .history-filter-right {
+            align-items: stretch;
+            flex-direction: column;
+        }
+        .history-field.search,
+        .history-field.select-wide,
+        .history-field.select-medium,
+        .history-field.select-small,
+        .history-refresh-date,
+        .history-btn {
+            width: 100%;
+            min-width: 0;
         }
     }
 </style>
@@ -335,50 +389,6 @@
 
     <section class="history-panel">
         <div class="history-panel-body">
-            <form id="history-filter-form" method="get" class="history-filter-grid">
-                <div class="history-field">
-                    <label for="history-search">Search</label>
-                    <input id="history-search" class="history-input" type="text" name="search" value="{{ filters.search }}" placeholder="Customer code, name, branch, or grade">
-                </div>
-                <div class="history-field">
-                    <label for="history-reporting-date">Reporting Date</label>
-                    <select id="history-reporting-date" class="history-select" name="reporting_date">
-                        <option value="">All dates</option>
-                        {% for reporting_date in reporting_dates %}
-                            <option value="{{ reporting_date|date:'Y-m-d' }}" {% if filters.reporting_date == reporting_date|date:'Y-m-d' %}selected{% endif %}>{{ reporting_date|date:"Y-m-d" }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="history-field">
-                    <label for="history-branch">Branch</label>
-                    <select id="history-branch" class="history-select" name="branch">
-                        <option value="">All visible branches</option>
-                        {% for branch_name in branch_options %}
-                            <option value="{{ branch_name }}" {% if filters.branch == branch_name %}selected{% endif %}>{{ branch_name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="history-field">
-                    <label for="history-exposure-source">Exposure Source</label>
-                    <select id="history-exposure-source" class="history-select" name="exposure_source">
-                        <option value="" {% if not filters.exposure_source %}selected{% endif %}>All historical rows</option>
-                        <option value="loan" {% if filters.exposure_source == "loan" %}selected{% endif %}>Active loans</option>
-                        <option value="overdraft" {% if filters.exposure_source == "overdraft" %}selected{% endif %}>Active overdrafts</option>
-                        <option value="loan_or_overdraft" {% if filters.exposure_source == "loan_or_overdraft" %}selected{% endif %}>Active loan or overdraft</option>
-                        <option value="loan_only" {% if filters.exposure_source == "loan_only" %}selected{% endif %}>Loan only</option>
-                        <option value="overdraft_only" {% if filters.exposure_source == "overdraft_only" %}selected{% endif %}>Overdraft only</option>
-                    </select>
-                </div>
-                <div class="history-field">
-                    <label for="history-page-size">Show</label>
-                    <select id="history-page-size" class="history-select" name="page_size">
-                        <option value="25" {% if filters.page_size == 25 %}selected{% endif %}>25</option>
-                        <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50</option>
-                        <option value="100" {% if filters.page_size == 100 %}selected{% endif %}>100</option>
-                    </select>
-                </div>
-                <button type="submit" class="history-btn primary">Apply Filters</button>
-            </form>
             <div class="history-action-row">
                 <div class="history-action-group">
                     {% url 'scorecard:historical_scores_download' as history_download_url %}
@@ -400,7 +410,12 @@
                         <input type="hidden" name="page_size" value="{{ filters.page_size }}">
                         <div class="history-refresh-field">
                             <label for="history-refresh-date">Refresh date</label>
-                            <input id="history-refresh-date" class="history-input history-refresh-date" type="date" name="refresh_reporting_date" value="{{ filters.reporting_date }}" required>
+                            <select id="history-refresh-date" class="history-select history-refresh-date" name="refresh_reporting_date" required>
+                                <option value="">Select date</option>
+                                {% for reporting_date in reporting_dates %}
+                                    <option value="{{ reporting_date|date:'Y-m-d' }}" {% if filters.reporting_date == reporting_date|date:'Y-m-d' %}selected{% endif %}>{{ reporting_date|date:"Y-m-d" }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <button type="submit" class="history-btn warning">Refresh Selected Date</button>
                     </form>
@@ -417,6 +432,54 @@
                     </form>
                 {% endif %}
             </div>
+            <form id="history-filter-form" method="get" class="history-filter-row">
+                <div class="history-filter-left">
+                    <div class="history-field search">
+                        <label for="history-search">Search</label>
+                        <input id="history-search" class="history-input" type="text" name="search" value="{{ filters.search }}" placeholder="Customer code, name, branch, or grade">
+                    </div>
+                    <div class="history-field select-medium">
+                        <label for="history-reporting-date">Reporting Date</label>
+                        <select id="history-reporting-date" class="history-select" name="reporting_date">
+                            <option value="">All dates</option>
+                            {% for reporting_date in reporting_dates %}
+                                <option value="{{ reporting_date|date:'Y-m-d' }}" {% if filters.reporting_date == reporting_date|date:'Y-m-d' %}selected{% endif %}>{{ reporting_date|date:"Y-m-d" }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="history-field select-wide">
+                        <label for="history-branch">Branch</label>
+                        <select id="history-branch" class="history-select" name="branch">
+                            <option value="">All visible branches</option>
+                            {% for branch_name in branch_options %}
+                                <option value="{{ branch_name }}" {% if filters.branch == branch_name %}selected{% endif %}>{{ branch_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="history-field select-wide">
+                        <label for="history-exposure-source">Exposure Source</label>
+                        <select id="history-exposure-source" class="history-select" name="exposure_source">
+                            <option value="" {% if not filters.exposure_source %}selected{% endif %}>All historical rows</option>
+                            <option value="loan" {% if filters.exposure_source == "loan" %}selected{% endif %}>Active loans</option>
+                            <option value="overdraft" {% if filters.exposure_source == "overdraft" %}selected{% endif %}>Active overdrafts</option>
+                            <option value="loan_or_overdraft" {% if filters.exposure_source == "loan_or_overdraft" %}selected{% endif %}>Active loan or overdraft</option>
+                            <option value="loan_only" {% if filters.exposure_source == "loan_only" %}selected{% endif %}>Loan only</option>
+                            <option value="overdraft_only" {% if filters.exposure_source == "overdraft_only" %}selected{% endif %}>Overdraft only</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="history-filter-right">
+                    <div class="history-field select-small">
+                        <label for="history-page-size">Show</label>
+                        <select id="history-page-size" class="history-select" name="page_size">
+                            <option value="25" {% if filters.page_size == 25 %}selected{% endif %}>25</option>
+                            <option value="50" {% if filters.page_size == 50 %}selected{% endif %}>50</option>
+                            <option value="100" {% if filters.page_size == 100 %}selected{% endif %}>100</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="history-btn primary">Apply Filters</button>
+                </div>
+            </form>
         </div>
 
         <div class="history-table-wrap">

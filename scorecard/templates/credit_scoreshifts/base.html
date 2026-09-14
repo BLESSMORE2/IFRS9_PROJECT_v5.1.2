@@ -1566,6 +1566,12 @@
                         <span class="sidebar-text">Add Customer</span>
                     </a>
                     {% endif %}
+                    {% if scorecard_route_access.manual_overdraft_customer_list %}
+                    <a href="{% url 'scorecard:manual_overdraft_customer_list' %}" class="nav-dropdown-item" data-option="overdraft-customers">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">Overdraft Customers</span>
+                    </a>
+                    {% endif %}
                 </div>
                 {% endif %}
                 
@@ -1800,6 +1806,9 @@
                         
                         {% if scorecard_route_access.add_customer %}
                         <a href="{% url 'scorecard:add_customer' %}" class="section-subnav-link">Add Customer</a>
+                        {% endif %}
+                        {% if scorecard_route_access.manual_overdraft_customer_list %}
+                        <a href="{% url 'scorecard:manual_overdraft_customer_list' %}" class="section-subnav-link">Overdraft Customers</a>
                         {% endif %}
                     </div>
                     {% endif %}
@@ -2582,6 +2591,7 @@
                     { match: ['/scorecard/customers/without-questionnaires/'], badge: 'Opening customers', title: 'Loading Customers Without Basel II Scores', copy: 'Preparing the branch customer population that still needs Basel II scoring.' },
                     { match: ['/scorecard/customers/without-ifrs9/'], badge: 'Opening customers', title: 'Loading Customers Without IFRS9 Score Forms', copy: 'Preparing the branch customer population that still needs IFRS9 score forms.' },
                     { match: ['/scorecard/customers/add/'], badge: 'Opening customers', title: 'Loading Add Customer', copy: 'Preparing the customer capture form inside the current scorecard workspace.' },
+                    { match: ['/scorecard/customers/overdraft/'], badge: 'Opening customers', title: 'Loading Overdraft Customers', copy: 'Preparing manual overdraft customer capture and upload tools.' },
                     { match: ['/scorecard/customers/'], badge: 'Opening customers', title: 'Loading Customer Workspace', copy: 'Preparing customer registers, summaries, and branch-specific customer records.' },
 
                     { match: ['/scorecard/basel-scores/customer-versions/'], badge: 'Opening Basel II scores', title: 'Loading Basel II Customer Versions', copy: 'Preparing Basel II version history and customer evaluation snapshots.' },
@@ -2825,10 +2835,10 @@
                             // Close modal
                             closeModalFunc();
                             
-                            // Reload the page after a short delay to show the message
+                            // Reload quickly; heavy customer badge recounts now run after the page is visible.
                             setTimeout(function() {
                                 window.location.reload();
-                            }, 500);
+                            }, 120);
                         } else {
                             // Restore original content
                             this.innerHTML = originalContent;
@@ -2863,6 +2873,9 @@
             function applyLiveBadgeCounts(payload) {
                 document.querySelectorAll('[data-live-badge]').forEach(function(badge) {
                     const value = Number(liveBadgeValue(payload, badge.dataset.liveBadge)) || 0;
+                    if (payload && payload.customers_deferred && badge.dataset.liveBadge.indexOf('customers.') === 0) {
+                        return;
+                    }
                     const keepZeroVisible = badge.classList.contains('section-subnav-badge');
                     badge.textContent = String(value);
                     badge.classList.toggle('muted', value === 0);
@@ -2920,7 +2933,7 @@
             }
 
             refreshLiveBadgeCounts();
-            refreshLiveCustomerBadgeCounts();
+            window.setTimeout(refreshLiveCustomerBadgeCounts, 1200);
             window.setInterval(refreshLiveBadgeCounts, 4000);
             window.setInterval(refreshLiveCustomerBadgeCounts, 15000);
             window.addEventListener('focus', function() {

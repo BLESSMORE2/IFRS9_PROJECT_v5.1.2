@@ -1,4 +1,5 @@
 import csv
+import io
 from types import SimpleNamespace
 from urllib.parse import urlencode
 from django import forms
@@ -10,22 +11,30 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
-from django.db.models import Count, Max, OuterRef, Q, Subquery
+from django.db.models import Count, Exists, Max, OuterRef, Q, Subquery
 from django.conf import settings
 from django.utils import timezone
 try:
-    from openpyxl import Workbook
+    from openpyxl import Workbook, load_workbook
     from openpyxl.styles import Font, Alignment, PatternFill
     OPENPYXL_AVAILABLE = True
 except ImportError:
     OPENPYXL_AVAILABLE = False
+    load_workbook = None
 
 try:
     from scorecard.models import CustomerLoan, CustomerOverdraft
 except ModuleNotFoundError:
     CustomerLoan = None
     CustomerOverdraft = None
-from scorecard.models import BankBranch, CreditEvaluation, IFRS9Evaluation, MainCustomer, ScorecardUserBranchAccess
+from scorecard.models import (
+    BankBranch,
+    CreditEvaluation,
+    IFRS9Evaluation,
+    MainCustomer,
+    ManualOverdraftCustomer,
+    ScorecardUserBranchAccess,
+)
 from scorecard.functions_view.main_customer_lookup import (
     _branch_priority,
     ALL_BRANCHES_SESSION_FLAG,
@@ -38,6 +47,7 @@ from scorecard.functions_view.main_customer_lookup import (
     resolve_branch_context,
 )
 from scorecard.workflow_approval import get_without_score_list_customer_sources
+from scorecard.functions_view.audit import log_manual_overdraft_customer_audit
 
 
 LIST_PAGE_SIZE_OPTIONS = (20, 50, 100)
@@ -45,6 +55,40 @@ STAGE_CUSTOMER_CACHE_TTL_SECONDS = 120
 CUSTOMER_LIST_SUMMARY_CACHE_TTL_SECONDS = 120
 BRANCH_MASTER_DIAGNOSTICS_CACHE_TTL_SECONDS = 300
 CUSTOMER_LIST_SUMMARY_VERSION_CACHE_KEY = "scorecard:customer-summary:version"
+OVERDRAFT_UPLOAD_MAX_ERROR_DETAILS = 5
+OVERDRAFT_UPLOAD_HEADER_ALIASES = {
+    "branch_name": {
+        "branch",
+        "branch name",
+        "branch description",
+    },
+    "customer_code": {
+        "customer code",
+        "customer id",
+        "customer number",
+        "customer no",
+        "customer ref",
+        "customer ref code",
+        "client code",
+        "client id",
+        "client number",
+    },
+    "customer_name": {
+        "customer name",
+        "client name",
+        "name",
+    },
+    "account_number": {
+        "account number",
+        "account no",
+        "account",
+        "overdraft account",
+    },
+}
+
+
+class ManualOverdraftCustomerBranchConflict(ValueError):
+    """Raised when a manual overdraft customer already belongs to another branch."""
 
 
 def _get_customer_list_summary_version() -> int:
@@ -386,8 +430,13 @@ def switch_branch_view(request: HttpRequest) -> JsonResponse:
     all_branches = (request.POST.get("all_branches") or "").strip().lower() in {"1", "true", "yes", "on"}
 
     if all_branches:
-        accessible_branches = get_accessible_branches_for_request(request)
-        accessible_count = len(accessible_branches)
+        if getattr(request.user, "is_superuser", False):
+            accessible_count = BankBranch.objects.count()
+        elif hasattr(request.user, "get_accessible_branches"):
+            accessible_source = request.user.get_accessible_branches()
+            accessible_count = accessible_source.count() if hasattr(accessible_source, "count") else len(list(accessible_source))
+        else:
+            accessible_count = len(get_accessible_branches_for_request(request))
         if accessible_count <= 1:
             return JsonResponse({"success": False, "error": "All branches mode needs more than one assigned branch."}, status=400)
 
@@ -554,12 +603,15 @@ def _normalize_list_page_size(raw_value, default: int = 20) -> int:
     return page_size if page_size in LIST_PAGE_SIZE_OPTIONS else default
 
 
-def _build_list_query_string(*, search_query: str, page_size: int) -> str:
+def _build_list_query_string(*, search_query: str, page_size: int, extra_params: dict[str, str] | None = None) -> str:
     params = {}
     if search_query:
         params["q"] = search_query
     if page_size != LIST_PAGE_SIZE_OPTIONS[0]:
         params["page_size"] = page_size
+    for key, value in (extra_params or {}).items():
+        if value:
+            params[key] = value
     return urlencode(params)
 
 
@@ -818,6 +870,555 @@ def _get_manual_customer_reporting_date(branch_name: str | None = None, branch_c
     return latest_date or timezone.localdate()
 
 
+def _normalize_overdraft_upload_header(value) -> str:
+    return " ".join(str(value or "").replace("\ufeff", "").replace("\xa0", " ").replace("_", " ").strip().lower().split())
+
+
+def _cell_to_text(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value)).strip()
+    return str(value).strip()
+
+
+def _resolve_overdraft_upload_columns(headers) -> dict[str, int]:
+    columns: dict[str, int] = {}
+    for index, header in enumerate(headers):
+        normalized_header = _normalize_overdraft_upload_header(header)
+        if not normalized_header:
+            continue
+        for field_name, aliases in OVERDRAFT_UPLOAD_HEADER_ALIASES.items():
+            if field_name not in columns and normalized_header in aliases:
+                columns[field_name] = index
+
+    missing_fields = [
+        label
+        for field_name, label in (
+            ("branch_name", "Branch Name"),
+            ("customer_code", "Customer Code/Customer ID"),
+            ("customer_name", "Customer Name"),
+        )
+        if field_name not in columns
+    ]
+    if missing_fields:
+        raise ValueError(
+            "Missing required upload column(s): "
+            + ", ".join(missing_fields)
+            + ". Accepted headers include Branch Name, Customer Code, Customer ID, Customer Number, and Customer Name."
+        )
+    return columns
+
+
+def _parse_overdraft_upload_rows_from_values(row_values) -> tuple[list[dict[str, str]], int, list[str]]:
+    iterator = iter(row_values)
+    try:
+        headers = next(iterator)
+    except StopIteration as exc:
+        raise ValueError("The uploaded file is empty.") from exc
+
+    columns = _resolve_overdraft_upload_columns(headers)
+    rows: list[dict[str, str]] = []
+    skipped = 0
+    errors: list[str] = []
+
+    for row_number, row in enumerate(iterator, start=2):
+        row = tuple(row or ())
+        if not any(_cell_to_text(value) for value in row):
+            continue
+
+        def _column_value(field_name: str) -> str:
+            index = columns.get(field_name)
+            if index is None or index >= len(row):
+                return ""
+            return _cell_to_text(row[index])
+
+        branch_name = _column_value("branch_name")
+        customer_code = _column_value("customer_code")
+        customer_name = _column_value("customer_name")
+        account_number = _column_value("account_number")
+
+        if not branch_name or not customer_code or not customer_name:
+            skipped += 1
+            if len(errors) < OVERDRAFT_UPLOAD_MAX_ERROR_DETAILS:
+                errors.append(f"Row {row_number}: Branch Name, Customer Code, and Customer Name are required.")
+            continue
+
+        rows.append(
+            {
+                "branch_name": branch_name,
+                "customer_code": customer_code,
+                "customer_name": customer_name,
+                "account_number": account_number,
+            }
+        )
+
+    return rows, skipped, errors
+
+
+def _read_overdraft_upload_rows(uploaded_file) -> tuple[list[dict[str, str]], int, list[str]]:
+    filename = (getattr(uploaded_file, "name", "") or "").lower()
+    if filename.endswith((".xlsx", ".xlsm", ".xltx", ".xltm")):
+        if not OPENPYXL_AVAILABLE or load_workbook is None:
+            raise ValueError("Excel upload requires openpyxl. Please upload a CSV file or install openpyxl.")
+        workbook = load_workbook(uploaded_file, read_only=True, data_only=True)
+        try:
+            worksheet = workbook.active
+            return _parse_overdraft_upload_rows_from_values(worksheet.iter_rows(values_only=True))
+        finally:
+            workbook.close()
+
+    if not filename.endswith(".csv"):
+        raise ValueError("Unsupported file type. Please upload a CSV or XLSX file.")
+
+    raw_content = uploaded_file.read()
+    try:
+        decoded_content = raw_content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        decoded_content = raw_content.decode("cp1252")
+    reader = csv.reader(io.StringIO(decoded_content))
+    return _parse_overdraft_upload_rows_from_values(reader)
+
+
+def _manual_overdraft_upload_headers() -> list[str]:
+    return ["Branch Name", "Customer Code", "Customer Name", "Account Number"]
+
+
+def _manual_overdraft_upload_example_row(branch: BankBranch | None) -> list[str]:
+    return [
+        getattr(branch, "branch_name", "") or "8TH AVENUE",
+        "100001",
+        "EXAMPLE CUSTOMER NAME",
+        "OD-ACCOUNT-001",
+    ]
+
+
+def _manual_overdraft_upload_template_response(branch: BankBranch | None, template_format: str = "xlsx") -> HttpResponse:
+    headers = _manual_overdraft_upload_headers()
+    example_row = _manual_overdraft_upload_example_row(branch)
+    template_format = (template_format or "xlsx").strip().lower()
+
+    if template_format == "csv" or not OPENPYXL_AVAILABLE:
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="manual_overdraft_upload_format.csv"'
+        writer = csv.writer(response)
+        writer.writerow(headers)
+        writer.writerow(example_row)
+        return response
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Upload Format"
+    worksheet.append(headers)
+    worksheet.append(example_row)
+
+    header_fill = PatternFill("solid", fgColor="D9EAF7")
+    for cell in worksheet[1]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+    for column in worksheet.columns:
+        max_length = max(len(str(cell.value or "")) for cell in column)
+        worksheet.column_dimensions[column[0].column_letter].width = max(max_length + 4, 18)
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = 'attachment; filename="manual_overdraft_upload_format.xlsx"'
+    return response
+
+
+def _manual_overdraft_export_headers() -> list[str]:
+    return [
+        "Branch",
+        "Customer Code",
+        "Customer Name",
+        "Account Number",
+        "Basel Status",
+        "IFRS9 Status",
+        "Added By",
+        "Last Updated",
+    ]
+
+
+def _manual_overdraft_export_row(customer: ManualOverdraftCustomer) -> list[str]:
+    created_by = getattr(customer, "created_by", None)
+    updated_at = customer.updated_at.strftime("%Y-%m-%d %H:%M") if customer.updated_at else ""
+    return [
+        customer.branch_name or "",
+        customer.customer_code or "",
+        customer.customer_name or "",
+        customer.account_number or "",
+        "Scored" if getattr(customer, "has_basel_score", False) else "Not Scored",
+        "Scored" if getattr(customer, "has_ifrs9_score", False) else "Not Scored",
+        getattr(created_by, "email", "") or getattr(created_by, "username", "") or "",
+        updated_at,
+    ]
+
+
+def _manual_overdraft_export_response(customers, export_format: str) -> HttpResponse:
+    export_format = (export_format or "").strip().lower()
+    filename_base = f"manual_overdraft_customers_{timezone.now():%Y%m%d_%H%M%S}"
+    headers = _manual_overdraft_export_headers()
+
+    if export_format == "csv":
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename_base}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(headers)
+        for customer in customers:
+            writer.writerow(_manual_overdraft_export_row(customer))
+        return response
+
+    if export_format == "xlsx":
+        if not OPENPYXL_AVAILABLE:
+            return HttpResponse("Excel export requires openpyxl library. Please install it.", status=500)
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = "Overdraft Customers"
+        worksheet.append(headers)
+
+        header_fill = PatternFill("solid", fgColor="0066CC")
+        header_font = Font(bold=True, color="FFFFFF")
+        for cell in worksheet[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+
+        for customer in customers:
+            worksheet.append(_manual_overdraft_export_row(customer))
+
+        for column in worksheet.columns:
+            max_length = max(len(str(cell.value or "")) for cell in column)
+            worksheet.column_dimensions[column[0].column_letter].width = min(max(max_length + 3, 14), 48)
+
+        buffer = io.BytesIO()
+        workbook.save(buffer)
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename_base}.xlsx"'
+        return response
+
+    return HttpResponse("Unsupported export format.", status=400)
+
+
+def _user_can_upload_manual_overdraft_customers(user) -> bool:
+    return bool(
+        getattr(user, "is_superuser", False)
+        or getattr(user, "has_perm", lambda perm: False)("scorecard.manage_scorecard_customers")
+    )
+
+
+def _manual_overdraft_upload_branch_lookup(request: HttpRequest) -> dict[str, BankBranch]:
+    if getattr(request.user, "is_superuser", False):
+        branches = list(BankBranch.objects.all())
+    else:
+        branches = get_accessible_branches_for_request(request)
+
+    branch_lookup: dict[str, BankBranch] = {}
+    for branch in sorted(branches, key=lambda item: ((item.branch_name or "").upper(), item.id or 0)):
+        normalized_name = _normalize_branch_name(branch.branch_name)
+        if normalized_name and normalized_name not in branch_lookup:
+            branch_lookup[normalized_name] = branch
+    return branch_lookup
+
+
+def _resolve_manual_overdraft_upload_branch(
+    row: dict[str, str],
+    branch_lookup: dict[str, BankBranch],
+) -> tuple[BankBranch | None, str]:
+    uploaded_branch_name = (row.get("branch_name") or "").strip()
+    normalized_branch_name = _normalize_branch_name(uploaded_branch_name)
+    if not normalized_branch_name:
+        return None, f"Customer {row.get('customer_code') or ''}: Branch Name is required."
+    branch = branch_lookup.get(normalized_branch_name)
+    if branch is None:
+        return (
+            None,
+            (
+                f"Customer {row.get('customer_code') or ''}: branch '{uploaded_branch_name}' "
+                "was not found in your allowed Branch Master list."
+            ),
+        )
+    return branch, ""
+
+
+def _build_manual_overdraft_branch_filter(branch_scope) -> Q:
+    if not branch_scope:
+        return Q(pk__isnull=True)
+
+    branch_filter = Q(pk__isnull=True)
+    for branch in branch_scope:
+        branch_code = _normalize_branch_code(getattr(branch, "branch_code", ""))
+        branch_name = _normalize_branch_name(getattr(branch, "branch_name", ""))
+        branch_query = Q()
+        if branch_code:
+            branch_query |= Q(branch_code__iexact=branch_code)
+        if branch_name:
+            branch_query |= Q(branch_name__iexact=branch_name)
+        if branch_query:
+            branch_filter |= branch_query
+    return branch_filter
+
+
+def _get_filtered_manual_overdraft_customers(request: HttpRequest):
+    branch_scope = get_request_branch_scope(request)
+    if not branch_scope:
+        return ManualOverdraftCustomer.objects.none()
+
+    basel_score_exists = CreditEvaluation.objects.filter(
+        customer_id=OuterRef("customer_code"),
+    ).exclude(status="cancelled")
+    ifrs9_score_exists = IFRS9Evaluation.objects.filter(
+        customer_id=OuterRef("customer_code"),
+    ).exclude(status="cancelled")
+    customers = (
+        ManualOverdraftCustomer.objects.filter(_build_manual_overdraft_branch_filter(branch_scope))
+        .annotate(
+            has_basel_score=Exists(basel_score_exists),
+            has_ifrs9_score=Exists(ifrs9_score_exists),
+        )
+    )
+    search_query = (request.GET.get("q") or "").strip()
+    if search_query:
+        customers = customers.filter(
+            Q(customer_code__icontains=search_query)
+            | Q(customer_name__icontains=search_query)
+            | Q(branch_name__icontains=search_query)
+            | Q(branch_code__icontains=search_query)
+            | Q(account_number__icontains=search_query)
+        )
+    basel_status_filter = (request.GET.get("basel_status") or "").strip().lower()
+    if basel_status_filter == "scored":
+        customers = customers.filter(has_basel_score=True)
+    elif basel_status_filter == "not_scored":
+        customers = customers.filter(has_basel_score=False)
+
+    ifrs9_status_filter = (request.GET.get("ifrs9_status") or "").strip().lower()
+    if ifrs9_status_filter == "scored":
+        customers = customers.filter(has_ifrs9_score=True)
+    elif ifrs9_status_filter == "not_scored":
+        customers = customers.filter(has_ifrs9_score=False)
+    return customers.order_by("branch_name", "customer_name", "customer_code")
+
+
+def _user_can_manage_current_customer_branch(request: HttpRequest, branch: BankBranch | None) -> bool:
+    if branch is None:
+        return False
+    user = request.user
+    if user.is_superuser:
+        return True
+    if not user.has_perm("scorecard.manage_scorecard_customers"):
+        return False
+    return user.has_branch_access(
+        branch_id=branch.id,
+        branch_code=branch.branch_code,
+        branch_name=branch.branch_name,
+    )
+
+
+def _user_can_manage_manual_overdraft_customer(request: HttpRequest, customer: ManualOverdraftCustomer) -> bool:
+    user = request.user
+    if getattr(user, "is_superuser", False):
+        return True
+    if not user.has_perm("scorecard.manage_scorecard_customers"):
+        return False
+    return user.has_branch_access(
+        branch_code=customer.branch_code,
+        branch_name=customer.branch_name,
+    )
+
+
+def _get_manageable_manual_overdraft_customer_or_404(
+    request: HttpRequest,
+    customer_id: int | str,
+) -> ManualOverdraftCustomer:
+    customer = (
+        ManualOverdraftCustomer.objects.filter(_build_manual_overdraft_branch_filter(get_request_branch_scope(request)))
+        .filter(pk=customer_id)
+        .first()
+    )
+    if customer is None:
+        raise Http404("Overdraft customer not found for the active branch scope.")
+    if not _user_can_manage_manual_overdraft_customer(request, customer):
+        raise PermissionDenied("You do not have permission to manage this overdraft customer.")
+    return customer
+
+
+def _manual_overdraft_customer_branch(customer: ManualOverdraftCustomer):
+    branch = None
+    if customer.branch_code:
+        branch = BankBranch.objects.filter(branch_code=customer.branch_code, branch_name__iexact=customer.branch_name).first()
+        if branch is None:
+            branch = BankBranch.objects.filter(branch_code=customer.branch_code).order_by("branch_name", "id").first()
+    if branch is None and customer.branch_name:
+        branch = BankBranch.objects.filter(branch_name__iexact=customer.branch_name).order_by("branch_name", "id").first()
+    return branch or SimpleNamespace(
+        id=None,
+        branch_code=customer.branch_code,
+        branch_name=customer.branch_name,
+        bank_name="",
+    )
+
+
+def _clear_main_customer_manual_overdraft_marker(
+    *,
+    customer_code: str,
+    branch_code: str,
+    branch_name: str,
+) -> None:
+    customer_code = (customer_code or "").strip()
+    if not customer_code:
+        return
+    if ManualOverdraftCustomer.objects.filter(customer_code__iexact=customer_code).exists():
+        return
+
+    has_api_overdraft = False
+    if CustomerOverdraft is not None:
+        has_api_overdraft = (
+            CustomerOverdraft.objects.filter(customer_code=customer_code)
+            .filter(_build_stage_branch_filter(branch_name, branch_code))
+            .exists()
+        )
+    if has_api_overdraft:
+        return
+
+    MainCustomer.objects.filter(
+        customer_ref_code=customer_code,
+    ).filter(
+        main_customer_branch_filter(branch_name, branch_code)
+    ).update(
+        has_overdraft=False,
+        overdraft_count=0,
+        last_synced_at=timezone.now(),
+    )
+
+
+def _manual_overdraft_customer_matches_branch(customer: ManualOverdraftCustomer, branch: BankBranch) -> bool:
+    existing_branch_code = _normalize_branch_code(customer.branch_code)
+    selected_branch_code = _normalize_branch_code(branch.branch_code)
+    existing_branch_name = _normalize_branch_name(customer.branch_name)
+    selected_branch_name = _normalize_branch_name(branch.branch_name)
+    if existing_branch_code and selected_branch_code:
+        return existing_branch_code == selected_branch_code
+    return bool(existing_branch_name and selected_branch_name and existing_branch_name == selected_branch_name)
+
+
+def _manual_overdraft_branch_conflict_message(
+    *,
+    customer_code: str,
+    customer_name: str,
+    existing_customer: ManualOverdraftCustomer,
+    target_branch: BankBranch,
+) -> str:
+    existing_branch_label = existing_customer.branch_name or existing_customer.branch_code or "another branch"
+    target_branch_label = target_branch.branch_name or target_branch.branch_code or "the selected branch"
+    customer_label = customer_name or existing_customer.customer_name or customer_code
+    return (
+        f"Customer {customer_code} ({customer_label}) already exists under branch "
+        f"'{existing_branch_label}'. It cannot be added to '{target_branch_label}' because manual "
+        "overdraft customers are restricted to one branch only."
+    )
+
+
+def _upsert_manual_overdraft_customer(
+    *,
+    branch: BankBranch,
+    main_reporting_date,
+    customer_code: str,
+    customer_name: str,
+    account_number: str = "",
+    user=None,
+) -> tuple[bool, ManualOverdraftCustomer]:
+    customer_code = customer_code.strip()
+    customer_name = " ".join(customer_name.strip().split())
+    account_number = account_number.strip()
+
+    manual_customer = ManualOverdraftCustomer.objects.filter(customer_code__iexact=customer_code).first()
+    if manual_customer is not None and not _manual_overdraft_customer_matches_branch(manual_customer, branch):
+        raise ManualOverdraftCustomerBranchConflict(
+            _manual_overdraft_branch_conflict_message(
+                customer_code=customer_code,
+                customer_name=customer_name,
+                existing_customer=manual_customer,
+                target_branch=branch,
+            )
+        )
+
+    created = manual_customer is None
+    if created:
+        manual_customer = ManualOverdraftCustomer.objects.create(
+            customer_code=customer_code,
+            customer_name=customer_name,
+            branch_code=branch.branch_code,
+            branch_name=branch.branch_name,
+            account_number=account_number,
+            created_by=user if getattr(user, "is_authenticated", False) else None,
+        )
+    else:
+        manual_updates = {
+            "customer_name": customer_name,
+            "branch_code": branch.branch_code,
+            "branch_name": branch.branch_name,
+            "account_number": account_number,
+            "created_by": user if getattr(user, "is_authenticated", False) else None,
+        }
+        manual_update_fields = []
+        for field_name, value in manual_updates.items():
+            if getattr(manual_customer, field_name) != value:
+                setattr(manual_customer, field_name, value)
+                manual_update_fields.append(field_name)
+        if manual_update_fields:
+            manual_customer.updated_at = timezone.now()
+            manual_update_fields.append("updated_at")
+            manual_customer.save(update_fields=manual_update_fields)
+
+    main_customer, _ = MainCustomer.objects.get_or_create(
+        reporting_date=main_reporting_date,
+        customer_ref_code=customer_code,
+        branch_code=branch.branch_code,
+        defaults={
+            "branch_name": branch.branch_name,
+            "branch_description": branch.branch_name,
+            "customer_name": customer_name,
+            "has_overdraft": True,
+            "overdraft_count": 1,
+            "primary_account_number": account_number or None,
+            "is_active_for_scoring": True,
+            "last_synced_at": timezone.now(),
+        },
+    )
+
+    update_fields = []
+    field_updates = {
+        "customer_name": customer_name,
+        "branch_name": branch.branch_name,
+        "branch_description": branch.branch_name,
+        "has_overdraft": True,
+        "is_active_for_scoring": True,
+        "last_synced_at": timezone.now(),
+    }
+    if account_number:
+        field_updates["primary_account_number"] = account_number
+    if (main_customer.overdraft_count or 0) < 1:
+        field_updates["overdraft_count"] = 1
+
+    for field_name, value in field_updates.items():
+        if getattr(main_customer, field_name) != value:
+            setattr(main_customer, field_name, value)
+            update_fields.append(field_name)
+    if update_fields:
+        main_customer.save(update_fields=update_fields)
+
+    return created, manual_customer
+
+
 def _get_branch_scoped_customer_or_404(request: HttpRequest, customer_id: int) -> MainCustomer:
     customer = _get_filtered_main_customers(request).filter(pk=customer_id).first()
     if customer is None:
@@ -910,7 +1511,7 @@ def _stage_branch_cache_key(branch_scope, suffix: str, source_settings: dict[str
             )
         )
     source_key = _stage_customer_source_cache_token(source_settings or _get_without_score_stage_sources())
-    return f"scorecard:stage_customers:{scope_key}:{source_key}:{suffix}"
+    return f"scorecard:stage_customers:{_get_customer_list_summary_version()}:{scope_key}:{source_key}:{suffix}"
 
 
 def _get_latest_stage_reporting_date(branch_scope, source_settings: dict[str, bool] | None = None) -> object | None:
@@ -950,11 +1551,6 @@ def _get_stage_customer_population_snapshot(branch_scope, source_settings: dict[
         return cached_snapshot
 
     reporting_date = _get_latest_stage_reporting_date(branch_scope, source_settings)
-    if reporting_date is None:
-        snapshot = {"reporting_date": None, "rows": []}
-        cache.set(cache_key, snapshot, STAGE_CUSTOMER_CACHE_TTL_SECONDS)
-        return snapshot
-
     branch_filter = _build_stage_scope_filter(branch_scope)
     staged_customers: dict[str, dict[str, object]] = {}
     primary_scope_branch = branch_scope[0] if branch_scope else None
@@ -978,7 +1574,7 @@ def _get_stage_customer_population_snapshot(branch_scope, source_settings: dict[
                     "customer_name": (row.get("customer_name") or "").strip(),
                     "branch_code": row_branch_code,
                     "branch_name": row_branch_name,
-                    "reporting_date": reporting_date,
+                    "reporting_date": row.get("reporting_date") or reporting_date,
                     "has_loan": False,
                     "has_overdraft": False,
                     "loan_count": 0,
@@ -993,12 +1589,14 @@ def _get_stage_customer_population_snapshot(branch_scope, source_settings: dict[
                     "occupation_code": "",
                     "employer_name": "",
                     "primary_loan_id": "",
-                    "primary_account_number": "",
+                    "primary_account_number": (row.get("account_number") or "").strip(),
                     "branch_description": "",
                 },
             )
             if not bucket["customer_name"]:
                 bucket["customer_name"] = (row.get("customer_name") or "").strip()
+            if not bucket["primary_account_number"] and row.get("account_number"):
+                bucket["primary_account_number"] = (row.get("account_number") or "").strip()
             if has_loan:
                 bucket["has_loan"] = True
                 bucket["loan_count"] += int(row.get("loan_count") or 0)
@@ -1006,7 +1604,7 @@ def _get_stage_customer_population_snapshot(branch_scope, source_settings: dict[
                 bucket["has_overdraft"] = True
                 bucket["overdraft_count"] += int(row.get("overdraft_count") or 0)
 
-    if source_settings["include_loans"]:
+    if reporting_date is not None and source_settings["include_loans"]:
         loan_groups = (
             CustomerLoan.objects.filter(reporting_date=reporting_date)
             .filter(branch_filter)
@@ -1017,7 +1615,7 @@ def _get_stage_customer_population_snapshot(branch_scope, source_settings: dict[
         )
         _merge_group_rows(loan_groups, has_loan=True)
 
-    if source_settings["include_overdrafts"]:
+    if reporting_date is not None and source_settings["include_overdrafts"]:
         overdraft_groups = (
             CustomerOverdraft.objects.filter(reporting_date=reporting_date)
             .filter(branch_filter)
@@ -1027,6 +1625,15 @@ def _get_stage_customer_population_snapshot(branch_scope, source_settings: dict[
             .annotate(overdraft_count=Count("id"))
         )
         _merge_group_rows(overdraft_groups, has_loan=False)
+
+    manual_overdraft_groups = (
+        ManualOverdraftCustomer.objects.filter(_build_manual_overdraft_branch_filter(branch_scope))
+        .exclude(customer_code__isnull=True)
+        .exclude(customer_code__exact="")
+        .values("customer_code", "customer_name", "branch_name", "branch_code", "account_number")
+        .annotate(overdraft_count=Count("id"))
+    )
+    _merge_group_rows(manual_overdraft_groups, has_loan=False)
 
     if staged_customers:
         preferred_main_customers: dict[tuple[str, str, str], MainCustomer] = {}
@@ -1080,6 +1687,7 @@ def _get_stage_customer_population_snapshot(branch_scope, source_settings: dict[
                     "branch_name": bucket["branch_name"] or main_customer.branch_name or main_customer.branch_description or default_branch_name,
                     "branch_code": bucket["branch_code"] or main_customer.branch_code or default_branch_code,
                     "branch_description": main_customer.branch_description or main_customer.branch_name or bucket["branch_name"] or "",
+                    "reporting_date": main_customer.reporting_date or bucket.get("reporting_date"),
                     "email": main_customer.email or "",
                     "mobile": main_customer.mobile or "",
                     "national_id": main_customer.national_id or "",
@@ -1088,7 +1696,7 @@ def _get_stage_customer_population_snapshot(branch_scope, source_settings: dict[
                     "occupation_code": getattr(main_customer, "occupation_code", "") or "",
                     "employer_name": getattr(main_customer, "employer_name", "") or "",
                     "primary_loan_id": getattr(main_customer, "primary_loan_id", "") or "",
-                    "primary_account_number": getattr(main_customer, "primary_account_number", "") or "",
+                    "primary_account_number": getattr(main_customer, "primary_account_number", "") or bucket.get("primary_account_number") or "",
                 }
             )
 
@@ -1128,6 +1736,19 @@ def get_active_exposure_customer_codes_for_branch_scope(
         )
         if customer_code and include_customer:
             customer_codes.add(customer_code)
+
+    if exposure_type in {"overdraft", "active"}:
+        manual_overdraft_codes = (
+            ManualOverdraftCustomer.objects.exclude(customer_code__isnull=True)
+            .exclude(customer_code__exact="")
+            .values_list("customer_code", flat=True)
+            .distinct()
+        )
+        customer_codes.update(
+            str(customer_code).strip()
+            for customer_code in manual_overdraft_codes
+            if str(customer_code or "").strip()
+        )
     return customer_codes
 
 
@@ -1620,6 +2241,322 @@ def add_customer_view(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "credit_scoreshifts/customers/add_customer.html",
+        context,
+    )
+
+
+@login_required
+def manual_overdraft_customer_list_view(request: HttpRequest) -> HttpResponse:
+    current_branch_code, current_branch = _get_current_branch(request)
+    single_branch_selected = bool(current_branch_code and current_branch is not None and not is_all_branches_selected(request))
+    can_manage_current_branch = single_branch_selected and _user_can_manage_current_customer_branch(request, current_branch)
+    can_upload_overdraft_customers = _user_can_upload_manual_overdraft_customers(request.user)
+    editing_customer = None
+    form_data: dict[str, str] = {}
+
+    template_format = (request.GET.get("download_template") or "").strip().lower()
+    if template_format in {"csv", "xlsx"}:
+        return _manual_overdraft_upload_template_response(current_branch, template_format)
+
+    export_format = (request.GET.get("export") or "").strip().lower()
+    if request.method == "GET" and export_format in {"csv", "xlsx"}:
+        overdraft_customers = _get_filtered_manual_overdraft_customers(request).select_related("created_by")
+        return _manual_overdraft_export_response(overdraft_customers, export_format)
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+
+        if action == "manual_delete":
+            manual_customer = _get_manageable_manual_overdraft_customer_or_404(
+                request,
+                request.POST.get("customer_pk") or "",
+            )
+            deleted_customer_code = manual_customer.customer_code
+            deleted_branch_code = manual_customer.branch_code
+            deleted_branch_name = manual_customer.branch_name
+            deleted_customer_name = manual_customer.customer_name
+            log_manual_overdraft_customer_audit(
+                request.user,
+                "delete",
+                manual_customer,
+                details="Source: Manual delete action.",
+            )
+            manual_customer.delete()
+            _clear_main_customer_manual_overdraft_marker(
+                customer_code=deleted_customer_code,
+                branch_code=deleted_branch_code,
+                branch_name=deleted_branch_name,
+            )
+            bump_customer_list_summary_version()
+            messages.success(request, f"Overdraft customer '{deleted_customer_name}' was deleted successfully.")
+            return redirect("scorecard:manual_overdraft_customer_list")
+
+        if action == "manual_edit":
+            editing_customer = _get_manageable_manual_overdraft_customer_or_404(
+                request,
+                request.POST.get("customer_pk") or "",
+            )
+            form_data = {
+                "customer_code": (request.POST.get("customer_code") or "").strip(),
+                "customer_name": (request.POST.get("customer_name") or "").strip(),
+                "account_number": (request.POST.get("account_number") or "").strip(),
+            }
+            if not form_data["customer_code"] or not form_data["customer_name"]:
+                messages.error(request, "Customer Code and Customer Name are required.")
+            else:
+                duplicate_customer = (
+                    ManualOverdraftCustomer.objects.filter(customer_code__iexact=form_data["customer_code"])
+                    .exclude(pk=editing_customer.pk)
+                    .first()
+                )
+                if duplicate_customer is not None:
+                    messages.error(
+                        request,
+                        _manual_overdraft_branch_conflict_message(
+                            customer_code=form_data["customer_code"],
+                            customer_name=form_data["customer_name"],
+                            existing_customer=duplicate_customer,
+                            target_branch=_manual_overdraft_customer_branch(editing_customer),
+                        ),
+                    )
+                else:
+                    old_customer_code = editing_customer.customer_code
+                    old_branch_code = editing_customer.branch_code
+                    old_branch_name = editing_customer.branch_name
+                    update_fields = []
+                    for field_name, value in {
+                        "customer_code": form_data["customer_code"],
+                        "customer_name": " ".join(form_data["customer_name"].split()),
+                        "account_number": form_data["account_number"],
+                        "created_by": request.user if getattr(request.user, "is_authenticated", False) else None,
+                    }.items():
+                        if getattr(editing_customer, field_name) != value:
+                            setattr(editing_customer, field_name, value)
+                            update_fields.append(field_name)
+                    if update_fields:
+                        editing_customer.updated_at = timezone.now()
+                        update_fields.append("updated_at")
+                        editing_customer.save(update_fields=update_fields)
+
+                    branch = _manual_overdraft_customer_branch(editing_customer)
+                    _upsert_manual_overdraft_customer(
+                        branch=branch,
+                        main_reporting_date=_get_manual_customer_reporting_date(branch.branch_name, branch.branch_code),
+                        customer_code=editing_customer.customer_code,
+                        customer_name=editing_customer.customer_name,
+                        account_number=editing_customer.account_number,
+                        user=request.user,
+                    )
+                    if old_customer_code.lower() != editing_customer.customer_code.lower():
+                        _clear_main_customer_manual_overdraft_marker(
+                            customer_code=old_customer_code,
+                            branch_code=old_branch_code,
+                            branch_name=old_branch_name,
+                        )
+                    bump_customer_list_summary_version()
+                    log_manual_overdraft_customer_audit(
+                        request.user,
+                        "update",
+                        editing_customer,
+                        details="Source: Manual edit action.",
+                    )
+                    messages.success(
+                        request,
+                        f"Overdraft customer '{editing_customer.customer_name}' was updated successfully.",
+                    )
+                    return redirect("scorecard:manual_overdraft_customer_list")
+
+        if action == "upload":
+            if not can_upload_overdraft_customers:
+                messages.error(request, "You do not have permission to upload overdraft customers.")
+                return redirect("scorecard:manual_overdraft_customer_list")
+
+            uploaded_file = request.FILES.get("upload_file")
+            if not uploaded_file:
+                messages.error(request, "Choose a CSV or Excel file to upload.")
+                return redirect("scorecard:manual_overdraft_customer_list")
+
+            try:
+                upload_rows, skipped, row_errors = _read_overdraft_upload_rows(uploaded_file)
+            except ValueError as exc:
+                log_manual_overdraft_customer_audit(
+                    request.user,
+                    "bulk_upload_failed",
+                    details=f"File: {getattr(uploaded_file, 'name', '') or '-'}; Error: {exc}",
+                    object_id=getattr(uploaded_file, "name", "") or None,
+                )
+                messages.error(request, str(exc))
+                return redirect("scorecard:manual_overdraft_customer_list")
+
+            created_count = 0
+            updated_count = 0
+            blocked_count = 0
+            branch_issue_count = 0
+            changed_customer_codes: list[str] = []
+            changed_branch_names: set[str] = set()
+            branch_lookup = _manual_overdraft_upload_branch_lookup(request)
+            for row in upload_rows:
+                row_branch, branch_error = _resolve_manual_overdraft_upload_branch(row, branch_lookup)
+                if branch_error:
+                    branch_issue_count += 1
+                    if len(row_errors) < OVERDRAFT_UPLOAD_MAX_ERROR_DETAILS:
+                        row_errors.append(branch_error)
+                    continue
+
+                main_reporting_date = _get_manual_customer_reporting_date(row_branch.branch_name, row_branch.branch_code)
+                try:
+                    created, manual_customer = _upsert_manual_overdraft_customer(
+                        branch=row_branch,
+                        main_reporting_date=main_reporting_date,
+                        customer_code=row["customer_code"],
+                        customer_name=row["customer_name"],
+                        account_number=row.get("account_number", ""),
+                        user=request.user,
+                    )
+                except ManualOverdraftCustomerBranchConflict as exc:
+                    blocked_count += 1
+                    if len(row_errors) < OVERDRAFT_UPLOAD_MAX_ERROR_DETAILS:
+                        row_errors.append(str(exc))
+                    continue
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
+                changed_customer_codes.append(manual_customer.customer_code)
+                changed_branch_names.add(manual_customer.branch_name or row_branch.branch_name or "")
+
+            changed_count = created_count + updated_count
+            changed_branch_names.discard("")
+            changed_sample = ", ".join(changed_customer_codes[:10])
+            if len(changed_customer_codes) > 10:
+                changed_sample = f"{changed_sample}, +{len(changed_customer_codes) - 10} more"
+            branch_summary = (
+                "Multiple branches"
+                if len(changed_branch_names) > 1
+                else (next(iter(changed_branch_names), "") or "")
+            )
+            if changed_count:
+                bump_customer_list_summary_version()
+                messages.success(
+                    request,
+                    (
+                        f"Overdraft upload completed. Created {created_count}, updated {updated_count}, "
+                        f"skipped incomplete {skipped}, branch not found/not allowed {branch_issue_count}, "
+                        f"already assigned to another branch {blocked_count}."
+                    ),
+                )
+            else:
+                messages.warning(
+                    request,
+                    (
+                        f"No overdraft customers were imported. Skipped incomplete {skipped} row(s), "
+                        f"branch not found/not allowed {branch_issue_count}, "
+                        f"already assigned to another branch {blocked_count}."
+                    ),
+                )
+            if row_errors:
+                messages.warning(request, " ".join(row_errors))
+            log_manual_overdraft_customer_audit(
+                request.user,
+                "bulk_upload",
+                details=(
+                    f"File: {getattr(uploaded_file, 'name', '') or '-'}; "
+                    f"Created: {created_count}; Updated: {updated_count}; "
+                    f"Skipped incomplete: {skipped}; Branch not found/not allowed: {branch_issue_count}; "
+                    f"Already assigned to another branch: {blocked_count}; "
+                    f"Changed customers sample: {changed_sample or '-'}"
+                ),
+                object_id=getattr(uploaded_file, "name", "") or None,
+                branch_name=branch_summary,
+            )
+            return redirect("scorecard:manual_overdraft_customer_list")
+
+        if not can_manage_current_branch:
+            messages.error(request, "Choose one assigned branch before adding an individual overdraft customer.")
+            return redirect("scorecard:manual_overdraft_customer_list")
+
+        main_reporting_date = _get_manual_customer_reporting_date(current_branch.branch_name, current_branch.branch_code)
+
+        form_data = {
+            "customer_code": (request.POST.get("customer_code") or "").strip(),
+            "customer_name": (request.POST.get("customer_name") or "").strip(),
+            "account_number": (request.POST.get("account_number") or "").strip(),
+        }
+        if not form_data["customer_code"] or not form_data["customer_name"]:
+            messages.error(request, "Customer Code and Customer Name are required.")
+        else:
+            try:
+                created, manual_customer = _upsert_manual_overdraft_customer(
+                    branch=current_branch,
+                    main_reporting_date=main_reporting_date,
+                    customer_code=form_data["customer_code"],
+                    customer_name=form_data["customer_name"],
+                    account_number=form_data["account_number"],
+                    user=request.user,
+                )
+            except ManualOverdraftCustomerBranchConflict as exc:
+                messages.error(request, str(exc))
+            else:
+                bump_customer_list_summary_version()
+                log_manual_overdraft_customer_audit(
+                    request.user,
+                    "create" if created else "update",
+                    manual_customer,
+                    details="Source: Manual entry.",
+                )
+                messages.success(
+                    request,
+                    f"Overdraft customer '{form_data['customer_name']}' was {'created' if created else 'updated'} successfully.",
+                )
+                return redirect("scorecard:manual_overdraft_customer_list")
+
+    if request.method == "GET":
+        edit_customer_id = (request.GET.get("edit") or "").strip()
+        if edit_customer_id:
+            editing_customer = _get_manageable_manual_overdraft_customer_or_404(request, edit_customer_id)
+            form_data = {
+                "customer_code": editing_customer.customer_code,
+                "customer_name": editing_customer.customer_name,
+                "account_number": editing_customer.account_number,
+            }
+
+    overdraft_customers = _get_filtered_manual_overdraft_customers(request).select_related("created_by")
+    page_obj, search_query, page_size = _paginate_customer_queryset(request, overdraft_customers)
+    for manual_customer in page_obj.object_list:
+        manual_customer.can_manage = _user_can_manage_manual_overdraft_customer(request, manual_customer)
+    basel_status_filter = (request.GET.get("basel_status") or "").strip().lower()
+    if basel_status_filter not in {"scored", "not_scored"}:
+        basel_status_filter = ""
+    ifrs9_status_filter = (request.GET.get("ifrs9_status") or "").strip().lower()
+    if ifrs9_status_filter not in {"scored", "not_scored"}:
+        ifrs9_status_filter = ""
+    context = {
+        "current_branch": current_branch,
+        "editing_customer": editing_customer,
+        "editing_branch": _manual_overdraft_customer_branch(editing_customer) if editing_customer is not None else None,
+        "form_data": form_data,
+        "overdraft_customers": page_obj.object_list,
+        "page_obj": page_obj,
+        "customer_total": overdraft_customers.count(),
+        "search_query": search_query,
+        "page_size": page_size,
+        "list_query_string": _build_list_query_string(
+            search_query=search_query,
+            page_size=page_size,
+            extra_params={
+                "basel_status": basel_status_filter,
+                "ifrs9_status": ifrs9_status_filter,
+            },
+        ),
+        "basel_status_filter": basel_status_filter,
+        "ifrs9_status_filter": ifrs9_status_filter,
+        "single_branch_selected": single_branch_selected,
+        "can_manage_current_branch": can_manage_current_branch,
+        "can_upload_overdraft_customers": can_upload_overdraft_customers,
+    }
+    return render(
+        request,
+        "credit_scoreshifts/customers/manual_overdraft_customers.html",
         context,
     )
 
