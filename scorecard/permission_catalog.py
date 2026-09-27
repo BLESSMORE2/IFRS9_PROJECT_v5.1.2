@@ -430,6 +430,10 @@ IFRS9_RESULTS_ROUTES = [
     "ifrs9_results_ecl_summary",
     "ifrs9_results_ecl_summary_download_excel",
     "ifrs9_results_ecl_summary_download_pdf",
+    "ifrs9_results_basel_validations",
+    "ifrs9_results_basel_validations_download",
+    "ifrs9_results_ifrs9_validations",
+    "ifrs9_results_ifrs9_validations_download",
 ]
 
 BASEL_TEMPLATE_WORKFLOW_MANAGE_ROUTES = [

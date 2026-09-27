@@ -2572,6 +2572,18 @@ class HistoricalScore(models.Model):
         help_text="Optional Basel grade override captured in the historical score snapshot.",
     )
     ifrs_9_score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    has_active_loan = models.BooleanField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Whether the customer had active loan exposure when this snapshot was captured.",
+    )
+    has_active_overdraft = models.BooleanField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Whether the customer had active overdraft exposure when this snapshot was captured.",
+    )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 

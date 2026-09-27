@@ -42,6 +42,7 @@ _SCHEDULER_REQUIRED_COLUMNS = {
 }
 
 AUTO_REFRESH_STATUS_EVENT_CODE = "auto_score_refresh_status"
+HISTORICAL_CAPTURE_STATUS_EVENT_CODE = "historical_score_capture_status"
 
 
 class _SchedulerProcessLock:
@@ -252,6 +253,49 @@ def _persist_auto_refresh_status_log(result: dict[str, Any], now, writer: Schedu
     )
 
 
+def _historical_capture_status_recently_logged(result: dict[str, Any]) -> bool:
+    reason = str(result.get("reason") or "")
+    reporting_date = _auto_refresh_detail_key(result.get("reporting_date"))
+    try:
+        recent_logs = ApiSchedulerServiceLog.objects.filter(
+            service_name="django_api_scheduler_service",
+            event_code=HISTORICAL_CAPTURE_STATUS_EVENT_CODE,
+        ).order_by("-created_at", "-id")[:25]
+        for log in recent_logs:
+            details = log.details if isinstance(log.details, dict) else {}
+            if (
+                details.get("reason") == reason
+                and _auto_refresh_detail_key(details.get("reporting_date")) == reporting_date
+            ):
+                return True
+    except DatabaseError:
+        return False
+    return False
+
+
+def _persist_historical_capture_status_log(
+    result: dict[str, Any],
+    writer: SchedulerLogWriter | None = None,
+) -> None:
+    if result.get("performed") or result.get("reason") != "no_active_exposures":
+        return
+    if _historical_capture_status_recently_logged(result):
+        return
+
+    reporting_date = _auto_refresh_detail_key(result.get("reporting_date")) or "the due reporting date"
+    message = (
+        f"Historical capture skipped for {reporting_date}: "
+        "no matching month-end loan or overdraft data."
+    )
+    _emit(writer, "warning", message)
+    _persist_scheduler_log(
+        level="warning",
+        event_code=HISTORICAL_CAPTURE_STATUS_EVENT_CODE,
+        message=message,
+        details=result,
+    )
+
+
 def _scheduler_runtime_settings(default_interval: int = 30) -> dict[str, Any]:
     defaults = {
         "scheduler_enabled": True,
@@ -433,6 +477,8 @@ def run_scheduler_cycle(
             ),
             details=historical_result,
         )
+    else:
+        _persist_historical_capture_status_log(historical_result, writer)
 
     if auto_refresh_result.get("performed"):
         notification = auto_refresh_result.get("notification") or {}

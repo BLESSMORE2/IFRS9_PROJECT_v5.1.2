@@ -234,8 +234,15 @@
         margin-bottom: 0.24rem;
     }
     .history-refresh-date {
-        width: 165px;
-        min-width: 165px;
+        width: 185px;
+        min-width: 185px;
+    }
+    .history-refresh-help {
+        display: block;
+        margin-top: 0.22rem;
+        color: #64748b;
+        font-size: 0.68rem;
+        line-height: 1.25;
     }
     .history-export-menu.show {
         display: block;
@@ -410,12 +417,16 @@
                         <input type="hidden" name="page_size" value="{{ filters.page_size }}">
                         <div class="history-refresh-field">
                             <label for="history-refresh-date">Refresh date</label>
-                            <select id="history-refresh-date" class="history-select history-refresh-date" name="refresh_reporting_date" required>
-                                <option value="">Select date</option>
-                                {% for reporting_date in reporting_dates %}
-                                    <option value="{{ reporting_date|date:'Y-m-d' }}" {% if filters.reporting_date == reporting_date|date:'Y-m-d' %}selected{% endif %}>{{ reporting_date|date:"Y-m-d" }}</option>
-                                {% endfor %}
-                            </select>
+                            <input
+                                id="history-refresh-date"
+                                class="history-input history-refresh-date"
+                                type="date"
+                                name="refresh_reporting_date"
+                                value="{{ filters.reporting_date }}"
+                                aria-describedby="history-refresh-date-help"
+                                required
+                            >
+                            <small id="history-refresh-date-help" class="history-refresh-help">Choose any reporting date from the calendar.</small>
                         </div>
                         <button type="submit" class="history-btn warning">Refresh Selected Date</button>
                     </form>

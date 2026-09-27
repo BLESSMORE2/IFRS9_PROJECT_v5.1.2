@@ -73,8 +73,8 @@ def _annotate_historical_exposure_source(scores):
         customer_code=OuterRef("customer_id"),
     )
     return scores.annotate(
-        has_active_loan=Exists(loan_match),
-        has_active_overdraft=Exists(overdraft_match),
+        legacy_has_active_loan=Exists(loan_match),
+        legacy_has_active_overdraft=Exists(overdraft_match),
     )
 
 
@@ -91,15 +91,35 @@ def _apply_historical_score_filters(scores, params):
     if selected_exposure_source:
         scores = _annotate_historical_exposure_source(scores)
         if selected_exposure_source == "loan":
-            scores = scores.filter(has_active_loan=True)
+            scores = scores.filter(Q(has_active_loan=True) | Q(has_active_loan__isnull=True, legacy_has_active_loan=True))
         elif selected_exposure_source == "overdraft":
-            scores = scores.filter(has_active_overdraft=True)
+            scores = scores.filter(
+                Q(has_active_overdraft=True)
+                | Q(has_active_overdraft__isnull=True, legacy_has_active_overdraft=True)
+            )
         elif selected_exposure_source == "loan_or_overdraft":
-            scores = scores.filter(Q(has_active_loan=True) | Q(has_active_overdraft=True))
+            scores = scores.filter(
+                Q(has_active_loan=True)
+                | Q(has_active_overdraft=True)
+                | Q(has_active_loan__isnull=True, legacy_has_active_loan=True)
+                | Q(has_active_overdraft__isnull=True, legacy_has_active_overdraft=True)
+            )
         elif selected_exposure_source == "loan_only":
-            scores = scores.filter(has_active_loan=True, has_active_overdraft=False)
+            scores = scores.filter(
+                Q(has_active_loan=True)
+                | Q(has_active_loan__isnull=True, legacy_has_active_loan=True)
+            ).exclude(
+                Q(has_active_overdraft=True)
+                | Q(has_active_overdraft__isnull=True, legacy_has_active_overdraft=True)
+            )
         elif selected_exposure_source == "overdraft_only":
-            scores = scores.filter(has_active_loan=False, has_active_overdraft=True)
+            scores = scores.filter(
+                Q(has_active_overdraft=True)
+                | Q(has_active_overdraft__isnull=True, legacy_has_active_overdraft=True)
+            ).exclude(
+                Q(has_active_loan=True)
+                | Q(has_active_loan__isnull=True, legacy_has_active_loan=True)
+            )
     if search:
         scores = scores.filter(
             Q(customer_id__icontains=search)

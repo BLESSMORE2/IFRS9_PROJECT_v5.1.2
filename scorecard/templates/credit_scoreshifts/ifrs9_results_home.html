@@ -147,7 +147,7 @@
     }
     .results-options {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 0.75rem;
     }
     .results-option-body {
@@ -234,6 +234,8 @@
             <a href="{% url 'scorecard:ifrs9_results_home' %}" class="results-tab{% if results_page_key == 'home' %} active{% endif %}">Overview</a>
             <a href="{% url 'scorecard:ifrs9_results_extract' %}" class="results-tab{% if results_page_key == 'extract' %} active{% endif %}">Results Extract</a>
             <a href="{% url 'scorecard:ifrs9_results_ecl_summary' %}" class="results-tab{% if results_page_key == 'summary' %} active{% endif %}">ECL Summary Report</a>
+            <a href="{% url 'scorecard:ifrs9_results_basel_validations' %}" class="results-tab{% if results_page_key == 'basel_validations' %} active{% endif %}">Basel II Validations</a>
+            <a href="{% url 'scorecard:ifrs9_results_ifrs9_validations' %}" class="results-tab{% if results_page_key == 'ifrs9_validations' %} active{% endif %}">IFRS9 Validation</a>
         </div>
     </div>
 
@@ -303,6 +305,28 @@
                     Review grouped ECL totals by stage, portfolio, risk group, and branch using the latest run key for the chosen reporting date inside the active branch scope.
                 </p>
                 <a href="{% url 'scorecard:ifrs9_results_ecl_summary' %}" class="results-option-btn">Open ECL Summary</a>
+            </div>
+        </article>
+
+        <article class="results-option">
+            <div class="results-option-body">
+                <span class="results-option-kicker">Validation Workspace</span>
+                <h2 class="results-option-title">Basel II Validations</h2>
+                <p class="results-option-copy">
+                    Compare frozen month-end Basel II weighted scores and grades, review customer and branch movements, and validate branch and overall NPL ratios.
+                </p>
+                <a href="{% url 'scorecard:ifrs9_results_basel_validations' %}" class="results-option-btn">Open Basel II Validations</a>
+            </div>
+        </article>
+
+        <article class="results-option">
+            <div class="results-option-body">
+                <span class="results-option-kicker">Validation Workspace</span>
+                <h2 class="results-option-title">IFRS9 Validation</h2>
+                <p class="results-option-copy">
+                    Compare frozen month-end IFRS9 scores, review individual and branch score movements, and investigate population changes and duplicate customer codes.
+                </p>
+                <a href="{% url 'scorecard:ifrs9_results_ifrs9_validations' %}" class="results-option-btn">Open IFRS9 Validation</a>
             </div>
         </article>
     </div>

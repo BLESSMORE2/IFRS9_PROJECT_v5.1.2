@@ -1,0 +1,165 @@
+{% extends "credit_scoreshifts/base.html" %}
+{% load humanize %}
+
+{% block title %}Basel II Validations{% endblock %}
+
+{% block content %}
+<style>
+    .validation-layout{display:flex;flex-direction:column;gap:.75rem}.validation-hero{background:linear-gradient(135deg,#0f3e72,#0b2d52);border-radius:14px;padding:.9rem 1rem;color:#fff;box-shadow:0 18px 40px rgba(8,37,66,.16)}
+    .validation-kicker{font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72)}.validation-title{margin:.16rem 0 .18rem;font-size:1.12rem}.validation-copy{margin:0;max-width:1120px;font-size:.77rem;line-height:1.5;color:rgba(255,255,255,.84)}
+    .validation-tabs-shell,.validation-panel,.validation-filter{background:#fff;border:1px solid #dfe9f4;border-radius:14px;box-shadow:0 12px 30px rgba(15,23,42,.05)}.validation-tabs-shell{padding:.45rem .55rem}.validation-tabs{display:flex;flex-wrap:wrap;gap:.45rem}
+    .validation-tab{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:.45rem .8rem;border-radius:999px;border:1px solid #d5e3f2;background:#fff;color:#175494;text-decoration:none;font-size:.76rem;font-weight:700}.validation-tab:hover{text-decoration:none;color:#0f3d78;background:#f3f8ff}.validation-tab.active{color:#fff;border-color:#175494;background:linear-gradient(135deg,#175494,#1b79c2)}
+    .validation-filter{padding:.85rem .95rem}.validation-filter-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.25fr auto;gap:.65rem;align-items:end}.validation-field{display:flex;flex-direction:column;gap:.32rem;min-width:0}.validation-label{font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#64748b}.validation-control{min-height:38px;width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:.44rem .6rem;background:#fff;color:#0f172a;font-size:.8rem}
+    .validation-actions{display:flex;gap:.45rem;flex-wrap:wrap}.validation-btn,.validation-btn-outline{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 .82rem;border-radius:9px;font-size:.76rem;font-weight:700;text-decoration:none;cursor:pointer}.validation-btn{border:1px solid #176bb3;background:#176bb3;color:#fff}.validation-btn:hover{color:#fff;text-decoration:none;background:#125b99}.validation-btn-outline{border:1px solid #b9ccdf;background:#fff;color:#174e82}.validation-btn-outline:hover{text-decoration:none;background:#f5f9fd;color:#0f3e72}
+    .validation-btn.is-loading{pointer-events:none;cursor:wait;opacity:.8}.validation-download-spinner{display:none;width:14px;height:14px;margin-right:.42rem;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:validation-spin .7s linear infinite}.validation-btn.is-loading .validation-download-spinner{display:inline-block}.validation-download-status{align-self:center;min-width:145px;color:#526b82;font-size:.69rem;font-weight:600}.validation-download-status.is-success{color:#087443}.validation-download-status.is-error{color:#b4232c}@keyframes validation-spin{to{transform:rotate(360deg)}}
+    .validation-period-bar{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:.62rem .85rem;border-radius:11px;background:#eef6fd;border:1px solid #d7e8f7;color:#294e70;font-size:.74rem}.validation-period-bar strong{color:#0b2d52}.validation-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.55rem}.validation-kpi{position:relative;overflow:hidden;border:1px solid #dbe7f2;border-radius:13px;background:#fff;padding:.68rem .75rem}.validation-kpi:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#3b82f6}.validation-kpi.good:before{background:#16a36a}.validation-kpi.risk:before{background:#e5484d}.validation-kpi.warn:before{background:#e39b16}.validation-kpi-label{display:block;margin-bottom:.13rem;color:#64748b;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}.validation-kpi strong{color:#0f172a;font-size:1rem}
+    .validation-analysis-stack{display:flex;flex-direction:column;gap:.75rem}.validation-panel{overflow:hidden}.validation-panel-head{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.72rem .85rem;border-bottom:1px solid #e7eef6;background:#f7fafe}.validation-panel-title{margin:0;color:#0f172a;font-size:.9rem}.validation-panel-note{margin:.12rem 0 0;color:#64748b;font-size:.7rem;line-height:1.4}.validation-panel-body{padding:.8rem}.validation-table-wrap{overflow:auto;border:1px solid #dce7f1;border-radius:10px}
+    .validation-table{width:100%;border-collapse:collapse;min-width:920px}.validation-table.compact{min-width:620px}.validation-table th,.validation-table td{padding:.5rem .58rem;border-bottom:1px solid #e7eef5;border-right:1px solid #edf2f7;font-size:.7rem;white-space:nowrap}.validation-table th{position:sticky;top:0;z-index:1;background:#0e4377;color:#fff;text-align:center}.validation-table td{color:#20364d}.validation-table tr:nth-child(even) td{background:#f8fbfe}.validation-num{text-align:right;font-variant-numeric:tabular-nums}.validation-center{text-align:center}
+    .validation-table tr.validation-overall td{background:#eaf3fb;font-weight:700;color:#0b2d52}.validation-movement{display:inline-flex;align-items:center;justify-content:center;min-width:82px;padding:.22rem .48rem;border-radius:999px;font-size:.64rem;font-weight:700}.validation-movement.upgrade{color:#087443;background:#e6f7ef}.validation-movement.downgrade{color:#b4232c;background:#fff0f1}.validation-movement.unchanged{color:#315979;background:#edf4fa}.validation-movement.new{color:#145ea8;background:#eaf4ff}.validation-movement.exited{color:#8c4b00;background:#fff4df}.validation-movement.changed,.validation-movement.incomplete{color:#6b4f00;background:#fff8d9}.validation-up{color:#087443;font-weight:700}.validation-down{color:#b4232c;font-weight:700}
+    .validation-grade-change{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .42rem;border-radius:8px;background:#eef6fd;color:#0b2d52;font-weight:700}.validation-grade-change b{color:#176bb3}
+    .validation-matrix-guide{display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.65rem;padding:.62rem .7rem;border:1px solid #d6e6f5;border-radius:9px;background:#f5faff;color:#294e70;font-size:.7rem}.validation-matrix-guide strong{color:#0b2d52}.validation-matrix-legend{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}.validation-matrix-key{display:inline-flex;align-items:center;gap:.3rem;font-weight:700}.validation-matrix-swatch{width:10px;height:10px;border-radius:3px;border:1px solid transparent}.validation-matrix-swatch.unchanged{background:#dcecff;border-color:#9cc4e9}.validation-matrix-swatch.upgrade{background:#e6f7ef;border-color:#9dd9bd}.validation-matrix-swatch.downgrade{background:#fff0f1;border-color:#f2b5ba}
+    .validation-matrix-table{min-width:900px}.validation-matrix-table th,.validation-matrix-table td{text-align:center}.validation-matrix-table .validation-matrix-axis-row th{top:0;height:34px}.validation-matrix-table .validation-matrix-grade-row th{top:34px}.validation-matrix-table .validation-matrix-corner{position:sticky;left:0;top:0;z-index:5;min-width:145px;text-align:left;background:#082f58}.validation-matrix-table .validation-matrix-current-axis{letter-spacing:.07em;text-transform:uppercase;background:#176bb3}.validation-matrix-table .validation-matrix-total-head{min-width:115px;background:#082f58}.validation-matrix-table .validation-matrix-row-grade{position:sticky;left:0;top:auto;z-index:2;text-align:left;background:#f3f8fd!important;color:#0b2d52;border-right:2px solid #b8d1e8}.validation-matrix-row-grade span{display:block;color:#6b8196;font-size:.56rem;letter-spacing:.05em;text-transform:uppercase}.validation-matrix-row-grade strong{font-size:.78rem}.validation-matrix-cell{min-width:58px;font-weight:600}.validation-matrix-cell.is-zero{color:#9aaaba}.validation-matrix-cell.has-value.unchanged{background:#dcecff!important;color:#0b4f87;font-weight:800}.validation-matrix-cell.has-value.upgrade{background:#e6f7ef!important;color:#087443;font-weight:800}.validation-matrix-cell.has-value.downgrade{background:#fff0f1!important;color:#b4232c;font-weight:800}.validation-matrix-total{background:#edf4fa!important;color:#0b2d52!important;font-weight:800}.validation-matrix-table tfoot th,.validation-matrix-table tfoot td{position:sticky;top:auto;bottom:0;z-index:2;background:#0b355e;color:#fff;font-weight:800;border-top:2px solid #8eb5d8}.validation-matrix-table tfoot th{left:0;z-index:4;text-align:left}.validation-matrix-help{display:block;margin-top:.15rem;color:#b8d3ea;font-size:.56rem;font-weight:600;text-transform:none;letter-spacing:0}
+    .validation-quality{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5rem}.validation-quality-item{border:1px solid #eadfbf;border-radius:10px;background:#fffaf0;padding:.58rem .65rem}.validation-quality-item span{display:block;color:#81661b;font-size:.61rem;font-weight:700;text-transform:uppercase}.validation-quality-item strong{color:#493b13;font-size:.88rem}.validation-empty{padding:2.1rem 1rem;text-align:center;color:#64748b}.validation-pagination{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-top:.7rem;color:#64748b;font-size:.72rem}.validation-pagination-links{display:flex;gap:.4rem}
+    @media(max-width:1200px){.validation-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.validation-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:860px){.validation-filter-grid,.validation-kpis,.validation-quality{grid-template-columns:1fr}.validation-matrix-guide{align-items:flex-start;flex-direction:column}}
+</style>
+
+<div class="validation-layout">
+    <section class="validation-hero">
+        <span class="validation-kicker">IFRS9 Results</span>
+        <h1 class="validation-title">Basel II Validations</h1>
+        <p class="validation-copy">Validate month-end Basel II weighted-score and grade movements using frozen historical snapshots. Review customer changes, branch trends, grade migration, and NPL ratios for the exact comparison dates.</p>
+    </section>
+
+    <div class="validation-tabs-shell"><div class="validation-tabs">
+        <a href="{% url 'scorecard:ifrs9_results_home' %}" class="validation-tab">Overview</a>
+        <a href="{% url 'scorecard:ifrs9_results_extract' %}" class="validation-tab">Results Extract</a>
+        <a href="{% url 'scorecard:ifrs9_results_ecl_summary' %}" class="validation-tab">ECL Summary Report</a>
+        <a href="{% url 'scorecard:ifrs9_results_basel_validations' %}" class="validation-tab active">Basel II Validations</a>
+        <a href="{% url 'scorecard:ifrs9_results_ifrs9_validations' %}" class="validation-tab">IFRS9 Validation</a>
+    </div></div>
+
+    <form method="get" class="validation-filter"><div class="validation-filter-grid">
+        <label class="validation-field"><span class="validation-label">Previous Month-End</span><select name="previous_date" class="validation-control">{% for available_date in validation_available_dates %}<option value="{{ available_date|date:'Y-m-d' }}"{% if validation_previous_date == available_date %} selected{% endif %}>{{ available_date|date:"Y-m-d" }}</option>{% endfor %}</select></label>
+        <label class="validation-field"><span class="validation-label">Current Month-End</span><select name="current_date" class="validation-control">{% for available_date in validation_available_dates %}<option value="{{ available_date|date:'Y-m-d' }}"{% if validation_current_date == available_date %} selected{% endif %}>{{ available_date|date:"Y-m-d" }}</option>{% endfor %}</select></label>
+        <label class="validation-field"><span class="validation-label">Branch</span><select name="branch" class="validation-control"><option value="">All branches in scope</option>{% for branch_name in validation_branch_names %}<option value="{{ branch_name }}"{% if validation_selected_branch == branch_name %} selected{% endif %}>{{ branch_name }}</option>{% endfor %}</select></label>
+        <label class="validation-field"><span class="validation-label">Grade Movement</span><select name="movement" class="validation-control">{% for value, label in validation_movement_options %}<option value="{{ value }}"{% if validation_movement_filter == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <label class="validation-field"><span class="validation-label">Customer Search</span><input type="search" name="search" value="{{ validation_search }}" class="validation-control" placeholder="Code, name, branch, or grade"></label>
+        <div class="validation-actions"><button type="submit" class="validation-btn">Apply</button><a href="{% url 'scorecard:ifrs9_results_basel_validations' %}" class="validation-btn-outline">Clear</a></div>
+    </div><input type="hidden" name="page_size" value="{{ validation_page_size }}"></form>
+
+    {% if validation_payload %}
+    <div class="validation-period-bar"><span><strong>Comparison:</strong> {{ validation_previous_date|date:"Y-m-d" }} to {{ validation_current_date|date:"Y-m-d" }}</span><span><strong>Scope:</strong> {% if validation_selected_branch %}{{ validation_selected_branch }}{% else %}{{ results_branch_scope_label }}{% endif %}</span><span><strong>NPL basis:</strong> Basel C/D/E historical customers divided by all historical Basel customers</span></div>
+
+    <div class="validation-kpis">
+        <div class="validation-kpi"><span class="validation-kpi-label">Matched Customers</span><strong>{{ validation_payload.summary.matched_customers|intcomma }}</strong></div>
+        <div class="validation-kpi good"><span class="validation-kpi-label">Grade Upgrades</span><strong>{{ validation_payload.summary.upgrades|intcomma }}</strong></div>
+        <div class="validation-kpi risk"><span class="validation-kpi-label">Grade Downgrades</span><strong>{{ validation_payload.summary.downgrades|intcomma }}</strong></div>
+        <div class="validation-kpi warn"><span class="validation-kpi-label">Average Score Change</span><strong>{{ validation_payload.summary.average_score_delta|default_if_none:"-"|floatformat:2 }} pp</strong></div>
+        <div class="validation-kpi"><span class="validation-kpi-label">Current NPL Ratio</span><strong>{% if validation_payload.current_npl.available %}{{ validation_payload.current_npl.overall.customer_ratio|floatformat:2 }}%{% else %}Unavailable{% endif %}</strong></div>
+        <div class="validation-kpi"><span class="validation-kpi-label">Previous NPL Ratio</span><strong>{% if validation_payload.previous_npl.available %}{{ validation_payload.previous_npl.overall.customer_ratio|floatformat:2 }}%{% else %}Unavailable{% endif %}</strong></div>
+        <div class="validation-kpi"><span class="validation-kpi-label">Previous Customers</span><strong>{{ validation_payload.summary.previous_customers|intcomma }}</strong></div><div class="validation-kpi"><span class="validation-kpi-label">Current Customers</span><strong>{{ validation_payload.summary.current_customers|intcomma }}</strong></div><div class="validation-kpi"><span class="validation-kpi-label">Grade Unchanged</span><strong>{{ validation_payload.summary.unchanged|intcomma }}</strong></div><div class="validation-kpi"><span class="validation-kpi-label">New This Month</span><strong>{{ validation_payload.summary.new|intcomma }}</strong></div><div class="validation-kpi"><span class="validation-kpi-label">Exited</span><strong>{{ validation_payload.summary.exited|intcomma }}</strong></div><div class="validation-kpi"><span class="validation-kpi-label">Branch Transfers</span><strong>{{ validation_payload.summary.branch_transfers|intcomma }}</strong></div>
+    </div>
+
+    <div class="validation-analysis-stack">
+        <section class="validation-panel"><div class="validation-panel-head"><div><h2 class="validation-panel-title">Branch Validation</h2><p class="validation-panel-note">Customer movements and dashboard-formula NPL ratios by branch.</p></div></div><div class="validation-panel-body"><div class="validation-table-wrap"><table class="validation-table"><thead><tr><th>Branch</th><th>Matched</th><th>Upgrades</th><th>Downgrades</th><th>Avg Score Change</th><th>Previous NPL</th><th>Current NPL</th><th>NPL Change</th></tr></thead><tbody>
+        <tr class="validation-overall"><td>Overall selected scope</td><td class="validation-num">{{ validation_payload.summary.matched_customers|intcomma }}</td><td class="validation-num validation-up">{{ validation_payload.summary.upgrades|intcomma }}</td><td class="validation-num validation-down">{{ validation_payload.summary.downgrades|intcomma }}</td><td class="validation-num">{{ validation_payload.summary.average_score_delta|default_if_none:"-"|floatformat:2 }}{% if validation_payload.summary.average_score_delta != None %} pp{% endif %}</td><td class="validation-num">{% if validation_payload.previous_npl.available %}{{ validation_payload.previous_npl.overall.customer_ratio|floatformat:2 }}%{% else %}-{% endif %}</td><td class="validation-num">{% if validation_payload.current_npl.available %}{{ validation_payload.current_npl.overall.customer_ratio|floatformat:2 }}%{% else %}-{% endif %}</td><td class="validation-num">{{ validation_payload.overall_npl_ratio_delta|default_if_none:"-"|floatformat:2 }}{% if validation_payload.overall_npl_ratio_delta != None %} pp{% endif %}</td></tr>
+        {% for row in validation_payload.branch_summary %}<tr><td>{{ row.branch_name }}</td><td class="validation-num">{{ row.matched_customers|intcomma }}</td><td class="validation-num validation-up">{{ row.upgrades|intcomma }}</td><td class="validation-num validation-down">{{ row.downgrades|intcomma }}</td><td class="validation-num">{{ row.average_score_delta|default_if_none:"-"|floatformat:2 }}{% if row.average_score_delta != None %} pp{% endif %}</td><td class="validation-num">{{ row.previous_npl_ratio|default_if_none:"-"|floatformat:2 }}{% if row.previous_npl_ratio != None %}%{% endif %}</td><td class="validation-num">{{ row.current_npl_ratio|default_if_none:"-"|floatformat:2 }}{% if row.current_npl_ratio != None %}%{% endif %}</td><td class="validation-num">{{ row.npl_ratio_delta|default_if_none:"-"|floatformat:2 }}{% if row.npl_ratio_delta != None %} pp{% endif %}</td></tr>{% empty %}<tr><td colspan="8" class="validation-center">No branch validation rows are available.</td></tr>{% endfor %}
+        </tbody></table></div></div></section>
+
+        <section class="validation-panel"><div class="validation-panel-head"><div><h2 class="validation-panel-title">Grade Migration Matrix</h2><p class="validation-panel-note">Read every cell as customers moving from the previous grade on the left to the current grade above. Overrides are used when present.</p></div></div><div class="validation-panel-body">
+            <div class="validation-matrix-guide"><span><strong>How to read:</strong> row grade &rarr; column grade. Example: row B&sup3; and column B&sup2; means customers moving from B&sup3; to B&sup2;.</span><div class="validation-matrix-legend"><span class="validation-matrix-key"><i class="validation-matrix-swatch unchanged"></i>Unchanged</span><span class="validation-matrix-key"><i class="validation-matrix-swatch upgrade"></i>Upgrade</span><span class="validation-matrix-key"><i class="validation-matrix-swatch downgrade"></i>Downgrade</span></div></div>
+            <div class="validation-table-wrap"><table class="validation-table compact validation-matrix-table" aria-label="Grade migration from previous grades in rows to current grades in columns"><thead><tr class="validation-matrix-axis-row"><th rowspan="2" class="validation-matrix-corner">Previous Grade <strong>&darr;</strong><span class="validation-matrix-help">Start from this row</span></th><th colspan="{{ validation_payload.grade_migration.current_grades|length }}" class="validation-matrix-current-axis">Current Grade &rarr; <span class="validation-matrix-help">Then read across to this column</span></th><th rowspan="2" class="validation-matrix-total-head">Previous Grade Total</th></tr><tr class="validation-matrix-grade-row">{% for grade in validation_payload.grade_migration.current_grades %}<th scope="col">{{ grade }}</th>{% endfor %}</tr></thead><tbody>
+            {% for row in validation_payload.grade_migration.rows %}<tr><th scope="row" class="validation-matrix-row-grade"><span>Previous grade</span><strong>{{ row.grade }}</strong></th>{% for cell in row.cells %}<td class="validation-num validation-matrix-cell {{ cell.movement_key }} {% if cell.count %}has-value{% else %}is-zero{% endif %}" title="Previous {{ row.grade }} to current {{ cell.current_grade }}: {{ cell.count|intcomma }} customer{{ cell.count|pluralize }}">{{ cell.count|intcomma }}</td>{% endfor %}<td class="validation-num validation-matrix-total" title="All customers whose previous grade was {{ row.grade }}">{{ row.total|intcomma }}</td></tr>{% empty %}<tr><td colspan="12" class="validation-center">No comparable grades are available.</td></tr>{% endfor %}
+            </tbody>{% if validation_payload.grade_migration.rows %}<tfoot><tr><th scope="row">Current Grade Totals &rarr;</th>{% for total in validation_payload.grade_migration.column_totals %}<td class="validation-num">{{ total|intcomma }}</td>{% endfor %}<td class="validation-num">{{ validation_payload.grade_migration.total|intcomma }}</td></tr></tfoot>{% endif %}</table></div>
+        </div></section>
+    </div>
+
+    <section class="validation-panel"><div class="validation-panel-head"><div><h2 class="validation-panel-title">Validation Exceptions</h2><p class="validation-panel-note">Counts that may require data-quality review before sign-off.</p></div></div><div class="validation-panel-body validation-quality"><div class="validation-quality-item"><span>Prior Duplicate Codes</span><strong>{{ validation_payload.data_quality.previous_duplicate_customer_codes|intcomma }}</strong></div><div class="validation-quality-item"><span>Current Duplicate Codes</span><strong>{{ validation_payload.data_quality.current_duplicate_customer_codes|intcomma }}</strong></div><div class="validation-quality-item"><span>Missing Prior Scores</span><strong>{{ validation_payload.data_quality.missing_previous_scores|intcomma }}</strong></div><div class="validation-quality-item"><span>Missing Current Scores</span><strong>{{ validation_payload.data_quality.missing_current_scores|intcomma }}</strong></div><div class="validation-quality-item"><span>Incomplete Grades</span><strong>{{ validation_payload.data_quality.incomplete_grades|intcomma }}</strong></div></div></section>
+
+    <section class="validation-panel"><div class="validation-panel-head"><div><h2 class="validation-panel-title">Individual Customer Grade Changes</h2><p class="validation-panel-note">{{ validation_filtered_count|intcomma }} customer row{{ validation_filtered_count|pluralize }} match the filters. Excel includes every matching customer, not only this page.</p></div><div class="validation-actions"><a id="validation-download-btn" class="validation-btn" href="{% url 'scorecard:ifrs9_results_basel_validations_download' %}?{{ validation_query_string }}" data-no-nav-loader="1" download><span class="validation-download-spinner" aria-hidden="true"></span><span class="validation-download-label">Download Excel</span></a><span id="validation-download-status" class="validation-download-status" role="status" aria-live="polite"></span><form method="get"><input type="hidden" name="previous_date" value="{{ validation_previous_date|date:'Y-m-d' }}"><input type="hidden" name="current_date" value="{{ validation_current_date|date:'Y-m-d' }}"><input type="hidden" name="branch" value="{{ validation_selected_branch }}"><input type="hidden" name="movement" value="{{ validation_movement_filter }}"><input type="hidden" name="search" value="{{ validation_search }}"><select name="page_size" class="validation-control" onchange="this.form.submit()">{% for option in validation_page_size_options %}<option value="{{ option }}"{% if validation_page_size == option %} selected{% endif %}>Show {{ option }}</option>{% endfor %}</select></form></div></div><div class="validation-panel-body"><div class="validation-table-wrap"><table class="validation-table"><thead><tr><th>Branch</th><th>Customer Code</th><th>Customer Name</th><th>Grade Change</th><th>Grade Notches</th><th>Movement</th><th>Previous Score</th><th>Current Score</th><th>Score Change</th></tr></thead><tbody>
+        {% for row in validation_page_obj.object_list %}<tr><td>{{ row.branch_name }}{% if row.branch_transfer %}<br><small>From {{ row.previous_branch }}</small>{% endif %}</td><td>{{ row.customer_id }}</td><td>{{ row.customer_name }}</td><td class="validation-center"><span class="validation-grade-change">{{ row.previous_effective_grade|default:"Not scored" }} <b>&rarr;</b> {{ row.current_effective_grade|default:"Not scored" }}</span></td><td class="validation-num">{{ row.grade_notches|default_if_none:"-" }}</td><td class="validation-center"><span class="validation-movement {{ row.movement_key }}">{{ row.movement_label }}</span></td><td class="validation-num">{{ row.previous_score|default_if_none:"-"|floatformat:2 }}{% if row.previous_score != None %}%{% endif %}</td><td class="validation-num">{{ row.current_score|default_if_none:"-"|floatformat:2 }}{% if row.current_score != None %}%{% endif %}</td><td class="validation-num {% if row.score_delta > 0 %}validation-up{% elif row.score_delta < 0 %}validation-down{% endif %}">{{ row.score_delta|default_if_none:"-"|floatformat:2 }}{% if row.score_delta != None %} pp{% endif %}</td></tr>{% empty %}<tr><td colspan="9" class="validation-center">No customer grade changes match the selected filters.</td></tr>{% endfor %}
+        </tbody></table></div>{% if validation_page_obj %}<div class="validation-pagination"><span>Showing {{ validation_page_obj.start_index }} to {{ validation_page_obj.end_index }} of {{ validation_page_obj.paginator.count|intcomma }}</span><div class="validation-pagination-links">{% if validation_page_obj.has_previous %}<a class="validation-btn-outline" href="?{{ validation_query_string }}&page={{ validation_page_obj.previous_page_number }}">Previous</a>{% endif %}{% if validation_page_obj.has_next %}<a class="validation-btn-outline" href="?{{ validation_query_string }}&page={{ validation_page_obj.next_page_number }}">Next</a>{% endif %}</div></div>{% endif %}</div></section>
+    {% else %}
+    <section class="validation-panel"><div class="validation-empty"><strong>At least two historical month-end snapshots are required.</strong><br>Once two dates exist in the selected branch scope, this workspace will compare them automatically.</div></section>
+    {% endif %}
+</div>
+
+<script>
+    (function () {
+        const button = document.getElementById('validation-download-btn');
+        const status = document.getElementById('validation-download-status');
+        if (!button || !status || !window.fetch) return;
+
+        const label = button.querySelector('.validation-download-label');
+        let busy = false;
+
+        function setState(message, stateClass) {
+            status.textContent = message || '';
+            status.classList.remove('is-success', 'is-error');
+            if (stateClass) status.classList.add(stateClass);
+        }
+
+        function restoreButton() {
+            busy = false;
+            button.classList.remove('is-loading');
+            button.setAttribute('aria-busy', 'false');
+            label.textContent = 'Download Excel';
+        }
+
+        function filenameFrom(response) {
+            const disposition = response.headers.get('Content-Disposition') || '';
+            const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+            if (utf8Match) return decodeURIComponent(utf8Match[1].replace(/["']/g, ''));
+            const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+            return plainMatch ? plainMatch[1] : 'basel_ii_validations.xlsx';
+        }
+
+        button.addEventListener('click', async function (event) {
+            event.preventDefault();
+            if (busy) return;
+
+            busy = true;
+            button.classList.add('is-loading');
+            button.setAttribute('aria-busy', 'true');
+            label.textContent = 'Preparing Excel...';
+            setState('Building the customer workbook...', '');
+
+            try {
+                const response = await fetch(button.href, {
+                    credentials: 'same-origin',
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
+                });
+                if (!response.ok) throw new Error('Download request failed');
+
+                const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
+                if (contentType.includes('text/html')) throw new Error('Unexpected download response');
+
+                const blob = await response.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = objectUrl;
+                downloadLink.download = filenameFrom(response);
+                downloadLink.style.display = 'none';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                downloadLink.remove();
+                window.setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 1000);
+
+                label.textContent = 'Download started';
+                setState('Excel file is ready.', 'is-success');
+                window.setTimeout(function () {
+                    restoreButton();
+                    setState('', '');
+                }, 2500);
+            } catch (error) {
+                restoreButton();
+                label.textContent = 'Retry Download';
+                setState('Could not prepare the file. Please try again.', 'is-error');
+                window.setTimeout(function () {
+                    label.textContent = 'Download Excel';
+                }, 3500);
+            }
+        });
+    })();
+</script>
+{% endblock %}

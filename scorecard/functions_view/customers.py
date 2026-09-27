@@ -1626,14 +1626,15 @@ def _get_stage_customer_population_snapshot(branch_scope, source_settings: dict[
         )
         _merge_group_rows(overdraft_groups, has_loan=False)
 
-    manual_overdraft_groups = (
-        ManualOverdraftCustomer.objects.filter(_build_manual_overdraft_branch_filter(branch_scope))
-        .exclude(customer_code__isnull=True)
-        .exclude(customer_code__exact="")
-        .values("customer_code", "customer_name", "branch_name", "branch_code", "account_number")
-        .annotate(overdraft_count=Count("id"))
-    )
-    _merge_group_rows(manual_overdraft_groups, has_loan=False)
+    if source_settings["include_overdrafts"]:
+        manual_overdraft_groups = (
+            ManualOverdraftCustomer.objects.filter(_build_manual_overdraft_branch_filter(branch_scope))
+            .exclude(customer_code__isnull=True)
+            .exclude(customer_code__exact="")
+            .values("customer_code", "customer_name", "branch_name", "branch_code", "account_number")
+            .annotate(overdraft_count=Count("id"))
+        )
+        _merge_group_rows(manual_overdraft_groups, has_loan=False)
 
     if staged_customers:
         preferred_main_customers: dict[tuple[str, str, str], MainCustomer] = {}

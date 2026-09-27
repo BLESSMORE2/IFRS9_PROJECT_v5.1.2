@@ -865,6 +865,7 @@ SCHEDULER_EVENT_LABELS = {
     "schedule_manual_run_failed": "Manual Schedule Run Failed",
     "main_sync_success": "Main Sync Completed",
     "historical_scores_captured": "Historical Scores Captured",
+    "historical_score_capture_status": "Historical Capture Skipped",
     "auto_score_refresh_status": "Auto Score Refresh Status",
     "auto_score_refresh_completed": "Auto Score Refresh Completed",
     "auto_score_refresh_failed": "Auto Score Refresh Failed",

@@ -6,7 +6,13 @@ from typing import Any
 
 from django.utils import timezone
 
-from scorecard.models import CustomerLoan, CustomerOverdraft, CreditEvaluation, HistoricalScore, IFRS9Evaluation
+from scorecard.models import (
+    CustomerLoan,
+    CustomerOverdraft,
+    CreditEvaluation,
+    HistoricalScore,
+    IFRS9Evaluation,
+)
 
 
 APPROVED_LIKE_STATUSES = ("approved", "submitted", "returned", "completed")
@@ -129,29 +135,66 @@ def _ifrs9_current_score(evaluation: IFRS9Evaluation):
     return evaluation.total_weighted_percent
 
 
-def _active_exposure_customer_codes_for_reporting_date(reporting_date: date) -> set[str]:
-    """Customers are eligible for history only when active loan/overdraft data exists for that month."""
+def _active_exposure_sources_for_reporting_date(reporting_date: date) -> dict[str, dict]:
+    """Return month-end loan/overdraft source flags by customer and customer/branch."""
 
-    loan_codes = (
+    by_customer: dict[str, dict[str, bool]] = defaultdict(lambda: {"loan": False, "overdraft": False})
+    by_customer_branch: dict[tuple[str, str], dict[str, bool]] = defaultdict(
+        lambda: {"loan": False, "overdraft": False}
+    )
+
+    def merge_rows(rows, source: str) -> None:
+        for customer_code, branch_name in rows:
+            customer_key = _clean_text(customer_code).casefold()
+            branch_key = _clean_text(branch_name).casefold()
+            if not customer_key:
+                continue
+            by_customer[customer_key][source] = True
+            if branch_key:
+                by_customer_branch[(customer_key, branch_key)][source] = True
+
+    merge_rows(
         CustomerLoan.objects.filter(reporting_date=reporting_date)
         .exclude(customer_code__isnull=True)
         .exclude(customer_code__exact="")
-        .values_list("customer_code", flat=True)
-        .distinct()
+        .values_list("customer_code", "branch_description")
+        .distinct(),
+        "loan",
     )
-    overdraft_codes = (
+    merge_rows(
         CustomerOverdraft.objects.filter(reporting_date=reporting_date)
         .exclude(customer_code__isnull=True)
         .exclude(customer_code__exact="")
-        .values_list("customer_code", flat=True)
-        .distinct()
+        .values_list("customer_code", "branch_description")
+        .distinct(),
+        "overdraft",
     )
-    return {_clean_text(code) for code in loan_codes}.union({_clean_text(code) for code in overdraft_codes})
+    return {
+        "by_customer": dict(by_customer),
+        "by_customer_branch": dict(by_customer_branch),
+    }
+
+
+def _exposure_flags_for_score(
+    exposure_sources: dict[str, dict] | None,
+    customer_id: str,
+    branch_name: str,
+) -> dict[str, bool]:
+    if exposure_sources is None:
+        return {"loan": False, "overdraft": False}
+    customer_key = customer_id.casefold()
+    branch_key = branch_name.casefold()
+    return (
+        exposure_sources["by_customer_branch"].get((customer_key, branch_key))
+        or exposure_sources["by_customer"].get(customer_key)
+        or {"loan": False, "overdraft": False}
+    )
 
 
 def build_historical_score_seed_rows(reporting_date: date | None = None) -> tuple[list[dict[str, Any]], dict[str, int]]:
     rows_by_key: dict[tuple[str, str], dict[str, Any]] = {}
-    active_customer_codes = _active_exposure_customer_codes_for_reporting_date(reporting_date) if reporting_date else None
+    exposure_sources = _active_exposure_sources_for_reporting_date(reporting_date) if reporting_date else None
+    active_customer_codes = set(exposure_sources["by_customer"]) if exposure_sources is not None else None
 
     basel_rows = CreditEvaluation.objects.filter(status__in=APPROVED_LIKE_STATUSES).order_by(
         "branch_name", "customer_id", "-updated_at", "-id"
@@ -165,8 +208,9 @@ def build_historical_score_seed_rows(reporting_date: date | None = None) -> tupl
         customer_id = _clean_text(evaluation.customer_id)
         if not branch_name or not customer_id:
             continue
-        if active_customer_codes is not None and customer_id not in active_customer_codes:
+        if active_customer_codes is not None and customer_id.casefold() not in active_customer_codes:
             continue
+        exposure_flags = _exposure_flags_for_score(exposure_sources, customer_id, branch_name)
         key = (branch_name, customer_id)
         if key in rows_by_key and rows_by_key[key].get("basel_loaded"):
             continue
@@ -180,10 +224,14 @@ def build_historical_score_seed_rows(reporting_date: date | None = None) -> tupl
                 "basel_ii_grade": "",
                 "basel_override_grade": "",
                 "ifrs_9_score": None,
+                "has_active_loan": exposure_flags["loan"],
+                "has_active_overdraft": exposure_flags["overdraft"],
                 "basel_loaded": False,
                 "ifrs9_loaded": False,
             },
         )
+        rows_by_key[key]["has_active_loan"] = exposure_flags["loan"]
+        rows_by_key[key]["has_active_overdraft"] = exposure_flags["overdraft"]
         rows_by_key[key]["customer_name"] = rows_by_key[key]["customer_name"] or _clean_text(evaluation.customer_name)
         rows_by_key[key]["basel_ii_score"] = _basel_current_score(evaluation)
         rows_by_key[key]["basel_ii_grade"] = _basel_current_grade(evaluation)
@@ -195,8 +243,9 @@ def build_historical_score_seed_rows(reporting_date: date | None = None) -> tupl
         customer_id = _clean_text(evaluation.customer_id)
         if not branch_name or not customer_id:
             continue
-        if active_customer_codes is not None and customer_id not in active_customer_codes:
+        if active_customer_codes is not None and customer_id.casefold() not in active_customer_codes:
             continue
+        exposure_flags = _exposure_flags_for_score(exposure_sources, customer_id, branch_name)
         key = (branch_name, customer_id)
         if key in rows_by_key and rows_by_key[key].get("ifrs9_loaded"):
             continue
@@ -210,10 +259,14 @@ def build_historical_score_seed_rows(reporting_date: date | None = None) -> tupl
                 "basel_ii_grade": "",
                 "basel_override_grade": "",
                 "ifrs_9_score": None,
+                "has_active_loan": exposure_flags["loan"],
+                "has_active_overdraft": exposure_flags["overdraft"],
                 "basel_loaded": False,
                 "ifrs9_loaded": False,
             },
         )
+        rows_by_key[key]["has_active_loan"] = exposure_flags["loan"]
+        rows_by_key[key]["has_active_overdraft"] = exposure_flags["overdraft"]
         rows_by_key[key]["customer_name"] = rows_by_key[key]["customer_name"] or _clean_text(evaluation.customer_name)
         rows_by_key[key]["ifrs_9_score"] = _ifrs9_current_score(evaluation)
         rows_by_key[key]["ifrs9_loaded"] = True
@@ -277,6 +330,8 @@ def capture_historical_scores(
                 "basel_ii_grade": payload["basel_ii_grade"],
                 "basel_override_grade": payload.get("basel_override_grade", ""),
                 "ifrs_9_score": payload["ifrs_9_score"],
+                "has_active_loan": payload.get("has_active_loan", False),
+                "has_active_overdraft": payload.get("has_active_overdraft", False),
             },
         )
         if created:

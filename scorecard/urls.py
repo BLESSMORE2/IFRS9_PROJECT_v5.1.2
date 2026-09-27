@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.urls import path
 
-from .functions_view import api, badges, basel_scores_form, credit_scoreshits, creditscorecreate, customers, dashboard, email, ifrs9_results, scorecard_historical_scores, ifrs9_score_config, ifrs9_scores_form, ifrs9_supporting_data, maker_checker, media, notifications, settings, template_maker_checker, uploads
+from .functions_view import api, badges, basel_scores_form, basel_validations, credit_scoreshits, creditscorecreate, customers, dashboard, email, ifrs9_results, ifrs9_validations, scorecard_historical_scores, ifrs9_score_config, ifrs9_scores_form, ifrs9_supporting_data, maker_checker, media, notifications, settings, template_maker_checker, uploads
 from .permission_catalog import ROUTE_PERMISSION_MAP
 
 app_name = "scorecard"
@@ -1119,6 +1119,26 @@ urlpatterns = [
         "ifrs9-results/ecl-summary/download/pdf/",
         ifrs9_results.ifrs9_results_ecl_summary_download_pdf_view,
         name="ifrs9_results_ecl_summary_download_pdf",
+    ),
+    path(
+        "ifrs9-results/basel-validations/",
+        basel_validations.basel_validations_view,
+        name="ifrs9_results_basel_validations",
+    ),
+    path(
+        "ifrs9-results/basel-validations/download/",
+        basel_validations.basel_validations_download_view,
+        name="ifrs9_results_basel_validations_download",
+    ),
+    path(
+        "ifrs9-results/ifrs9-validations/",
+        ifrs9_validations.ifrs9_validations_view,
+        name="ifrs9_results_ifrs9_validations",
+    ),
+    path(
+        "ifrs9-results/ifrs9-validations/download/",
+        ifrs9_validations.ifrs9_validations_download_view,
+        name="ifrs9_results_ifrs9_validations_download",
     ),
     # Template Maker URLs
     path(
