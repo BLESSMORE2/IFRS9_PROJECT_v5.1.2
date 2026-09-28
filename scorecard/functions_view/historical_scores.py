@@ -7,15 +7,22 @@ from typing import Any
 from django.utils import timezone
 
 from scorecard.models import (
+    ApiEndpoint,
+    ApiImportRun,
     CustomerLoan,
     CustomerOverdraft,
     CreditEvaluation,
     HistoricalScore,
     IFRS9Evaluation,
+    ManualOverdraftCustomer,
 )
 
 
 APPROVED_LIKE_STATUSES = ("approved", "submitted", "returned", "completed")
+HISTORICAL_API_TARGETS = (
+    ApiEndpoint.TARGET_CUSTOMER_LOAN,
+    ApiEndpoint.TARGET_CUSTOMER_OVERDRAFT,
+)
 
 
 @dataclass
@@ -97,20 +104,84 @@ def _historical_date_has_all_seed_rows(reporting_date: date, seed_rows: list[dic
     if not seed_rows:
         return True
 
-    expected_keys = {(row["branch_name"], row["customer_id"]) for row in seed_rows}
+    expected_rows = {
+        (row["branch_name"], row["customer_id"]): (
+            bool(row.get("has_active_loan")),
+            bool(row.get("has_active_overdraft")),
+        )
+        for row in seed_rows
+    }
     existing_count = HistoricalScore.objects.filter(reporting_date=reporting_date).count()
-    if existing_count < len(expected_keys):
+    if existing_count < len(expected_rows):
         return False
 
-    existing_keys = set(
-        HistoricalScore.objects.filter(reporting_date=reporting_date)
-        .values_list("branch_name", "customer_id")
-    )
-    return expected_keys.issubset(existing_keys)
+    existing_rows = {
+        (branch_name, customer_id): (bool(has_active_loan), bool(has_active_overdraft))
+        for branch_name, customer_id, has_active_loan, has_active_overdraft in (
+            HistoricalScore.objects.filter(reporting_date=reporting_date)
+            .values_list("branch_name", "customer_id", "has_active_loan", "has_active_overdraft")
+        )
+    }
+    for key, (expects_loan, expects_overdraft) in expected_rows.items():
+        existing_flags = existing_rows.get(key)
+        if existing_flags is None:
+            return False
+        has_loan, has_overdraft = existing_flags
+        if (expects_loan and not has_loan) or (expects_overdraft and not has_overdraft):
+            return False
+    return True
 
 
 def _clean_text(value: Any) -> str:
     return (str(value or "")).strip()
+
+
+def _historical_api_import_readiness(reporting_date: date) -> dict[str, Any]:
+    """Confirm the latest API attempts for this month-end completed before capture."""
+
+    latest_by_target: dict[str, ApiImportRun] = {}
+    runs = (
+        ApiImportRun.objects.select_related("endpoint")
+        .filter(endpoint__target_table__in=HISTORICAL_API_TARGETS)
+        .order_by("-started_at", "-id")
+    )
+    reporting_date_value = reporting_date.isoformat()
+    for run in runs:
+        if _clean_text((run.parameters_used or {}).get("reporting_date")) != reporting_date_value:
+            continue
+        target = _clean_text(run.endpoint.target_table)
+        if target and target not in latest_by_target:
+            latest_by_target[target] = run
+        if len(latest_by_target) == len(HISTORICAL_API_TARGETS):
+            break
+
+    source_statuses = {
+        target: {
+            "status": run.status,
+            "fetched": run.fetched,
+            "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+        }
+        for target, run in latest_by_target.items()
+    }
+    incomplete_targets = [
+        target
+        for target, run in latest_by_target.items()
+        if run.status != ApiImportRun.STATUS_SUCCESS or run.completed_at is None
+    ]
+    successful_sources_with_data = [
+        target
+        for target, run in latest_by_target.items()
+        if run.status == ApiImportRun.STATUS_SUCCESS
+        and run.completed_at is not None
+        and (run.fetched or 0) > 0
+    ]
+    ready = bool(latest_by_target) and not incomplete_targets and bool(successful_sources_with_data)
+    return {
+        "ready": ready,
+        "source_statuses": source_statuses,
+        "incomplete_targets": incomplete_targets,
+        "successful_sources_with_data": successful_sources_with_data,
+    }
 
 
 def _basel_current_score(evaluation: CreditEvaluation):
@@ -143,7 +214,8 @@ def _active_exposure_sources_for_reporting_date(reporting_date: date) -> dict[st
         lambda: {"loan": False, "overdraft": False}
     )
 
-    def merge_rows(rows, source: str) -> None:
+    def merge_rows(rows, source: str) -> int:
+        merged_count = 0
         for customer_code, branch_name in rows:
             customer_key = _clean_text(customer_code).casefold()
             branch_key = _clean_text(branch_name).casefold()
@@ -152,8 +224,10 @@ def _active_exposure_sources_for_reporting_date(reporting_date: date) -> dict[st
             by_customer[customer_key][source] = True
             if branch_key:
                 by_customer_branch[(customer_key, branch_key)][source] = True
+            merged_count += 1
+        return merged_count
 
-    merge_rows(
+    api_exposure_count = merge_rows(
         CustomerLoan.objects.filter(reporting_date=reporting_date)
         .exclude(customer_code__isnull=True)
         .exclude(customer_code__exact="")
@@ -161,7 +235,7 @@ def _active_exposure_sources_for_reporting_date(reporting_date: date) -> dict[st
         .distinct(),
         "loan",
     )
-    merge_rows(
+    api_exposure_count += merge_rows(
         CustomerOverdraft.objects.filter(reporting_date=reporting_date)
         .exclude(customer_code__isnull=True)
         .exclude(customer_code__exact="")
@@ -169,6 +243,15 @@ def _active_exposure_sources_for_reporting_date(reporting_date: date) -> dict[st
         .distinct(),
         "overdraft",
     )
+    if api_exposure_count:
+        # Manual overdrafts have no reporting date. Include the enduring list
+        # only after an API loan or overdraft confirms this month-end is ready.
+        merge_rows(
+            ManualOverdraftCustomer.objects.exclude(customer_code__exact="")
+            .values_list("customer_code", "branch_name")
+            .distinct(),
+            "overdraft",
+        )
     return {
         "by_customer": dict(by_customer),
         "by_customer_branch": dict(by_customer_branch),
@@ -309,8 +392,20 @@ def capture_historical_scores(
     reporting_date: date | datetime | None = None,
     seed_rows: list[dict[str, Any]] | None = None,
     coverage_totals: dict[str, int] | None = None,
+    preserve_reporting_date: bool = False,
 ) -> HistoricalScoreCaptureResult:
-    normalized_reporting_date = normalize_reporting_date(reporting_date)
+    if preserve_reporting_date and reporting_date is not None:
+        if isinstance(reporting_date, datetime):
+            if timezone.is_naive(reporting_date):
+                reporting_date = timezone.make_aware(
+                    reporting_date,
+                    timezone.get_current_timezone(),
+                )
+            normalized_reporting_date = timezone.localtime(reporting_date).date()
+        else:
+            normalized_reporting_date = reporting_date
+    else:
+        normalized_reporting_date = normalize_reporting_date(reporting_date)
     prepared_rows, coverage_totals = build_historical_score_payloads(
         normalized_reporting_date,
         seed_rows=seed_rows,
@@ -357,15 +452,24 @@ def run_due_historical_score_capture(now: datetime | None = None) -> dict[str, A
     latest_due_reporting_date = (
         normalize_reporting_date(local_date) if is_month_end(local_date) else previous_month_end(local_date)
     )
-    captured_reporting_dates = set(
-        HistoricalScore.objects.filter(reporting_date__lte=latest_due_reporting_date)
-        .order_by()
-        .values_list("reporting_date", flat=True)
-        .distinct()
-    )
-    # Capture only the most recent due month-end. This prevents old gaps from
-    # being filled months later and keeps scheduler work bounded.
-    candidate_dates = [] if latest_due_reporting_date in captured_reporting_dates else [latest_due_reporting_date]
+    # Recheck only the latest due month-end on every scheduler run. Existing
+    # rows may be partial when API exposure arrives late, while older gaps must
+    # remain untouched unless a user refreshes them manually.
+    candidate_dates = [latest_due_reporting_date]
+
+    import_readiness = _historical_api_import_readiness(latest_due_reporting_date)
+    if not import_readiness["ready"]:
+        return {
+            "performed": False,
+            "reason": "api_import_incomplete",
+            "reporting_date": latest_due_reporting_date,
+            "checked_reporting_dates": candidate_dates,
+            "api_import_readiness": import_readiness,
+            "message": (
+                "Historical capture is waiting for a completed successful loan or overdraft "
+                "API import for the latest due month-end."
+            ),
+        }
 
     captured_results: list[HistoricalScoreCaptureResult] = []
     skipped_dates: list[date] = []
@@ -401,7 +505,7 @@ def run_due_historical_score_capture(now: datetime | None = None) -> dict[str, A
             "reason": "already_captured",
             "reporting_date": latest_checked,
             "checked_reporting_dates": candidate_dates,
-            "message": "Historical scores already exist for all due month-end dates.",
+            "message": "Historical scores already contain all eligible rows for the latest due month-end.",
         }
 
     return {

@@ -1,4 +1,5 @@
 {% extends "credit_scoreshifts/base.html" %}
+{% load humanize %}
 
 {% block title %}Historical Scores{% endblock %}
 
@@ -88,17 +89,54 @@
     }
     .history-action-row {
         display: flex;
+        align-items: stretch;
+        gap: 0.85rem;
+        padding: 1rem 1.25rem;
+        flex-wrap: wrap;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    }
+    .history-action-card {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.68rem;
+        min-height: 112px;
+        padding: 0.78rem 0.85rem;
+        border: 1px solid #d9e7f4;
+        border-radius: 12px;
+        background: #f8fbff;
+        box-sizing: border-box;
+    }
+    .history-action-card-head {
+        display: flex;
+        flex-direction: column;
+        gap: 0.08rem;
+    }
+    .history-action-card-kicker {
+        color: #60748b;
+        font-size: 0.61rem;
+        font-weight: 850;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+    .history-action-card-title {
+        color: #123c67;
+        font-size: 0.82rem;
+        font-weight: 850;
+    }
+    .history-action-card-copy {
+        color: #64748b;
+        font-size: 0.68rem;
+        line-height: 1.3;
+    }
+    .history-action-controls {
+        display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
-        padding: 1.15rem 1.25rem;
+        gap: 0.55rem;
         flex-wrap: wrap;
     }
     .history-action-group {
-        display: flex;
-        align-items: center;
-        gap: 0.65rem;
-        flex-wrap: wrap;
+        flex: 1 1 270px;
     }
     .history-filter-row {
         display: flex;
@@ -169,8 +207,12 @@
         white-space: nowrap;
     }
     .history-btn.primary {
-        background: #0b72d9;
+        background: linear-gradient(135deg, #155a93 0%, #1f80bd 100%);
         color: #fff;
+        box-shadow: 0 7px 16px rgba(21, 90, 147, 0.2);
+    }
+    .history-btn.primary:hover {
+        background: linear-gradient(135deg, #104b7b 0%, #176ca3 100%);
     }
     .history-btn.secondary {
         background: #eef5fc;
@@ -197,32 +239,61 @@
         cursor: not-allowed;
         box-shadow: none;
     }
-    .history-export {
-        position: relative;
-        display: inline-flex;
+    .history-btn.is-loading {
+        pointer-events: none;
+        cursor: wait;
+        opacity: 0.8;
     }
-    .history-export-menu {
+    .history-download-spinner {
         display: none;
-        position: absolute;
-        top: calc(100% + 0.35rem);
-        left: 0;
-        min-width: 150px;
-        background: #fff;
-        border: 1px solid #dce8f4;
-        border-radius: 10px;
-        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
-        overflow: hidden;
-        z-index: 30;
+        width: 14px;
+        height: 14px;
+        margin-right: 0.42rem;
+        border: 2px solid rgba(0, 103, 215, 0.28);
+        border-top-color: #0067d7;
+        border-radius: 50%;
+        animation: history-download-spin 0.7s linear infinite;
+    }
+    .history-btn.is-loading .history-download-spinner {
+        display: inline-block;
+    }
+    .history-download-status {
+        color: #526b82;
+        font-size: 0.69rem;
+        font-weight: 600;
+    }
+    .history-download-status:empty {
+        display: none;
+    }
+    .history-download-status.is-success {
+        color: #087443;
+    }
+    .history-download-status.is-error {
+        color: #b4232c;
+    }
+    @keyframes history-download-spin {
+        to { transform: rotate(360deg); }
     }
     .history-delete-form {
+        flex: 0.8 1 250px;
         margin: 0;
     }
+    .history-delete-form.history-action-card {
+        border-color: #f3d8dc;
+        background: #fffafb;
+    }
+    .history-delete-form .history-btn {
+        align-self: flex-start;
+    }
     .history-refresh-form {
+        flex: 1.5 1 470px;
+        margin: 0;
+    }
+    .history-refresh-controls {
         display: flex;
         align-items: end;
-        gap: 0.55rem;
+        gap: 0.6rem;
         flex-wrap: wrap;
-        margin: 0;
     }
     .history-refresh-field label {
         display: block;
@@ -239,24 +310,9 @@
     }
     .history-refresh-help {
         display: block;
-        margin-top: 0.22rem;
         color: #64748b;
         font-size: 0.68rem;
         line-height: 1.25;
-    }
-    .history-export-menu.show {
-        display: block;
-    }
-    .history-export-menu a {
-        display: block;
-        padding: 0.68rem 0.85rem;
-        color: #0b2d52;
-        text-decoration: none;
-        font-weight: 800;
-        font-size: 0.82rem;
-    }
-    .history-export-menu a:hover {
-        background: #edf5ff;
     }
     .history-table-wrap {
         overflow-x: auto;
@@ -316,6 +372,149 @@
         display: flex;
         gap: 0.45rem;
     }
+    .history-api-dates {
+        padding: 1rem 1.1rem 1.15rem;
+        border-top: 1px solid #dce8f4;
+        background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+    }
+    .history-api-dates-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.8rem;
+    }
+    .history-api-dates-kicker {
+        display: block;
+        margin-bottom: 0.12rem;
+        color: #55708b;
+        font-size: 0.62rem;
+        font-weight: 850;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+    .history-api-dates-title {
+        margin: 0;
+        color: #123c67;
+        font-size: 0.95rem;
+        font-weight: 850;
+    }
+    .history-api-dates-copy {
+        margin: 0.2rem 0 0;
+        color: #64748b;
+        font-size: 0.72rem;
+        line-height: 1.4;
+    }
+    .history-api-dates-count {
+        flex: 0 0 auto;
+        border: 1px solid #cfe0f1;
+        border-radius: 999px;
+        padding: 0.35rem 0.62rem;
+        background: #fff;
+        color: #155a93;
+        font-size: 0.7rem;
+        font-weight: 850;
+    }
+    .history-api-dates-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 0.58rem;
+    }
+    .history-api-date-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.48rem;
+        padding: 0.72rem 0.78rem;
+        border: 1px solid #d9e7f4;
+        border-radius: 11px;
+        background: #fff;
+        box-shadow: 0 7px 18px rgba(15, 62, 114, 0.05);
+    }
+    .history-api-date-value {
+        color: #0b2d52;
+        font-size: 0.86rem;
+        font-weight: 900;
+    }
+    .history-api-date-sources {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+    .history-api-source-badge,
+    .history-api-status-badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.24rem 0.48rem;
+        font-size: 0.64rem;
+        font-weight: 800;
+    }
+    .history-api-source-badge.loan {
+        background: #e8f2ff;
+        color: #155a93;
+    }
+    .history-api-source-badge.overdraft {
+        background: #eaf7f8;
+        color: #176a73;
+    }
+    .history-api-status-badge.captured {
+        background: #edf5ff;
+        color: #164a7c;
+    }
+    .history-api-status-badge.pending {
+        background: #fff4dc;
+        color: #9a5b00;
+    }
+    .history-api-dates-empty {
+        padding: 0.9rem;
+        border: 1px dashed #cbdcf0;
+        border-radius: 10px;
+        color: #64748b;
+        text-align: center;
+        font-size: 0.75rem;
+    }
+    .history-api-dates-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-top: 0.85rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #e1ebf5;
+        color: #64748b;
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+    .history-api-dates-pages {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .history-api-page-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 0.35rem 0.72rem;
+        border: 1px solid #bdd4eb;
+        border-radius: 9px;
+        background: #fff;
+        color: #0d63ad;
+        font-size: 0.7rem;
+        font-weight: 850;
+        text-decoration: none;
+        transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+    }
+    .history-api-page-link:hover {
+        border-color: #0d71d9;
+        background: #edf6ff;
+        color: #07569a;
+    }
+    .history-api-page-link.disabled {
+        opacity: 0.45;
+        pointer-events: none;
+    }
     @media (max-width: 1100px) {
         .history-summary-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -332,18 +531,44 @@
         .history-filter-right {
             justify-content: flex-end;
         }
+        .history-action-card {
+            flex-basis: calc(50% - 0.5rem);
+        }
+        .history-refresh-form {
+            flex-basis: 100%;
+        }
     }
     @media (max-width: 680px) {
         .history-summary-grid {
             grid-template-columns: 1fr;
         }
         .history-action-row,
-        .history-action-group,
-        .history-refresh-form,
+        .history-action-controls,
+        .history-refresh-controls,
         .history-filter-left,
         .history-filter-right {
             align-items: stretch;
             flex-direction: column;
+        }
+        .history-action-card,
+        .history-action-group,
+        .history-refresh-form,
+        .history-delete-form {
+            width: 100%;
+            flex-basis: auto;
+        }
+        .history-api-dates-head {
+            flex-direction: column;
+        }
+        .history-api-dates-grid {
+            grid-template-columns: 1fr;
+        }
+        .history-api-dates-footer {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+        .history-delete-form .history-btn {
+            align-self: stretch;
         }
         .history-field.search,
         .history-field.select-wide,
@@ -397,49 +622,69 @@
     <section class="history-panel">
         <div class="history-panel-body">
             <div class="history-action-row">
-                <div class="history-action-group">
-                    {% url 'scorecard:historical_scores_download' as history_download_url %}
-                    <div class="history-export">
-                        <button type="button" id="history-export-btn" class="history-btn success">Export Data</button>
-                        <div id="history-export-menu" class="history-export-menu" aria-label="Historical score export formats">
-                            <a href="{{ history_download_url }}{% if query_string %}?{{ query_string }}&format=excel{% else %}?format=excel{% endif %}">Excel</a>
-                            <a href="{{ history_download_url }}{% if query_string %}?{{ query_string }}&format=csv{% else %}?format=csv{% endif %}">CSV</a>
-                        </div>
+                <div class="history-action-group history-action-card">
+                    <div class="history-action-card-head">
+                        <span class="history-action-card-kicker">Data actions</span>
+                        <strong class="history-action-card-title">Download workbook</strong>
                     </div>
-                    <a href="{% url 'scorecard:historical_scores_list' %}" class="history-btn secondary">Clear</a>
+                    {% url 'scorecard:historical_scores_download' as history_download_url %}
+                    <div class="history-action-controls">
+                        <a
+                            id="history-download-btn"
+                            href="{{ history_download_url }}{% if query_string %}?{{ query_string }}&format=excel{% else %}?format=excel{% endif %}"
+                            class="history-btn success"
+                            data-no-nav-loader="1"
+                            download
+                        >
+                            <span class="history-download-spinner" aria-hidden="true"></span>
+                            <span class="history-download-label">Export Excel</span>
+                        </a>
+                    </div>
+                    <span id="history-download-status" class="history-download-status" role="status" aria-live="polite"></span>
                 </div>
                 {% if can_refresh_historical_scores %}
-                    <form method="post" action="{% url 'scorecard:historical_scores_refresh' %}" class="history-refresh-form" onsubmit="return confirm('Refresh historical scores for this reporting date and branch scope? Existing rows for that date in scope will be rebuilt.');">
+                    <form method="post" action="{% url 'scorecard:historical_scores_refresh' %}" class="history-refresh-form history-action-card" onsubmit="return confirm('Refresh historical scores for this reporting date and branch scope? Existing rows for that date in scope will be rebuilt.');">
                         {% csrf_token %}
                         <input type="hidden" name="search" value="{{ filters.search }}">
                         <input type="hidden" name="branch" value="{{ filters.branch }}">
                         <input type="hidden" name="exposure_source" value="{{ filters.exposure_source }}">
                         <input type="hidden" name="page_size" value="{{ filters.page_size }}">
-                        <div class="history-refresh-field">
-                            <label for="history-refresh-date">Refresh date</label>
-                            <input
-                                id="history-refresh-date"
-                                class="history-input history-refresh-date"
-                                type="date"
-                                name="refresh_reporting_date"
-                                value="{{ filters.reporting_date }}"
-                                aria-describedby="history-refresh-date-help"
-                                required
-                            >
-                            <small id="history-refresh-date-help" class="history-refresh-help">Choose any reporting date from the calendar.</small>
+                        <div class="history-action-card-head">
+                            <span class="history-action-card-kicker">Snapshot control</span>
+                            <strong class="history-action-card-title">Refresh a reporting date</strong>
                         </div>
-                        <button type="submit" class="history-btn warning">Refresh Selected Date</button>
+                        <div class="history-refresh-controls">
+                            <div class="history-refresh-field">
+                                <label for="history-refresh-date">Reporting date</label>
+                                <input
+                                    id="history-refresh-date"
+                                    class="history-input history-refresh-date"
+                                    type="date"
+                                    name="refresh_reporting_date"
+                                    value="{{ filters.reporting_date }}"
+                                    aria-describedby="history-refresh-date-help"
+                                    required
+                                >
+                            </div>
+                            <button type="submit" class="history-btn warning">Refresh Selected Date</button>
+                        </div>
+                        <small id="history-refresh-date-help" class="history-refresh-help">Rebuilds this date using the current branch scope and available exposure data.</small>
                     </form>
                 {% endif %}
                 {% if can_delete_historical_scores %}
-                    <form method="post" action="{% url 'scorecard:historical_scores_bulk_delete' %}" class="history-delete-form" onsubmit="return confirm('Delete all historical score rows matching the current filters? This cannot be undone.');">
+                    <form method="post" action="{% url 'scorecard:historical_scores_bulk_delete' %}" class="history-delete-form history-action-card" onsubmit="return confirm('Delete all historical score rows matching the current filters? This cannot be undone.');">
                         {% csrf_token %}
                         <input type="hidden" name="search" value="{{ filters.search }}">
                         <input type="hidden" name="reporting_date" value="{{ filters.reporting_date }}">
                         <input type="hidden" name="branch" value="{{ filters.branch }}">
                         <input type="hidden" name="exposure_source" value="{{ filters.exposure_source }}">
                         <input type="hidden" name="page_size" value="{{ filters.page_size }}">
+                        <div class="history-action-card-head">
+                            <span class="history-action-card-kicker">Bulk action</span>
+                            <strong class="history-action-card-title">Delete matching records</strong>
+                        </div>
                         <button type="submit" class="history-btn danger">Delete Filtered Records</button>
+                        <small class="history-action-card-copy">Uses the filters below and cannot be undone.</small>
                     </form>
                 {% endif %}
             </div>
@@ -489,6 +734,7 @@
                         </select>
                     </div>
                     <button type="submit" class="history-btn primary">Apply Filters</button>
+                    <a href="{% url 'scorecard:historical_scores_list' %}" class="history-btn secondary">Clear Filters</a>
                 </div>
             </form>
         </div>
@@ -547,24 +793,146 @@
                 {% endif %}
             </div>
         </div>
+
+        {% if can_manage_historical_scores %}
+        <section id="history-api-dates" class="history-api-dates" aria-labelledby="history-api-dates-title">
+            <div class="history-api-dates-head">
+                <div>
+                    <span class="history-api-dates-kicker">Available source dates</span>
+                    <h2 id="history-api-dates-title" class="history-api-dates-title">API exposure reporting dates</h2>
+                    <p class="history-api-dates-copy">
+                        Distinct loan and overdraft reporting dates available for the current visible branch scope.
+                    </p>
+                </div>
+                <span class="history-api-dates-count">{{ api_reporting_dates_total }} date{{ api_reporting_dates_total|pluralize }}</span>
+            </div>
+            {% if api_reporting_dates %}
+                <div class="history-api-dates-grid">
+                    {% for source_date in api_reporting_dates %}
+                        <article class="history-api-date-card">
+                            <time class="history-api-date-value" datetime="{{ source_date.reporting_date|date:'Y-m-d' }}">
+                                {{ source_date.reporting_date|date:"d M Y" }}
+                            </time>
+                            <div class="history-api-date-sources">
+                                {% if source_date.loan_customers %}
+                                    <span class="history-api-source-badge loan">Loans {{ source_date.loan_customers|intcomma }}</span>
+                                {% endif %}
+                                {% if source_date.overdraft_customers %}
+                                    <span class="history-api-source-badge overdraft">Overdrafts {{ source_date.overdraft_customers|intcomma }}</span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                {% if source_date.has_historical_snapshot %}
+                                    <span class="history-api-status-badge captured">Historical snapshot available</span>
+                                {% else %}
+                                    <span class="history-api-status-badge pending">Not in historical scores</span>
+                                {% endif %}
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+                <div class="history-api-dates-footer">
+                    <span>
+                        Showing {{ api_reporting_dates_page.start_index }} to {{ api_reporting_dates_page.end_index }}
+                        of {{ api_reporting_dates_total }} dates
+                    </span>
+                    <div class="history-api-dates-pages" aria-label="API reporting date pages">
+                        {% if api_reporting_dates_page.has_previous %}
+                            <a class="history-api-page-link" href="?{% if api_date_query_string %}{{ api_date_query_string }}&{% endif %}api_date_page={{ api_reporting_dates_page.previous_page_number }}#history-api-dates">Previous</a>
+                        {% else %}
+                            <span class="history-api-page-link disabled" aria-disabled="true">Previous</span>
+                        {% endif %}
+                        <span>Page {{ api_reporting_dates_page.number }} of {{ api_reporting_dates_page.paginator.num_pages }}</span>
+                        {% if api_reporting_dates_page.has_next %}
+                            <a class="history-api-page-link" href="?{% if api_date_query_string %}{{ api_date_query_string }}&{% endif %}api_date_page={{ api_reporting_dates_page.next_page_number }}#history-api-dates">Next</a>
+                        {% else %}
+                            <span class="history-api-page-link disabled" aria-disabled="true">Next</span>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="history-api-dates-empty">No API loan or overdraft reporting dates are available for this branch scope.</div>
+            {% endif %}
+        </section>
+        {% endif %}
     </section>
 </div>
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const exportButton = document.getElementById("history-export-btn");
-        const exportMenu = document.getElementById("history-export-menu");
-        if (!exportButton || !exportMenu) {
-            return;
+    (function () {
+        const button = document.getElementById('history-download-btn');
+        const status = document.getElementById('history-download-status');
+        if (!button || !status || !window.fetch) return;
+
+        const label = button.querySelector('.history-download-label');
+        let busy = false;
+
+        function setState(message, stateClass) {
+            status.textContent = message || '';
+            status.classList.remove('is-success', 'is-error');
+            if (stateClass) status.classList.add(stateClass);
         }
 
-        exportButton.addEventListener("click", function (event) {
-            event.stopPropagation();
-            exportMenu.classList.toggle("show");
-        });
+        function restoreButton() {
+            busy = false;
+            button.classList.remove('is-loading');
+            button.setAttribute('aria-busy', 'false');
+            label.textContent = 'Export Excel';
+        }
 
-        document.addEventListener("click", function () {
-            exportMenu.classList.remove("show");
+        function filenameFrom(response) {
+            const disposition = response.headers.get('Content-Disposition') || '';
+            const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+            if (utf8Match) return decodeURIComponent(utf8Match[1].replace(/["']/g, ''));
+            const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+            return plainMatch ? plainMatch[1] : 'scorecard_historical_scores.xlsx';
+        }
+
+        button.addEventListener('click', async function (event) {
+            event.preventDefault();
+            if (busy) return;
+
+            busy = true;
+            button.classList.add('is-loading');
+            button.setAttribute('aria-busy', 'true');
+            label.textContent = 'Preparing Excel...';
+            setState('Building the workbook...', '');
+
+            try {
+                const response = await fetch(button.href, {
+                    credentials: 'same-origin',
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
+                });
+                if (!response.ok) throw new Error('Download request failed');
+
+                const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
+                if (contentType.includes('text/html')) throw new Error('Unexpected download response');
+
+                const blob = await response.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = objectUrl;
+                downloadLink.download = filenameFrom(response);
+                downloadLink.style.display = 'none';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                downloadLink.remove();
+                window.setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 1000);
+
+                label.textContent = 'Download started';
+                setState('Excel file is ready.', 'is-success');
+                window.setTimeout(function () {
+                    restoreButton();
+                    setState('', '');
+                }, 2500);
+            } catch (error) {
+                restoreButton();
+                label.textContent = 'Retry Download';
+                setState('Could not prepare the file. Please try again.', 'is-error');
+                window.setTimeout(function () {
+                    label.textContent = 'Export Excel';
+                }, 3500);
+            }
         });
-    });
+    })();
 </script>
 {% endblock %}

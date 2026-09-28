@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import csv
-from datetime import datetime
+from datetime import date, datetime
 from io import BytesIO
+from typing import Any
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -170,6 +170,59 @@ def _format_score_percent(value):
     return f"{float(value):.2f}%"
 
 
+def _api_exposure_reporting_date_summary(
+    branch_names: list[str],
+    historical_dates: list[date],
+    selected_branch: str = "",
+) -> list[dict[str, Any]]:
+    """Summarize dated API loan/overdraft coverage inside the visible branch scope."""
+
+    visible_branches = list(branch_names)
+    scoped_branches = (
+        [selected_branch]
+        if selected_branch and selected_branch in visible_branches
+        else visible_branches
+    )
+    if not scoped_branches:
+        return []
+
+    rows_by_date: dict[date, dict[str, Any]] = {}
+    source_models = (
+        ("loan_customers", CustomerLoan),
+        ("overdraft_customers", CustomerOverdraft),
+    )
+    for count_key, model in source_models:
+        source_rows = (
+            model.objects.filter(
+                reporting_date__isnull=False,
+                branch_description__in=scoped_branches,
+            )
+            .exclude(customer_code__isnull=True)
+            .exclude(customer_code__exact="")
+            .values("reporting_date")
+            .annotate(customer_count=Count("customer_code", distinct=True))
+        )
+        for source_row in source_rows:
+            reporting_date = source_row["reporting_date"]
+            summary_row = rows_by_date.setdefault(
+                reporting_date,
+                {
+                    "reporting_date": reporting_date,
+                    "loan_customers": 0,
+                    "overdraft_customers": 0,
+                },
+            )
+            summary_row[count_key] = source_row["customer_count"] or 0
+
+    historical_date_set = set(historical_dates)
+    summary = []
+    for reporting_date in sorted(rows_by_date, reverse=True):
+        row = rows_by_date[reporting_date]
+        row["has_historical_snapshot"] = reporting_date in historical_date_set
+        summary.append(row)
+    return summary
+
+
 def _historical_score_export_rows(scores):
     for score in scores.iterator(chunk_size=2000):
         yield [
@@ -235,6 +288,11 @@ def historical_scores_list_view(request):
     """Read-only browser for scheduled historical score snapshots."""
 
     base_scores, branch_names = _historical_scores_base_queryset(request)
+    can_delete_historical_scores = _can_delete_historical_scores(request.user)
+    can_refresh_historical_scores = _can_refresh_historical_scores(request.user)
+    can_manage_historical_scores = (
+        can_delete_historical_scores or can_refresh_historical_scores
+    )
 
     reporting_dates = list(
         base_scores.order_by("-reporting_date")
@@ -248,6 +306,23 @@ def historical_scores_list_view(request):
     )
 
     scores, selected_reporting_date, selected_branch, selected_exposure_source, search = _apply_historical_score_filters(base_scores, request.GET)
+    api_reporting_dates = []
+    if can_manage_historical_scores:
+        api_scope_historical_dates = reporting_dates
+        if selected_branch and selected_branch in branch_names:
+            api_scope_historical_dates = list(
+                base_scores.filter(branch_name=selected_branch)
+                .order_by("-reporting_date")
+                .values_list("reporting_date", flat=True)
+                .distinct()
+            )
+        api_reporting_dates = _api_exposure_reporting_date_summary(
+            branch_names,
+            api_scope_historical_dates,
+            selected_branch,
+        )
+    api_date_paginator = Paginator(api_reporting_dates, 12)
+    api_date_page_obj = api_date_paginator.get_page(request.GET.get("api_date_page"))
 
     summary = scores.aggregate(
         total_rows=Count("id"),
@@ -276,11 +351,17 @@ def historical_scores_list_view(request):
 
     query_params = request.GET.copy()
     query_params.pop("page", None)
+    api_date_query_params = request.GET.copy()
+    api_date_query_params.pop("api_date_page", None)
 
     context = {
         "page_obj": page_obj,
         "scores": page_obj.object_list,
         "reporting_dates": reporting_dates,
+        "api_reporting_dates": api_date_page_obj.object_list,
+        "api_reporting_dates_page": api_date_page_obj,
+        "api_reporting_dates_total": api_date_paginator.count,
+        "api_date_query_string": api_date_query_params.urlencode(),
         "branch_options": branch_options,
         "filters": {
             "reporting_date": selected_reporting_date,
@@ -300,8 +381,9 @@ def historical_scores_list_view(request):
         "branch_scope_label": current_branch_display_name(request),
         "all_branches_selected": is_all_branches_selected(request),
         "query_string": query_params.urlencode(),
-        "can_delete_historical_scores": _can_delete_historical_scores(request.user),
-        "can_refresh_historical_scores": _can_refresh_historical_scores(request.user),
+        "can_manage_historical_scores": can_manage_historical_scores,
+        "can_delete_historical_scores": can_delete_historical_scores,
+        "can_refresh_historical_scores": can_refresh_historical_scores,
     }
     return render(request, "scorecard_historical_scores/historical_scores_list.html", context)
 
@@ -384,7 +466,10 @@ def historical_scores_refresh_view(request):
         reporting_date,
         seed_rows=seed_rows,
         coverage_totals=coverage_totals,
+        preserve_reporting_date=True,
     )
+    loan_linked_count = sum(bool(row.get("has_active_loan")) for row in seed_rows)
+    overdraft_linked_count = sum(bool(row.get("has_active_overdraft")) for row in seed_rows)
 
     log_historical_score_audit(
         request.user,
@@ -392,7 +477,8 @@ def historical_scores_refresh_view(request):
         details=(
             f"Refreshed historical scores for {selected_reporting_date}. "
             f"Branch: {selected_branch or current_branch_display_name(request) or 'Visible branches'}; "
-            f"Deleted={deleted_count}; Created={result.created}; Updated={result.updated}."
+            f"Deleted={deleted_count}; Created={result.created}; Updated={result.updated}; "
+            f"Loan-linked={loan_linked_count}; Overdraft-linked={overdraft_linked_count}."
         ),
         object_id=f"historical_scores_refresh:{selected_reporting_date}:{timezone.now().strftime('%Y%m%d_%H%M%S')}",
         branch_name=selected_branch or current_branch_display_name(request) or "",
@@ -401,7 +487,11 @@ def historical_scores_refresh_view(request):
     if result.total_rows:
         messages.success(
             request,
-            f"Refreshed {result.total_rows} historical score row(s) for {selected_reporting_date}.",
+            (
+                f"Refreshed {result.total_rows} historical score row(s) for {selected_reporting_date}. "
+                f"Loan-linked: {loan_linked_count}; overdraft-linked: {overdraft_linked_count}. "
+                "A customer may be linked to both sources."
+            ),
         )
     else:
         messages.warning(
@@ -421,26 +511,23 @@ def historical_scores_refresh_view(request):
 
 @login_required
 def historical_scores_download_view(request):
-    """Download the filtered historical score snapshots as CSV or Excel."""
+    """Download the filtered historical score snapshots as Excel."""
 
     scores, _branch_names = _historical_scores_base_queryset(request)
     scores, selected_reporting_date, selected_branch, _selected_exposure_source, _search = _apply_historical_score_filters(scores, request.GET)
     scores = scores.order_by("-reporting_date", "branch_name", "customer_id")
     row_count = scores.count()
-    export_format = _clean(request.GET.get("format")).lower()
-    is_excel = export_format in {"excel", "xlsx"}
 
     timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
     date_part = selected_reporting_date or "all_dates"
     branch_part = (selected_branch or "visible_branches").replace(" ", "_").replace("/", "_")
-    extension = "xlsx" if is_excel else "csv"
-    filename = f"scorecard_historical_scores_{date_part}_{branch_part}_{timestamp}.{extension}"
+    filename = f"scorecard_historical_scores_{date_part}_{branch_part}_{timestamp}.xlsx"
 
     log_historical_score_audit(
         request.user,
         "download",
         details=(
-            f"Downloaded historical score {extension.upper()} extract. Reporting Date: {selected_reporting_date or 'All'}; "
+            f"Downloaded historical score Excel extract. Reporting Date: {selected_reporting_date or 'All'}; "
             f"Branch: {selected_branch or current_branch_display_name(request) or 'Visible branches'}; "
             f"Rows: {row_count}"
         ),
@@ -448,13 +535,4 @@ def historical_scores_download_view(request):
         branch_name=selected_branch or current_branch_display_name(request) or "",
     )
 
-    if is_excel:
-        return _build_historical_scores_excel_response(filename, scores)
-
-    response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    writer = csv.writer(response)
-    writer.writerow(HISTORICAL_SCORE_EXPORT_HEADERS)
-    for row in _historical_score_export_rows(scores):
-        writer.writerow(row)
-    return response
+    return _build_historical_scores_excel_response(filename, scores)

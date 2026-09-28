@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.contrib.auth.models import Permission
 from django.contrib.messages.storage.fallback import FallbackStorage
@@ -28,6 +29,15 @@ from scorecard.functions_view.basel_scores_form import (
     _finalize_basel_auto_approval,
 )
 from scorecard.functions_view.dashboard import _build_dashboard_access
+from scorecard.functions_view.historical_scores import (
+    _active_exposure_sources_for_reporting_date,
+    _historical_api_import_readiness,
+    _historical_date_has_all_seed_rows,
+    HistoricalScoreCaptureResult,
+    build_historical_score_seed_rows,
+    capture_historical_scores,
+    run_due_historical_score_capture,
+)
 from scorecard.functions_view.customers import (
     _parse_overdraft_upload_rows_from_values,
     build_without_score_customer_snapshot_for_branch_scope,
@@ -156,6 +166,328 @@ class ManualOverdraftWithoutScoreTests(TestCase):
         self.assertEqual([row["customer_ref_code"] for row in snapshot["ifrs9_rows"]], ["ODCUST001"])
         self.assertTrue(snapshot["basel_rows"][0]["has_overdraft"])
         self.assertEqual(snapshot["basel_rows"][0]["primary_account_number"], "ODACC001")
+
+
+
+class HistoricalScoreCaptureDateTests(SimpleTestCase):
+    @patch("scorecard.functions_view.historical_scores.HistoricalScore")
+    def test_manual_refresh_can_preserve_non_month_end_reporting_date(self, historical_score):
+        historical_score.objects.update_or_create.return_value = (SimpleNamespace(), True)
+        selected_date = date(2026, 6, 28)
+        seed_rows = [
+            {
+                "branch_name": "8TH AVENUE",
+                "customer_name": "TEST CUSTOMER",
+                "customer_id": "TEST001",
+                "basel_ii_score": Decimal("60.00"),
+                "basel_ii_grade": "B1",
+                "basel_override_grade": "",
+                "ifrs_9_score": None,
+                "has_active_loan": True,
+                "has_active_overdraft": False,
+            }
+        ]
+
+        result = capture_historical_scores(
+            selected_date,
+            seed_rows=seed_rows,
+            coverage_totals={"basel_only": 1},
+            preserve_reporting_date=True,
+        )
+
+        self.assertEqual(result.reporting_date, selected_date)
+        self.assertEqual(
+            historical_score.objects.update_or_create.call_args.kwargs["reporting_date"],
+            selected_date,
+        )
+
+
+class ManualOverdraftHistoricalExposureTests(SimpleTestCase):
+    @patch("scorecard.functions_view.historical_scores.ManualOverdraftCustomer")
+    @patch("scorecard.functions_view.historical_scores.CustomerOverdraft")
+    @patch("scorecard.functions_view.historical_scores.CustomerLoan")
+    def test_manual_overdraft_customer_is_included_after_api_month_end_is_available(
+        self,
+        customer_loan,
+        customer_overdraft,
+        manual_overdraft_customer,
+    ):
+        customer_loan.objects.filter.return_value.exclude.return_value.exclude.return_value.values_list.return_value.distinct.return_value = [
+            ("APILOAN001", "API BRANCH")
+        ]
+        customer_overdraft.objects.filter.return_value.exclude.return_value.exclude.return_value.values_list.return_value.distinct.return_value = []
+        manual_overdraft_customer.objects.exclude.return_value.values_list.return_value.distinct.return_value = [
+            ("ODCUST001", "OD TEST BRANCH")
+        ]
+
+        exposure_sources = _active_exposure_sources_for_reporting_date(date(2025, 1, 31))
+
+        customer_flags = exposure_sources["by_customer"]["odcust001"]
+        branch_flags = exposure_sources["by_customer_branch"][("odcust001", "od test branch")]
+        self.assertFalse(customer_flags["loan"])
+        self.assertTrue(customer_flags["overdraft"])
+        self.assertFalse(branch_flags["loan"])
+        self.assertTrue(branch_flags["overdraft"])
+
+    @patch("scorecard.functions_view.historical_scores.ManualOverdraftCustomer")
+    @patch("scorecard.functions_view.historical_scores.CustomerOverdraft")
+    @patch("scorecard.functions_view.historical_scores.CustomerLoan")
+    def test_manual_overdraft_customer_waits_when_api_month_end_is_unavailable(
+        self,
+        customer_loan,
+        customer_overdraft,
+        manual_overdraft_customer,
+    ):
+        customer_loan.objects.filter.return_value.exclude.return_value.exclude.return_value.values_list.return_value.distinct.return_value = []
+        customer_overdraft.objects.filter.return_value.exclude.return_value.exclude.return_value.values_list.return_value.distinct.return_value = []
+
+        exposure_sources = _active_exposure_sources_for_reporting_date(date(2025, 1, 31))
+
+        self.assertEqual(exposure_sources["by_customer"], {})
+        self.assertEqual(exposure_sources["by_customer_branch"], {})
+        manual_overdraft_customer.objects.exclude.assert_not_called()
+
+    @patch("scorecard.functions_view.historical_scores.IFRS9Evaluation")
+    @patch("scorecard.functions_view.historical_scores.CreditEvaluation")
+    @patch("scorecard.functions_view.historical_scores._active_exposure_sources_for_reporting_date")
+    def test_manual_overdraft_exposure_builds_one_combined_historical_score_row_after_api_ready(
+        self,
+        active_exposure_sources,
+        credit_evaluation,
+        ifrs9_evaluation,
+    ):
+        active_exposure_sources.return_value = {
+            "by_customer": {"odcust001": {"loan": False, "overdraft": True}},
+            "by_customer_branch": {
+                ("odcust001", "manual branch"): {"loan": False, "overdraft": True}
+            },
+        }
+        credit_evaluation.objects.filter.return_value.order_by.return_value = [
+            SimpleNamespace(
+                branch_name="SCORING BRANCH",
+                customer_id="ODCUST001",
+                customer_name="OD CUSTOMER ONE",
+                status="approved",
+                approved_weighted_percent=None,
+                total_weighted_percent=Decimal("61.25"),
+                final_grade="B2",
+                override_grade="",
+            )
+        ]
+        ifrs9_evaluation.objects.filter.return_value.order_by.return_value = [
+            SimpleNamespace(
+                branch_name="SCORING BRANCH",
+                customer_id="ODCUST001",
+                customer_name="OD CUSTOMER ONE",
+                status="approved",
+                approved_weighted_percent=None,
+                total_weighted_percent=Decimal("34.50"),
+            )
+        ]
+
+        rows, coverage = build_historical_score_seed_rows(date(2025, 1, 31))
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["branch_name"], "SCORING BRANCH")
+        self.assertEqual(rows[0]["customer_id"], "ODCUST001")
+        self.assertEqual(rows[0]["basel_ii_score"], Decimal("61.25"))
+        self.assertEqual(rows[0]["ifrs_9_score"], Decimal("34.50"))
+        self.assertFalse(rows[0]["has_active_loan"])
+        self.assertTrue(rows[0]["has_active_overdraft"])
+        self.assertEqual(coverage, {"both": 1})
+
+    @patch("scorecard.functions_view.historical_scores.HistoricalScore")
+    def test_late_api_exposure_flag_marks_existing_manual_snapshot_incomplete(self, historical_score):
+        existing_rows = historical_score.objects.filter.return_value
+        existing_rows.count.return_value = 1
+        existing_rows.values_list.return_value = [
+            ("SCORING BRANCH", "ODCUST001", False, True)
+        ]
+        seed_rows = [
+            {
+                "branch_name": "SCORING BRANCH",
+                "customer_id": "ODCUST001",
+                "has_active_loan": True,
+                "has_active_overdraft": True,
+            }
+        ]
+
+        is_complete = _historical_date_has_all_seed_rows(date(2026, 8, 31), seed_rows)
+
+        self.assertFalse(is_complete)
+
+    @patch("scorecard.functions_view.historical_scores.ApiImportRun.objects")
+    def test_historical_import_gate_accepts_completed_successful_source(self, import_runs):
+        from django.utils import timezone
+
+        completed_at = timezone.now()
+        wrong_date_run = SimpleNamespace(
+            parameters_used={"reporting_date": "2026-08-30"},
+            endpoint=SimpleNamespace(target_table="customer_loan"),
+            status="success",
+            fetched=999,
+            completed_at=completed_at,
+        )
+        completed_run = SimpleNamespace(
+            parameters_used={"reporting_date": "2026-08-31"},
+            endpoint=SimpleNamespace(target_table="customer_loan"),
+            status="success",
+            fetched=100,
+            completed_at=completed_at,
+        )
+        import_runs.select_related.return_value.filter.return_value.order_by.return_value = [
+            wrong_date_run,
+            completed_run,
+        ]
+
+        readiness = _historical_api_import_readiness(date(2026, 8, 31))
+
+        self.assertTrue(readiness["ready"])
+        self.assertEqual(readiness["successful_sources_with_data"], ["customer_loan"])
+
+    @patch("scorecard.functions_view.historical_scores.ApiImportRun.objects")
+    def test_historical_import_gate_blocks_while_another_source_is_running(self, import_runs):
+        from django.utils import timezone
+
+        completed_at = timezone.now()
+        completed_loan = SimpleNamespace(
+            parameters_used={"reporting_date": "2026-08-31"},
+            endpoint=SimpleNamespace(target_table="customer_loan"),
+            status="success",
+            fetched=100,
+            completed_at=completed_at,
+        )
+        running_overdraft = SimpleNamespace(
+            parameters_used={"reporting_date": "2026-08-31"},
+            endpoint=SimpleNamespace(target_table="customer_overdraft"),
+            status="running",
+            fetched=0,
+            completed_at=None,
+        )
+        import_runs.select_related.return_value.filter.return_value.order_by.return_value = [
+            running_overdraft,
+            completed_loan,
+        ]
+
+        readiness = _historical_api_import_readiness(date(2026, 8, 31))
+
+        self.assertFalse(readiness["ready"])
+        self.assertEqual(readiness["incomplete_targets"], ["customer_overdraft"])
+
+    @patch("scorecard.functions_view.historical_scores.capture_historical_scores")
+    @patch("scorecard.functions_view.historical_scores._historical_date_has_all_seed_rows")
+    @patch("scorecard.functions_view.historical_scores.build_historical_score_seed_rows")
+    @patch("scorecard.functions_view.historical_scores._historical_api_import_readiness")
+    def test_scheduler_rechecks_only_latest_due_month_for_late_api_data(
+        self,
+        import_readiness,
+        build_seed_rows,
+        historical_date_complete,
+        capture_scores,
+    ):
+        from datetime import datetime
+
+        from django.utils import timezone
+
+        august_month_end = date(2026, 8, 31)
+        seed_rows = [
+            {
+                "branch_name": "SCORING BRANCH",
+                "customer_id": "LATE001",
+                "has_active_loan": True,
+                "has_active_overdraft": False,
+            }
+        ]
+        coverage = {"basel_only": 1}
+        import_readiness.return_value = {"ready": True}
+        build_seed_rows.return_value = (seed_rows, coverage)
+        historical_date_complete.return_value = False
+        capture_scores.return_value = HistoricalScoreCaptureResult(
+            reporting_date=august_month_end,
+            created=1,
+            updated=0,
+            both=0,
+            basel_only=1,
+            ifrs9_only=0,
+        )
+        now = timezone.make_aware(
+            datetime(2026, 9, 23, 10, 0),
+            timezone.get_current_timezone(),
+        )
+
+        result = run_due_historical_score_capture(now=now)
+
+        build_seed_rows.assert_called_once_with(august_month_end)
+        historical_date_complete.assert_called_once_with(august_month_end, seed_rows)
+        capture_scores.assert_called_once_with(
+            august_month_end,
+            seed_rows=seed_rows,
+            coverage_totals=coverage,
+        )
+        self.assertTrue(result["performed"])
+        self.assertEqual(result["captured_reporting_dates"], [august_month_end])
+        self.assertEqual(result["created"], 1)
+
+    @patch("scorecard.functions_view.historical_scores.capture_historical_scores")
+    @patch("scorecard.functions_view.historical_scores.build_historical_score_seed_rows")
+    @patch("scorecard.functions_view.historical_scores._historical_api_import_readiness")
+    def test_scheduler_waits_for_latest_month_end_api_data_before_manual_capture(
+        self,
+        import_readiness,
+        build_seed_rows,
+        capture_scores,
+    ):
+        from datetime import datetime
+
+        from django.utils import timezone
+
+        august_month_end = date(2026, 8, 31)
+        import_readiness.return_value = {"ready": True}
+        build_seed_rows.return_value = ([], {})
+        now = timezone.make_aware(
+            datetime(2026, 9, 23, 10, 0),
+            timezone.get_current_timezone(),
+        )
+
+        result = run_due_historical_score_capture(now=now)
+
+        build_seed_rows.assert_called_once_with(august_month_end)
+        capture_scores.assert_not_called()
+        self.assertFalse(result["performed"])
+        self.assertEqual(result["reason"], "no_active_exposures")
+        self.assertEqual(result["checked_reporting_dates"], [august_month_end])
+
+    @patch("scorecard.functions_view.historical_scores.build_historical_score_seed_rows")
+    @patch("scorecard.functions_view.historical_scores._historical_api_import_readiness")
+    def test_scheduler_does_not_read_exposure_rows_until_import_is_complete(
+        self,
+        import_readiness,
+        build_seed_rows,
+    ):
+        from datetime import datetime
+
+        from django.utils import timezone
+
+        august_month_end = date(2026, 8, 31)
+        import_readiness.return_value = {
+            "ready": False,
+            "source_statuses": {
+                "customer_loan": {"status": "running", "fetched": 0, "completed_at": None}
+            },
+            "incomplete_targets": ["customer_loan"],
+            "successful_sources_with_data": [],
+        }
+        now = timezone.make_aware(
+            datetime(2026, 9, 23, 10, 0),
+            timezone.get_current_timezone(),
+        )
+
+        result = run_due_historical_score_capture(now=now)
+
+        import_readiness.assert_called_once_with(august_month_end)
+        build_seed_rows.assert_not_called()
+        self.assertFalse(result["performed"])
+        self.assertEqual(result["reason"], "api_import_incomplete")
 
 
 class AutofillOptionMappingTests(SimpleTestCase):

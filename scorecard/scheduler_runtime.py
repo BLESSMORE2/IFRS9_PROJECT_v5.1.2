@@ -277,16 +277,23 @@ def _persist_historical_capture_status_log(
     result: dict[str, Any],
     writer: SchedulerLogWriter | None = None,
 ) -> None:
-    if result.get("performed") or result.get("reason") != "no_active_exposures":
+    reason = result.get("reason")
+    if result.get("performed") or reason not in {"no_active_exposures", "api_import_incomplete"}:
         return
     if _historical_capture_status_recently_logged(result):
         return
 
     reporting_date = _auto_refresh_detail_key(result.get("reporting_date")) or "the due reporting date"
-    message = (
-        f"Historical capture skipped for {reporting_date}: "
-        "no matching month-end loan or overdraft data."
-    )
+    if reason == "api_import_incomplete":
+        message = (
+            f"Historical capture waiting for {reporting_date}: "
+            "the latest loan/overdraft API import has not completed successfully."
+        )
+    else:
+        message = (
+            f"Historical capture skipped for {reporting_date}: "
+            "no matching month-end loan or overdraft data."
+        )
     _emit(writer, "warning", message)
     _persist_scheduler_log(
         level="warning",
