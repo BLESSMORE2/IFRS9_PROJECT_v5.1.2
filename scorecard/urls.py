@@ -3,6 +3,7 @@ from functools import wraps
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.urls import path
+from django.views.generic import RedirectView
 
 from .functions_view import api, badges, basel_scores_form, basel_validations, credit_scoreshits, creditscorecreate, customers, dashboard, email, ifrs9_results, ifrs9_validations, scorecard_historical_scores, ifrs9_score_config, ifrs9_scores_form, ifrs9_supporting_data, maker_checker, media, notifications, settings, template_maker_checker, uploads
 from .permission_catalog import ROUTE_PERMISSION_MAP
@@ -1121,24 +1122,96 @@ urlpatterns = [
         name="ifrs9_results_ecl_summary_download_pdf",
     ),
     path(
-        "ifrs9-results/basel-validations/",
+        "reports/npl-migration/",
         basel_validations.basel_validations_view,
         name="ifrs9_results_basel_validations",
     ),
     path(
-        "ifrs9-results/basel-validations/download/",
+        "reports/npl-migration/download/",
         basel_validations.basel_validations_download_view,
         name="ifrs9_results_basel_validations_download",
     ),
     path(
-        "ifrs9-results/ifrs9-validations/",
+        "reports/ifrs9-scores-validation/",
         ifrs9_validations.ifrs9_validations_view,
         name="ifrs9_results_ifrs9_validations",
     ),
     path(
-        "ifrs9-results/ifrs9-validations/download/",
+        "reports/ifrs9-scores-validation/download/",
         ifrs9_validations.ifrs9_validations_download_view,
         name="ifrs9_results_ifrs9_validations_download",
+    ),
+    path(
+        "reports/basel-validations/",
+        RedirectView.as_view(
+            pattern_name="scorecard:ifrs9_results_basel_validations",
+            permanent=False,
+            query_string=True,
+        ),
+        name="legacy_reports_basel_validations",
+    ),
+    path(
+        "reports/basel-validations/download/",
+        RedirectView.as_view(
+            pattern_name="scorecard:ifrs9_results_basel_validations_download",
+            permanent=False,
+            query_string=True,
+        ),
+        name="legacy_reports_basel_validations_download",
+    ),
+    path(
+        "reports/ifrs9-validations/",
+        RedirectView.as_view(
+            pattern_name="scorecard:ifrs9_results_ifrs9_validations",
+            permanent=False,
+            query_string=True,
+        ),
+        name="legacy_reports_ifrs9_validations",
+    ),
+    path(
+        "reports/ifrs9-validations/download/",
+        RedirectView.as_view(
+            pattern_name="scorecard:ifrs9_results_ifrs9_validations_download",
+            permanent=False,
+            query_string=True,
+        ),
+        name="legacy_reports_ifrs9_validations_download",
+    ),
+    path(
+        "ifrs9-results/basel-validations/",
+        RedirectView.as_view(
+            pattern_name="scorecard:ifrs9_results_basel_validations",
+            permanent=False,
+            query_string=True,
+        ),
+        name="legacy_ifrs9_results_basel_validations",
+    ),
+    path(
+        "ifrs9-results/basel-validations/download/",
+        RedirectView.as_view(
+            pattern_name="scorecard:ifrs9_results_basel_validations_download",
+            permanent=False,
+            query_string=True,
+        ),
+        name="legacy_ifrs9_results_basel_validations_download",
+    ),
+    path(
+        "ifrs9-results/ifrs9-validations/",
+        RedirectView.as_view(
+            pattern_name="scorecard:ifrs9_results_ifrs9_validations",
+            permanent=False,
+            query_string=True,
+        ),
+        name="legacy_ifrs9_results_ifrs9_validations",
+    ),
+    path(
+        "ifrs9-results/ifrs9-validations/download/",
+        RedirectView.as_view(
+            pattern_name="scorecard:ifrs9_results_ifrs9_validations_download",
+            permanent=False,
+            query_string=True,
+        ),
+        name="legacy_ifrs9_results_ifrs9_validations_download",
     ),
     # Template Maker URLs
     path(

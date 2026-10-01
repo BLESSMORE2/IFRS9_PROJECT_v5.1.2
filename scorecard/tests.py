@@ -8,11 +8,13 @@ from django.contrib.auth.models import Permission
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory
 from django.test import SimpleTestCase
 from django.test import TestCase
 from django.urls import reverse
+from django.template.loader import get_template
 
 import openpyxl
 
@@ -42,6 +44,7 @@ from scorecard.functions_view.customers import (
     _parse_overdraft_upload_rows_from_values,
     build_without_score_customer_snapshot_for_branch_scope,
 )
+from scorecard.context_processors import _build_scorecard_route_access
 from scorecard.functions_view.scorecard_autofill import (
     _age_option,
     _gender_option,
@@ -79,6 +82,480 @@ from scorecard.workflow_approval import (
     can_user_self_review_score_submission,
     get_scorecard_workflow_approval_settings,
 )
+from scorecard.permission_catalog import (
+    DEFAULT_ROLE_DEFINITIONS,
+    ROUTE_PERMISSION_MAP,
+    SCORECARD_PERMISSION_DEFINITIONS,
+)
+from scorecard.urls import _route_permission_required
+
+
+class ValidationReportPermissionTests(SimpleTestCase):
+    @staticmethod
+    def _request_with_permissions(*permissions):
+        granted = set(permissions)
+        request = RequestFactory().get("/scorecard/reports/")
+        request.user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda permission: permission in granted,
+        )
+        return request
+
+    def test_validation_routes_have_independent_permissions(self):
+        self.assertEqual(
+            ROUTE_PERMISSION_MAP["ifrs9_results_basel_validations"],
+            "scorecard.view_basel_validation_reports",
+        )
+        self.assertEqual(
+            ROUTE_PERMISSION_MAP["ifrs9_results_basel_validations_download"],
+            "scorecard.view_basel_validation_reports",
+        )
+        self.assertEqual(
+            ROUTE_PERMISSION_MAP["ifrs9_results_ifrs9_validations"],
+            "scorecard.view_ifrs9_validation_reports",
+        )
+        self.assertEqual(
+            ROUTE_PERMISSION_MAP["ifrs9_results_ifrs9_validations_download"],
+            "scorecard.view_ifrs9_validation_reports",
+        )
+        self.assertEqual(
+            ROUTE_PERMISSION_MAP["ifrs9_results_home"],
+            "scorecard.view_ifrs9_results",
+        )
+
+    def test_validation_routes_use_reports_urls(self):
+        self.assertEqual(
+            reverse("scorecard:ifrs9_results_basel_validations"),
+            "/scorecard/reports/npl-migration/",
+        )
+        self.assertEqual(
+            reverse("scorecard:ifrs9_results_ifrs9_validations"),
+            "/scorecard/reports/ifrs9-scores-validation/",
+        )
+
+    def test_reports_sidebar_is_independent_from_ifrs9_results_access(self):
+        request = RequestFactory().get("/scorecard/reports/npl-migration/")
+        request.user = SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=False,
+            has_perm=lambda permission: permission == "scorecard.view_basel_validation_reports",
+        )
+
+        route_access, nav_visibility = _build_scorecard_route_access(request)
+
+        self.assertTrue(nav_visibility["reports"])
+        self.assertFalse(nav_visibility["ifrs9_results"])
+        self.assertTrue(route_access["ifrs9_results_basel_validations"])
+        self.assertFalse(route_access["ifrs9_results_ifrs9_validations"])
+
+    def test_validation_roles_are_independent(self):
+        roles = {item["name"]: item for item in DEFAULT_ROLE_DEFINITIONS}
+        self.assertEqual(
+            roles["NPL Migration Report Viewer"]["permissions"],
+            ["scorecard.view_basel_validation_reports"],
+        )
+        self.assertEqual(
+            roles["IFRS9 Scores Validation Viewer"]["permissions"],
+            ["scorecard.view_ifrs9_validation_reports"],
+        )
+        self.assertEqual(
+            roles["IFRS9 Results Viewer"]["permissions"],
+            ["scorecard.view_ifrs9_results"],
+        )
+
+    def test_validation_permission_labels_use_report_names(self):
+        definitions = {
+            item["codename"]: item
+            for item in SCORECARD_PERMISSION_DEFINITIONS
+        }
+        self.assertEqual(
+            definitions["view_basel_validation_reports"]["label"],
+            "Can view NPL migration report",
+        )
+        self.assertEqual(
+            definitions["view_ifrs9_validation_reports"]["label"],
+            "Can view IFRS9 scores validation",
+        )
+
+    def test_report_route_guards_allow_only_matching_permission(self):
+        npl_guard = _route_permission_required(
+            "scorecard.view_basel_validation_reports"
+        )(lambda request: "npl-access-granted")
+        ifrs9_guard = _route_permission_required(
+            "scorecard.view_ifrs9_validation_reports"
+        )(lambda request: "ifrs9-access-granted")
+
+        npl_request = self._request_with_permissions(
+            "scorecard.view_basel_validation_reports"
+        )
+        ifrs9_request = self._request_with_permissions(
+            "scorecard.view_ifrs9_validation_reports"
+        )
+        no_permission_request = self._request_with_permissions()
+
+        self.assertEqual(npl_guard(npl_request), "npl-access-granted")
+        self.assertEqual(ifrs9_guard(ifrs9_request), "ifrs9-access-granted")
+        with self.assertRaises(PermissionDenied):
+            npl_guard(ifrs9_request)
+        with self.assertRaises(PermissionDenied):
+            ifrs9_guard(npl_request)
+        with self.assertRaises(PermissionDenied):
+            npl_guard(no_permission_request)
+        with self.assertRaises(PermissionDenied):
+            ifrs9_guard(no_permission_request)
+
+    def test_ifrs9_report_permission_controls_reports_sidebar_independently(self):
+        request = self._request_with_permissions(
+            "scorecard.view_ifrs9_validation_reports"
+        )
+
+        route_access, nav_visibility = _build_scorecard_route_access(request)
+
+        self.assertTrue(nav_visibility["reports"])
+        self.assertFalse(nav_visibility["ifrs9_results"])
+        self.assertFalse(route_access["ifrs9_results_basel_validations"])
+        self.assertTrue(route_access["ifrs9_results_ifrs9_validations"])
+
+    def test_ifrs9_results_navigation_excludes_validation_links(self):
+        for template_name in (
+            "credit_scoreshifts/ifrs9_results_home.html",
+            "credit_scoreshifts/ifrs9_results_extract.html",
+            "credit_scoreshifts/ifrs9_results_ecl_summary.html",
+        ):
+            source = get_template(template_name).template.source
+            self.assertNotIn("ifrs9_results_basel_validations", source)
+            self.assertNotIn("ifrs9_results_ifrs9_validations", source)
+
+
+class ValidationReportPerformanceTests(SimpleTestCase):
+    class _HistoricalRowsQuerySet:
+        def __init__(self, rows):
+            self.rows = rows
+            self.filter_calls = []
+            self.values_fields = ()
+            self.ordering = ()
+
+        def filter(self, **kwargs):
+            self.filter_calls.append(kwargs)
+            return self
+
+        def values(self, *fields):
+            self.values_fields = fields
+            return self
+
+        def order_by(self, *fields):
+            self.ordering = fields
+            return [dict(row) for row in self.rows]
+
+    def test_basel_comparison_loads_both_dates_in_one_index_ordered_query(self):
+        from scorecard.functions_view.basel_validations import _historical_values_for_dates
+
+        previous_date = date(2026, 2, 28)
+        current_date = date(2026, 4, 30)
+        queryset = self._HistoricalRowsQuerySet(
+            [
+                {
+                    "reporting_date": previous_date,
+                    "branch_name": "BINDURA",
+                    "customer_id": "1001",
+                    "customer_name": "Previous Customer",
+                    "basel_ii_score": Decimal("60"),
+                    "basel_ii_grade": "B1",
+                    "basel_override_grade": "",
+                    "ifrs_9_score": Decimal("30"),
+                    "has_active_loan": True,
+                    "has_active_overdraft": False,
+                },
+                {
+                    "reporting_date": current_date,
+                    "branch_name": "BINDURA",
+                    "customer_id": "1001",
+                    "customer_name": "Current Customer",
+                    "basel_ii_score": Decimal("62"),
+                    "basel_ii_grade": "B1",
+                    "basel_override_grade": "",
+                    "ifrs_9_score": Decimal("31"),
+                    "has_active_loan": True,
+                    "has_active_overdraft": False,
+                },
+            ]
+        )
+
+        previous_rows, current_rows = _historical_values_for_dates(
+            queryset,
+            previous_date,
+            current_date,
+        )
+
+        self.assertEqual(len(queryset.filter_calls), 1)
+        self.assertEqual(
+            queryset.filter_calls[0],
+            {"reporting_date__in": (previous_date, current_date)},
+        )
+        self.assertEqual(
+            queryset.ordering,
+            ("reporting_date", "branch_name", "customer_id"),
+        )
+        self.assertEqual(previous_rows[0]["customer_name"], "Previous Customer")
+        self.assertEqual(current_rows[0]["customer_name"], "Current Customer")
+
+    def test_ifrs9_comparison_loads_both_dates_in_one_index_ordered_query(self):
+        from scorecard.functions_view.ifrs9_validations import _historical_values_for_dates
+
+        previous_date = date(2026, 2, 28)
+        current_date = date(2026, 4, 30)
+        queryset = self._HistoricalRowsQuerySet(
+            [
+                {
+                    "reporting_date": previous_date,
+                    "branch_name": "BINGA",
+                    "customer_id": "2001",
+                    "customer_name": "Previous IFRS9 Customer",
+                    "ifrs_9_score": Decimal("25"),
+                },
+                {
+                    "reporting_date": current_date,
+                    "branch_name": "BINGA",
+                    "customer_id": "2001",
+                    "customer_name": "Current IFRS9 Customer",
+                    "ifrs_9_score": Decimal("28"),
+                },
+            ]
+        )
+
+        previous_rows, current_rows = _historical_values_for_dates(
+            queryset,
+            previous_date,
+            current_date,
+        )
+
+        self.assertEqual(len(queryset.filter_calls), 1)
+        self.assertEqual(
+            queryset.ordering,
+            ("reporting_date", "branch_name", "customer_id"),
+        )
+        self.assertEqual(previous_rows[0]["customer_name"], "Previous IFRS9 Customer")
+        self.assertEqual(current_rows[0]["customer_name"], "Current IFRS9 Customer")
+
+    def test_repeated_basel_comparison_reuses_cached_payload(self):
+        from scorecard.functions_view import basel_validations
+
+        cache_key = "validation-payload:test:basel-reuse"
+        cache.delete(cache_key)
+        payload = {"summary": {"matched_customers": 1}, "details": []}
+
+        with (
+            patch.object(basel_validations, "validation_payload_cache_key", return_value=cache_key),
+            patch.object(basel_validations, "_build_validation_payload", return_value=payload) as build_payload,
+        ):
+            first = basel_validations._get_validation_payload(
+                object(),
+                date(2026, 2, 28),
+                date(2026, 4, 30),
+                ["BINDURA"],
+                "",
+            )
+            second = basel_validations._get_validation_payload(
+                object(),
+                date(2026, 2, 28),
+                date(2026, 4, 30),
+                ["BINDURA"],
+                "",
+            )
+
+        self.assertEqual(first, payload)
+        self.assertEqual(second, payload)
+        build_payload.assert_called_once()
+        cache.delete(cache_key)
+
+    def test_payload_cache_key_changes_when_historical_data_changes(self):
+        from scorecard.functions_view.validation_export_cache import validation_payload_cache_key
+
+        class FingerprintQuerySet:
+            def __init__(self, row_count):
+                self.row_count = row_count
+
+            def filter(self, **kwargs):
+                return self
+
+            def aggregate(self, **kwargs):
+                return {"row_count": self.row_count, "latest_update": None}
+
+        arguments = {
+            "report_name": "basel",
+            "previous_date": date(2026, 2, 28),
+            "current_date": date(2026, 4, 30),
+            "branch_names": ["BINDURA", "BINGA"],
+            "selected_branch": "",
+        }
+        original_key = validation_payload_cache_key(
+            queryset=FingerprintQuerySet(100),
+            **arguments,
+        )
+        changed_key = validation_payload_cache_key(
+            queryset=FingerprintQuerySet(101),
+            **arguments,
+        )
+
+        self.assertNotEqual(original_key, changed_key)
+
+    def test_validation_apply_updates_results_without_page_navigation(self):
+        templates = (
+            (
+                "credit_scoreshifts/basel_validations.html",
+                "validation-filter-form",
+                "validation-report-content",
+            ),
+            (
+                "credit_scoreshifts/ifrs9_validations.html",
+                "iv-filter-form",
+                "iv-report-content",
+            ),
+        )
+
+        for template_name, form_id, content_id in templates:
+            source = get_template(template_name).template.source
+            self.assertIn(f'id="{form_id}"', source)
+            self.assertIn(f'id="{content_id}"', source)
+            self.assertIn("filterForm.addEventListener('submit'", source)
+            self.assertIn("event.preventDefault();", source)
+            self.assertIn("'X-Requested-With': 'XMLHttpRequest'", source)
+            self.assertIn("reportContent.innerHTML = incomingContent.innerHTML", source)
+            self.assertIn("window.history.replaceState", source)
+
+    def test_basel_grade_population_keeps_previous_and_current_counts_separate(self):
+        from scorecard.functions_view import basel_validations
+
+        previous_date = date(2026, 2, 28)
+        current_date = date(2026, 4, 30)
+
+        def historical_row(customer_id, grade, score):
+            return {
+                "branch_name": "BINDURA",
+                "customer_id": customer_id,
+                "customer_name": f"Customer {customer_id}",
+                "basel_ii_score": Decimal(score),
+                "basel_ii_grade": grade,
+                "basel_override_grade": "",
+                "ifrs_9_score": None,
+                "has_active_loan": True,
+                "has_active_overdraft": False,
+            }
+
+        previous_rows = [
+            historical_row("1001", "A1", "80"),
+            historical_row("1002", "B1", "65"),
+        ]
+        current_rows = [
+            historical_row("1001", "A1", "81"),
+            historical_row("1002", "B2", "60"),
+            historical_row("1003", "C", "35"),
+        ]
+
+        with patch.object(
+            basel_validations,
+            "_historical_values_for_dates",
+            return_value=(previous_rows, current_rows),
+        ):
+            payload = basel_validations._build_validation_payload(
+                object(),
+                previous_date,
+                current_date,
+            )
+
+        self.assertEqual(
+            payload["grade_distribution_totals"],
+            {"previous_count": 2, "current_count": 3, "change": 1},
+        )
+        distribution = {row["grade"]: row for row in payload["grade_distribution"]}
+        self.assertEqual(distribution["B1"]["previous_count"], 1)
+        self.assertEqual(distribution["B1"]["current_count"], 0)
+        self.assertEqual(distribution["B2"]["previous_count"], 0)
+        self.assertEqual(distribution["B2"]["current_count"], 1)
+
+        template_source = get_template(
+            "credit_scoreshifts/basel_validations.html"
+        ).template.source
+        self.assertIn("Grade Population by Date", template_source)
+        self.assertIn("Previous Population", template_source)
+        self.assertIn("Current Population", template_source)
+        self.assertIn("Matched-Customer Grade Migration Matrix", template_source)
+
+    def test_ifrs9_score_population_keeps_previous_and_current_counts_separate(self):
+        from scorecard.functions_view import ifrs9_validations
+
+        previous_date = date(2026, 2, 28)
+        current_date = date(2026, 4, 30)
+
+        def historical_row(customer_id, score):
+            return {
+                "branch_name": "BINDURA",
+                "customer_id": customer_id,
+                "customer_name": f"Customer {customer_id}",
+                "ifrs_9_score": Decimal(score),
+            }
+
+        previous_rows = [
+            historical_row("1001", "10"),
+            historical_row("1002", "30"),
+        ]
+        current_rows = [
+            historical_row("1001", "15"),
+            historical_row("1002", "50"),
+            historical_row("1003", "85"),
+        ]
+
+        with patch.object(
+            ifrs9_validations,
+            "_historical_values_for_dates",
+            return_value=(previous_rows, current_rows),
+        ):
+            payload = ifrs9_validations._build_validation_payload(
+                object(),
+                previous_date,
+                current_date,
+            )
+
+        self.assertEqual(
+            payload["score_distribution_totals"],
+            {"previous_count": 2, "current_count": 3, "change": 1},
+        )
+        distribution = {row["band"]: row for row in payload["score_distribution"]}
+        self.assertEqual(distribution["0% - 20%"]["previous_count"], 1)
+        self.assertEqual(distribution["0% - 20%"]["current_count"], 1)
+        self.assertEqual(distribution[">20% - 40%"]["previous_count"], 1)
+        self.assertEqual(distribution[">20% - 40%"]["current_count"], 0)
+
+        workbook = ifrs9_validations._build_validation_workbook(
+            payload,
+            payload["details"],
+            "ALL ASSIGNED BRANCHES",
+            "",
+            "",
+            "",
+        )
+        population_sheet = workbook["Score Population"]
+        self.assertEqual(
+            population_sheet["B4"].value,
+            f"Previous Population ({previous_date})",
+        )
+        self.assertEqual(
+            population_sheet["C4"].value,
+            f"Current Population ({current_date})",
+        )
+        self.assertEqual(
+            [cell.value for cell in population_sheet[population_sheet.max_row]],
+            ["Total score population", 2, 3, 1, None, None, None, None],
+        )
+
+        template_source = get_template(
+            "credit_scoreshifts/ifrs9_validations.html"
+        ).template.source
+        self.assertIn("Score Population by Date", template_source)
+        self.assertIn("Previous Population", template_source)
+        self.assertIn("Current Population", template_source)
+        self.assertIn("matched customers only", template_source)
 
 
 class ManualOverdraftCustomerUploadTests(SimpleTestCase):

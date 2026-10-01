@@ -120,6 +120,16 @@ SCORECARD_PERMISSION_DEFINITIONS = [
         "description": "Open branch-scoped IFRS9 results extract and ECL summary report workspaces.",
     },
     {
+        "codename": "view_basel_validation_reports",
+        "label": "Can view NPL migration report",
+        "description": "Open and download the branch-scoped NPL migration report.",
+    },
+    {
+        "codename": "view_ifrs9_validation_reports",
+        "label": "Can view IFRS9 scores validation",
+        "description": "Open and download the branch-scoped IFRS9 scores validation report.",
+    },
+    {
         "codename": "view_scorecard_historical_scores",
         "label": "Can view scorecard historical scores",
         "description": "Open branch-scoped historical score snapshots and download filtered historical score extracts.",
@@ -430,10 +440,24 @@ IFRS9_RESULTS_ROUTES = [
     "ifrs9_results_ecl_summary",
     "ifrs9_results_ecl_summary_download_excel",
     "ifrs9_results_ecl_summary_download_pdf",
+]
+
+BASEL_VALIDATION_REPORT_ROUTES = [
     "ifrs9_results_basel_validations",
     "ifrs9_results_basel_validations_download",
+    "legacy_reports_basel_validations",
+    "legacy_reports_basel_validations_download",
+    "legacy_ifrs9_results_basel_validations",
+    "legacy_ifrs9_results_basel_validations_download",
+]
+
+IFRS9_VALIDATION_REPORT_ROUTES = [
     "ifrs9_results_ifrs9_validations",
     "ifrs9_results_ifrs9_validations_download",
+    "legacy_reports_ifrs9_validations",
+    "legacy_reports_ifrs9_validations_download",
+    "legacy_ifrs9_results_ifrs9_validations",
+    "legacy_ifrs9_results_ifrs9_validations_download",
 ]
 
 BASEL_TEMPLATE_WORKFLOW_MANAGE_ROUTES = [
@@ -579,6 +603,8 @@ ROUTE_PERMISSION_MAP.update({name: "scorecard.manage_ifrs9_supporting_data" for 
 ROUTE_PERMISSION_MAP.update({name: "scorecard.view_scorecard_historical_scores" for name in SCORECARD_HISTORICAL_SCORE_ROUTES})
 ROUTE_PERMISSION_MAP.update({name: "scorecard.manage_scorecard_historical_scores" for name in SCORECARD_HISTORICAL_SCORE_MANAGE_ROUTES})
 ROUTE_PERMISSION_MAP.update({name: "scorecard.view_ifrs9_results" for name in IFRS9_RESULTS_ROUTES})
+ROUTE_PERMISSION_MAP.update({name: "scorecard.view_basel_validation_reports" for name in BASEL_VALIDATION_REPORT_ROUTES})
+ROUTE_PERMISSION_MAP.update({name: "scorecard.view_ifrs9_validation_reports" for name in IFRS9_VALIDATION_REPORT_ROUTES})
 ROUTE_PERMISSION_MAP.update({name: "scorecard.manage_basel_templates" for name in BASEL_TEMPLATE_WORKFLOW_MANAGE_ROUTES})
 ROUTE_PERMISSION_MAP.update({name: "scorecard.review_basel_templates" for name in BASEL_TEMPLATE_WORKFLOW_REVIEW_ROUTES})
 ROUTE_PERMISSION_MAP.update({name: "scorecard.manage_ifrs9_templates" for name in IFRS9_TEMPLATE_WORKFLOW_MANAGE_ROUTES})
@@ -717,6 +743,28 @@ MODULE_ACCESS_REGISTRY = [
             "view_ifrs9_results",
         ],
         "route_names": IFRS9_RESULTS_ROUTES,
+    },
+    {
+        "key": "basel_validation_reports",
+        "label": "NPL Migration Report",
+        "views_file": "scorecard/functions_view/basel_validations.py",
+        "template_folder": "scorecard/templates/credit_scoreshifts/basel_validations.html",
+        "notes": "Controls the NPL migration report workspace and its Excel workbook download.",
+        "permission_codes": [
+            "view_basel_validation_reports",
+        ],
+        "route_names": BASEL_VALIDATION_REPORT_ROUTES,
+    },
+    {
+        "key": "ifrs9_validation_reports",
+        "label": "IFRS9 Scores Validation",
+        "views_file": "scorecard/functions_view/ifrs9_validations.py",
+        "template_folder": "scorecard/templates/credit_scoreshifts/ifrs9_validations.html",
+        "notes": "Controls the IFRS9 scores validation workspace and its Excel workbook download.",
+        "permission_codes": [
+            "view_ifrs9_validation_reports",
+        ],
+        "route_names": IFRS9_VALIDATION_REPORT_ROUTES,
     },
     {
         "key": "historical_scores",
@@ -1242,6 +1290,32 @@ DEFAULT_ROLE_DEFINITIONS = [
         "access_badges": ["View Only"],
         "action_summary": ["Open results extract", "Open ECL summary report"],
         "permissions": ["scorecard.view_ifrs9_results"],
+    },
+    {
+        "name": "NPL Migration Report Viewer",
+        "legacy_names": ["Basel II Validation Viewer"],
+        "label": "NPL Migration Report Viewer",
+        "module_key": "basel_validation_reports",
+        "module_label": "NPL Migration Report",
+        "level_key": "view",
+        "level_label": "View",
+        "description": "Review and download the branch-scoped NPL migration report.",
+        "access_badges": ["View & Download"],
+        "action_summary": ["Open NPL migration report", "Download NPL migration workbook"],
+        "permissions": ["scorecard.view_basel_validation_reports"],
+    },
+    {
+        "name": "IFRS9 Scores Validation Viewer",
+        "legacy_names": ["IFRS9 Validation Viewer"],
+        "label": "IFRS9 Scores Validation Viewer",
+        "module_key": "ifrs9_validation_reports",
+        "module_label": "IFRS9 Scores Validation",
+        "level_key": "view",
+        "level_label": "View",
+        "description": "Review and download the branch-scoped IFRS9 scores validation report.",
+        "access_badges": ["View & Download"],
+        "action_summary": ["Open IFRS9 scores validation", "Download IFRS9 scores validation workbook"],
+        "permissions": ["scorecard.view_ifrs9_validation_reports"],
     },
     {
         "name": "Historical Score Viewer",

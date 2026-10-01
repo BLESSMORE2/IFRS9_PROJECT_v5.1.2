@@ -329,6 +329,13 @@ def _build_scorecard_route_access(request) -> tuple[dict[str, bool], dict[str, b
         ),
         "ifrs9_supporting_data": route_access["ifrs9_supporting_data"],
         "ifrs9_results": ifrs9_results_available and route_access["ifrs9_results_home"],
+        "reports": any(
+            route_access[route_name]
+            for route_name in (
+                "ifrs9_results_basel_validations",
+                "ifrs9_results_ifrs9_validations",
+            )
+        ),
         "historical_scores": route_access["historical_scores_list"],
         "documents": any(
             route_access[route_name]

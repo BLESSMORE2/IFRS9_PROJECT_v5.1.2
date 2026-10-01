@@ -25,8 +25,11 @@ from scorecard.functions_view.main_customer_lookup import (
     is_all_branches_selected,
 )
 from scorecard.functions_view.validation_export_cache import (
+    cache_validation_payload,
     cache_validation_export,
+    get_cached_validation_payload,
     get_cached_validation_export,
+    validation_payload_cache_key,
     validation_export_cache_key,
 )
 from scorecard.models import HistoricalScore
@@ -157,12 +160,16 @@ def _resolve_comparison_dates(
     return current_date, previous_date
 
 
-def _historical_values(queryset, reporting_date: date | None) -> list[dict[str, Any]]:
-    if reporting_date is None:
-        return []
-    return list(
-        queryset.filter(reporting_date=reporting_date)
+def _historical_values_for_dates(
+    queryset,
+    previous_date: date,
+    current_date: date,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    rows_by_date = {previous_date: [], current_date: []}
+    rows = (
+        queryset.filter(reporting_date__in=(previous_date, current_date))
         .values(
+            "reporting_date",
             "branch_name",
             "customer_id",
             "customer_name",
@@ -173,8 +180,12 @@ def _historical_values(queryset, reporting_date: date | None) -> list[dict[str, 
             "has_active_loan",
             "has_active_overdraft",
         )
-        .order_by("customer_id", "branch_name")
+        .order_by("reporting_date", "branch_name", "customer_id")
     )
+    for row in rows:
+        reporting_date = row.pop("reporting_date")
+        rows_by_date[reporting_date].append(row)
+    return rows_by_date[previous_date], rows_by_date[current_date]
 
 
 def _build_detail_row(
@@ -550,8 +561,11 @@ def _build_validation_payload(
     previous_date: date,
     current_date: date,
 ) -> dict[str, Any]:
-    previous_rows = _historical_values(historical_queryset, previous_date)
-    current_rows = _historical_values(historical_queryset, current_date)
+    previous_rows, current_rows = _historical_values_for_dates(
+        historical_queryset,
+        previous_date,
+        current_date,
+    )
     details = _pair_historical_rows(previous_rows, current_rows)
     previous_npl = _npl_payload(previous_date, previous_rows)
     current_npl = _npl_payload(current_date, current_rows)
@@ -566,13 +580,19 @@ def _build_validation_payload(
     )
     previous_duplicates = len({row["customer_id"].casefold() for row in previous_duplicate_rows})
     current_duplicates = len({row["customer_id"].casefold() for row in current_duplicate_rows})
+    grade_distribution = _grade_distribution(details)
     return {
         "previous_date": previous_date,
         "current_date": current_date,
         "details": details,
         "summary": _movement_summary(details),
         "grade_migration": _grade_migration(details),
-        "grade_distribution": _grade_distribution(details),
+        "grade_distribution": grade_distribution,
+        "grade_distribution_totals": {
+            "previous_count": sum(row["previous_count"] for row in grade_distribution),
+            "current_count": sum(row["current_count"] for row in grade_distribution),
+            "change": sum(row["change"] for row in grade_distribution),
+        },
         "previous_npl": previous_npl,
         "current_npl": current_npl,
         "duplicate_customers": previous_duplicate_rows + current_duplicate_rows,
@@ -586,6 +606,30 @@ def _build_validation_payload(
             "incomplete_grades": sum(1 for row in details if row["movement_key"] == "incomplete"),
         },
     }
+
+
+def _get_validation_payload(
+    historical_queryset,
+    previous_date: date,
+    current_date: date,
+    branch_names: list[str],
+    selected_branch: str,
+) -> dict[str, Any]:
+    cache_key = validation_payload_cache_key(
+        report_name="basel",
+        queryset=historical_queryset,
+        previous_date=previous_date,
+        current_date=current_date,
+        branch_names=branch_names,
+        selected_branch=selected_branch,
+    )
+    cached_payload = get_cached_validation_payload(cache_key)
+    if cached_payload is not None:
+        return cached_payload
+
+    payload = _build_validation_payload(historical_queryset, previous_date, current_date)
+    cache_validation_payload(cache_key, payload)
+    return payload
 
 
 def _style_title(worksheet, title: str, total_columns: int) -> None:
@@ -666,7 +710,7 @@ def _build_validation_workbook(
         worksheet.sheet_view.showGridLines = False
 
     summary = payload["summary"]
-    _style_title(summary_sheet, "Basel II Month-End Validations", 12)
+    _style_title(summary_sheet, "NPL Migration Report", 12)
     summary_sheet.append([
         "Previous Month-End", payload["previous_date"], "Current Month-End", payload["current_date"],
         "Branch Scope", selected_branch or branch_scope_label, "Generated", timezone.localtime().replace(tzinfo=None),
@@ -822,13 +866,13 @@ def _build_validation_workbook(
     duplicate_sheet.sheet_properties.tabColor = "E5484D"
 
     migration = payload["grade_migration"]
-    migration_columns = ["Previous Grade"] + migration["current_grades"] + ["Row Total"]
+    migration_columns = [f"Previous Grade ({payload['previous_date']})"] + migration["current_grades"] + ["Matched Previous Total"]
     _style_title(migration_sheet, "Basel II Grade Migration Matrix", len(migration_columns))
-    migration_sheet.append(["Read each cell as customers moving from the previous grade on the left to the current grade above. Overrides are used when present."])
-    migration_sheet.cell(3, 1, "Previous Grade ↓")
+    migration_sheet.append(["Each cell is one matched-customer movement count from the previous row grade to the current column grade. Separate date populations are in Grade Distribution."])
+    migration_sheet.cell(3, 1, f"Previous Grade ↓ ({payload['previous_date']})")
     migration_sheet.merge_cells(start_row=3, start_column=2, end_row=3, end_column=1 + len(migration["current_grades"]))
-    migration_sheet.cell(3, 2, "Current Grade →")
-    migration_sheet.cell(3, len(migration_columns), "Previous Grade Total")
+    migration_sheet.cell(3, 2, f"Current Grade → ({payload['current_date']})")
+    migration_sheet.cell(3, len(migration_columns), "Matched Previous Total")
     for column in range(1, len(migration_columns) + 1):
         cell = migration_sheet.cell(3, column)
         cell.fill = PatternFill("solid", fgColor="176BB3" if 1 < column < len(migration_columns) else "082F58")
@@ -856,13 +900,18 @@ def _build_validation_workbook(
             migration_sheet.cell(row_number, column_number).font = Font(name="Arial", color=font_color, bold=True)
         migration_sheet.cell(row_number, len(migration_columns)).fill = PatternFill("solid", fgColor="EDF4FA")
         migration_sheet.cell(row_number, len(migration_columns)).font = Font(name="Arial", color="0B2D52", bold=True)
-    migration_sheet.append(["Current Grade Total →"] + migration["column_totals"] + [migration["total"]])
+    migration_sheet.append(["Matched Current Grade Totals →"] + migration["column_totals"] + [migration["total"]])
     for cell in migration_sheet[migration_sheet.max_row]:
         cell.fill = PatternFill("solid", fgColor="0B355E")
         cell.font = Font(name="Arial", color="FFFFFF", bold=True)
     migration_sheet.freeze_panes = "B5"
 
-    distribution_columns = ["Grade", "Previous Customers", "Current Customers", "Change"]
+    distribution_columns = [
+        "Grade",
+        f"Previous Customers ({payload['previous_date']})",
+        f"Current Customers ({payload['current_date']})",
+        "Change",
+    ]
     _style_title(distribution_sheet, "Basel II Grade Distribution", len(distribution_columns))
     distribution_sheet.append(["Previous Month-End", payload["previous_date"], "Current Month-End", payload["current_date"]])
     distribution_sheet.append([])
@@ -985,10 +1034,12 @@ def basel_validations_view(request: HttpRequest):
     filtered_details = []
     page_obj = None
     if current_date and previous_date:
-        payload = _build_validation_payload(
+        payload = _get_validation_payload(
             historical_queryset,
             previous_date,
             current_date,
+            branch_names,
+            selected_branch,
         )
         filtered_details = _filter_details(payload["details"], search, movement_filter)
         page_obj = Paginator(filtered_details, page_size).get_page(request.GET.get("page") or 1)
@@ -1034,7 +1085,7 @@ def basel_validations_download_view(request: HttpRequest):
         request.GET.get("previous_date"),
     )
     if current_date is None or previous_date is None:
-        messages.error(request, "At least two historical month-end dates are required for Basel II validation.")
+        messages.error(request, "At least two historical month-end dates are required for the NPL migration report.")
         return redirect("scorecard:ifrs9_results_basel_validations")
 
     movement_filter = _clean(request.GET.get("movement"))
@@ -1058,10 +1109,12 @@ def basel_validations_download_view(request: HttpRequest):
     if cached_export:
         workbook_bytes, customer_row_count = cached_export
     else:
-        payload = _build_validation_payload(
+        payload = _get_validation_payload(
             historical_queryset,
             previous_date,
             current_date,
+            branch_names,
+            selected_branch,
         )
         detail_rows = _filter_details(payload["details"], search, movement_filter)
         workbook = _build_validation_workbook(
@@ -1082,7 +1135,7 @@ def basel_validations_download_view(request: HttpRequest):
         request.user,
         "download_basel_validations",
         details=(
-            f"Downloaded Basel II validations. Previous month-end: {previous_date.isoformat()}; "
+            f"Downloaded NPL migration report. Previous month-end: {previous_date.isoformat()}; "
             f"Current month-end: {current_date.isoformat()}; Branch scope: "
             f"{selected_branch or current_branch_display_name(request) or 'No branch selected'}; "
             f"Customer rows: {customer_row_count}"
@@ -1095,7 +1148,7 @@ def basel_validations_download_view(request: HttpRequest):
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     response["Content-Disposition"] = (
-        f'attachment; filename="basel_ii_validations_{previous_date.isoformat()}_to_{current_date.isoformat()}.xlsx"'
+        f'attachment; filename="npl_migration_report_{previous_date.isoformat()}_to_{current_date.isoformat()}.xlsx"'
     )
     response["X-Validation-Export-Cache"] = cache_status
     return response

@@ -1705,6 +1705,29 @@
                     </div>
                 </a>
                 {% endif %}
+                {% if scorecard_nav_visibility.reports %}
+                <div class="nav-item dropdown-toggle" id="reports-dropdown-toggle" data-dropdown-id="reports-dropdown">
+                    <div class="nav-item-left">
+                        <span class="nav-icon">&#128203;</span>
+                        <span class="sidebar-text">Reports</span>
+                    </div>
+                    <span class="nav-arrow sidebar-text">&#9662;</span>
+                </div>
+                <div class="nav-dropdown" id="reports-dropdown">
+                    {% if scorecard_route_access.ifrs9_results_basel_validations %}
+                    <a href="{% url 'scorecard:ifrs9_results_basel_validations' %}" class="nav-dropdown-item" data-option="basel-validation">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">NPL Migration Report</span>
+                    </a>
+                    {% endif %}
+                    {% if scorecard_route_access.ifrs9_results_ifrs9_validations %}
+                    <a href="{% url 'scorecard:ifrs9_results_ifrs9_validations' %}" class="nav-dropdown-item" data-option="ifrs9-validation">
+                        <div class="nav-dropdown-radio"></div>
+                        <span class="sidebar-text">IFRS9 Scores Validation</span>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
                 {% if scorecard_nav_visibility.historical_scores %}
                 <a href="{% url 'scorecard:historical_scores_list' %}" class="nav-item">
                     <div class="nav-item-left">
@@ -1957,6 +1980,7 @@
                 'ifrs9-scores-dropdown-toggle': '{% url "scorecard:ifrs9_scores_submitted_list" %}',
                 'maker-dropdown-toggle': '{% if perms.scorecard.manage_basel_scores or request.user.is_superuser %}{% url "scorecard:maker_draft_list" %}{% elif perms.scorecard.manage_basel_templates %}{% url "scorecard:template_maker_draft_list" %}{% elif perms.scorecard.manage_ifrs9_templates %}{% url "scorecard:ifrs9_template_maker_draft_list" %}{% else %}{% url "scorecard:maker_ifrs9_scores_draft_list" %}{% endif %}',
                 'checker-dropdown-toggle': '{% if perms.scorecard.review_basel_scores or request.user.is_superuser %}{% url "scorecard:checker_pending_list" %}{% elif perms.scorecard.review_basel_templates %}{% url "scorecard:template_checker_pending_list" %}{% elif perms.scorecard.review_ifrs9_templates %}{% url "scorecard:ifrs9_template_checker_pending_list" %}{% elif perms.scorecard.review_ifrs9_scores %}{% url "scorecard:checker_ifrs9_scores_pending_list" %}{% else %}{% url "scorecard:ifrs9_supporting_data" %}{% endif %}',
+                'reports-dropdown-toggle': '{% if scorecard_route_access.ifrs9_results_basel_validations %}{% url "scorecard:ifrs9_results_basel_validations" %}{% else %}{% url "scorecard:ifrs9_results_ifrs9_validations" %}{% endif %}',
                 'documents-dropdown-toggle': '{% url "scorecard:document_list" %}',
             };
 
@@ -2628,6 +2652,8 @@
                     { match: ['/scorecard/ifrs9-results/results-extract/'], badge: 'Opening IFRS9 results', title: 'Loading Results Extract', copy: 'Preparing the latest-run IFRS9 reporting extract for the selected reporting date and branch scope.' },
                     { match: ['/scorecard/ifrs9-results/ecl-summary/'], badge: 'Opening IFRS9 results', title: 'Loading ECL Summary Report', copy: 'Preparing the latest-run IFRS9 ECL summary for the selected reporting date and branch scope.' },
                     { match: ['/scorecard/ifrs9-results/'], badge: 'Opening IFRS9 results', title: 'Loading IFRS9 Results', copy: 'Preparing IFRS9 results workspaces and reporting dates for the assigned branch scope.' },
+                    { match: ['/scorecard/reports/npl-migration/'], badge: 'Opening reports', title: 'Loading NPL Migration Report', copy: 'Preparing frozen historical score movements, grade migration, branch trends, and NPL measures.' },
+                    { match: ['/scorecard/reports/ifrs9-scores-validation/'], badge: 'Opening reports', title: 'Loading IFRS9 Scores Validation', copy: 'Preparing frozen historical IFRS9 score movements, population changes, and validation exceptions.' },
                     { match: ['/scorecard/checker/'], badge: 'Opening checker workspace', title: 'Loading Checker Worklists', copy: 'Preparing pending score and template reviews for the current branch workspace.' },
 
                     { match: ['/scorecard/scorecard/documents/scorecard/'], badge: 'Opening documents', title: 'Loading Scorecard Documents', copy: 'Preparing uploaded scorecard reference documents inside the current workspace.' },

@@ -26,8 +26,11 @@ from scorecard.functions_view.main_customer_lookup import (
     is_all_branches_selected,
 )
 from scorecard.functions_view.validation_export_cache import (
+    cache_validation_payload,
     cache_validation_export,
+    get_cached_validation_payload,
     get_cached_validation_export,
+    validation_payload_cache_key,
     validation_export_cache_key,
 )
 from scorecard.models import HistoricalScore
@@ -107,14 +110,21 @@ def _resolve_comparison_dates(
     return current_date, previous_date
 
 
-def _historical_values(queryset, reporting_date: date | None) -> list[dict[str, Any]]:
-    if reporting_date is None:
-        return []
-    return list(
-        queryset.filter(reporting_date=reporting_date)
-        .values("branch_name", "customer_id", "customer_name", "ifrs_9_score")
-        .order_by("customer_id", "branch_name")
+def _historical_values_for_dates(
+    queryset,
+    previous_date: date,
+    current_date: date,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    rows_by_date = {previous_date: [], current_date: []}
+    rows = (
+        queryset.filter(reporting_date__in=(previous_date, current_date))
+        .values("reporting_date", "branch_name", "customer_id", "customer_name", "ifrs_9_score")
+        .order_by("reporting_date", "branch_name", "customer_id")
     )
+    for row in rows:
+        reporting_date = row.pop("reporting_date")
+        rows_by_date[reporting_date].append(row)
+    return rows_by_date[previous_date], rows_by_date[current_date]
 
 
 def _build_detail_row(
@@ -344,18 +354,27 @@ def _filter_details(details: list[dict[str, Any]], search: str, movement_filter:
 
 
 def _build_validation_payload(historical_queryset, previous_date: date, current_date: date) -> dict[str, Any]:
-    previous_rows = _historical_values(historical_queryset, previous_date)
-    current_rows = _historical_values(historical_queryset, current_date)
+    previous_rows, current_rows = _historical_values_for_dates(
+        historical_queryset,
+        previous_date,
+        current_date,
+    )
     details = _pair_historical_rows(previous_rows, current_rows)
     previous_duplicates = _duplicate_customer_rows(previous_rows, previous_date, "Previous")
     current_duplicates = _duplicate_customer_rows(current_rows, current_date, "Current")
+    score_distribution = _score_distribution(previous_rows, current_rows)
     return {
         "previous_date": previous_date,
         "current_date": current_date,
         "details": details,
         "summary": _movement_summary(details),
         "branch_summary": _branch_summary(details),
-        "score_distribution": _score_distribution(previous_rows, current_rows),
+        "score_distribution": score_distribution,
+        "score_distribution_totals": {
+            "previous_count": sum(row["previous_count"] for row in score_distribution),
+            "current_count": sum(row["current_count"] for row in score_distribution),
+            "change": sum(row["change"] for row in score_distribution),
+        },
         "duplicate_customers": previous_duplicates + current_duplicates,
         "data_quality": {
             "previous_duplicate_customer_codes": len({row["customer_id"].casefold() for row in previous_duplicates}),
@@ -365,6 +384,30 @@ def _build_validation_payload(historical_queryset, previous_date: date, current_
             "exited_customers": sum(1 for row in details if row["movement_key"] == "exited"),
         },
     }
+
+
+def _get_validation_payload(
+    historical_queryset,
+    previous_date: date,
+    current_date: date,
+    branch_names: list[str],
+    selected_branch: str,
+) -> dict[str, Any]:
+    cache_key = validation_payload_cache_key(
+        report_name="ifrs9",
+        queryset=historical_queryset,
+        previous_date=previous_date,
+        current_date=current_date,
+        branch_names=branch_names,
+        selected_branch=selected_branch,
+    )
+    cached_payload = get_cached_validation_payload(cache_key)
+    if cached_payload is not None:
+        return cached_payload
+
+    payload = _build_validation_payload(historical_queryset, previous_date, current_date)
+    cache_validation_payload(cache_key, payload)
+    return payload
 
 
 def _style_title(worksheet, title: str, total_columns: int) -> None:
@@ -436,13 +479,13 @@ def _build_validation_workbook(
     summary_sheet.title = "Validation Summary"
     detail_sheet = workbook.create_sheet("Individual Customers")
     duplicate_sheet = workbook.create_sheet("Duplicate Customers")
-    distribution_sheet = workbook.create_sheet("Score Distribution")
+    distribution_sheet = workbook.create_sheet("Score Population")
     definitions_sheet = workbook.create_sheet("Definitions")
     for worksheet in workbook.worksheets:
         worksheet.sheet_view.showGridLines = False
 
     summary = payload["summary"]
-    _style_title(summary_sheet, "IFRS9 Historical Score Validations", 11)
+    _style_title(summary_sheet, "IFRS9 Scores Validation", 11)
     summary_sheet.append([
         "Previous Month-End", payload["previous_date"], "Current Month-End", payload["current_date"],
         "Branch Scope", selected_branch or branch_scope_label, "Generated", timezone.localtime().replace(tzinfo=None),
@@ -475,7 +518,10 @@ def _build_validation_workbook(
     summary_sheet.cell(branch_header_row, 1, "Branch Validation Summary")
     summary_sheet.cell(branch_header_row, 1).font = Font(name="Arial", bold=True, size=12, color="0B2D52")
     branch_columns = [
-        "Branch", "Previous Customers", "Current Customers", "Matched", "Increased", "Decreased",
+        "Branch",
+        f"Previous Population ({payload['previous_date']})",
+        f"Current Population ({payload['current_date']})",
+        "Matched Customers", "Increased", "Decreased",
         "Unchanged", "New", "Exited", "Average Score Change (pp)",
     ]
     summary_sheet.append(branch_columns)
@@ -493,7 +539,9 @@ def _build_validation_workbook(
     _add_table(summary_sheet, "IFRS9ValidationBranchSummary", branch_table_header)
 
     detail_columns = [
-        "Branch", "Customer Code", "Customer Name", "Previous IFRS9 Score", "Current IFRS9 Score",
+        "Branch", "Customer Code", "Customer Name",
+        f"Previous IFRS9 Score ({payload['previous_date']})",
+        f"Current IFRS9 Score ({payload['current_date']})",
         "Score Change (pp)", "Movement", "Previous Branch", "Branch Transfer",
     ]
     _style_title(detail_sheet, "Individual Customer IFRS9 Score Changes", len(detail_columns))
@@ -569,8 +617,13 @@ def _build_validation_workbook(
     duplicate_sheet.freeze_panes = "A5"
     duplicate_sheet.sheet_properties.tabColor = "E5484D"
 
-    distribution_columns = ["Analytical Score Range", "Previous Customers", "Current Customers", "Change"]
-    _style_title(distribution_sheet, "IFRS9 Historical Score Distribution", len(distribution_columns))
+    distribution_columns = [
+        "Analytical Score Range",
+        f"Previous Population ({payload['previous_date']})",
+        f"Current Population ({payload['current_date']})",
+        "Population Change",
+    ]
+    _style_title(distribution_sheet, "IFRS9 Score Population by Date", len(distribution_columns))
     distribution_sheet.append([
         "Previous Month-End", payload["previous_date"], "Current Month-End", payload["current_date"],
         "Note", "These are analytical ranges only and are not IFRS9 stages or regulatory grade bands.",
@@ -580,10 +633,20 @@ def _build_validation_workbook(
     _style_header_row(distribution_sheet, 4, len(distribution_columns))
     for row in payload["score_distribution"]:
         distribution_sheet.append([row["band"], row["previous_count"], row["current_count"], row["change"]])
+    distribution_totals = payload["score_distribution_totals"]
+    distribution_sheet.append([
+        "Total score population",
+        distribution_totals["previous_count"],
+        distribution_totals["current_count"],
+        distribution_totals["change"],
+    ])
+    for cell in distribution_sheet[distribution_sheet.max_row]:
+        cell.fill = PatternFill("solid", fgColor="EAF3FB")
+        cell.font = Font(name="Arial", color="0B2D52", bold=True)
     distribution_sheet.freeze_panes = "A5"
     _add_table(distribution_sheet, "IFRS9ScoreDistribution", 4)
 
-    _style_title(definitions_sheet, "IFRS9 Validation Definitions and Sources", 4)
+    _style_title(definitions_sheet, "IFRS9 Scores Validation Definitions and Sources", 4)
     definitions_sheet.append(["Item", "Definition", "Source", "Notes"])
     _style_header_row(definitions_sheet, 2, 4)
     definitions = [
@@ -591,7 +654,7 @@ def _build_validation_workbook(
         ("Score movement", "Current historical IFRS9 score minus the previous historical IFRS9 score.", "SCORECARD_HISTORICAL_SCORES", "Reported in percentage points without interpreting an increase or decrease as a regulatory stage movement."),
         ("New / exited", "Present only in the current month-end / present only in the previous month-end.", "SCORECARD_HISTORICAL_SCORES", "Matching uses customer code and prefers the same branch."),
         ("Duplicate customer", "The same customer code appears in more than one historical IFRS9 row for a reporting date.", "SCORECARD_HISTORICAL_SCORES", "Every occurrence is listed in the Duplicate Customers sheet."),
-        ("Score distribution", "Customer rows grouped into equal 20-point analytical ranges.", "SCORECARD_HISTORICAL_SCORES", "These ranges are not IFRS9 stages or regulatory grade bands."),
+        ("Score population by date", "Each selected date's complete IFRS9-scored population grouped into equal 20-point analytical ranges.", "SCORECARD_HISTORICAL_SCORES", "These ranges are not IFRS9 stages or regulatory grade bands; movement metrics use matched customers only."),
         ("Branch scope", "Only branches assigned to the user and selected in the scorecard workspace.", "Scorecard branch access", "A selected branch narrows every workbook sheet."),
     ]
     for row in definitions:
@@ -649,7 +712,13 @@ def ifrs9_validations_view(request: HttpRequest):
     filtered_details = []
     page_obj = None
     if current_date and previous_date:
-        payload = _build_validation_payload(historical_queryset, previous_date, current_date)
+        payload = _get_validation_payload(
+            historical_queryset,
+            previous_date,
+            current_date,
+            branch_names,
+            selected_branch,
+        )
         filtered_details = _filter_details(payload["details"], search, movement_filter)
         page_obj = Paginator(filtered_details, page_size).get_page(request.GET.get("page") or 1)
 
@@ -694,7 +763,7 @@ def ifrs9_validations_download_view(request: HttpRequest):
         request.GET.get("previous_date"),
     )
     if current_date is None or previous_date is None:
-        messages.error(request, "At least two historical month-end dates with IFRS9 scores are required for validation.")
+        messages.error(request, "At least two historical month-end dates with IFRS9 scores are required for IFRS9 scores validation.")
         return redirect("scorecard:ifrs9_results_ifrs9_validations")
 
     movement_filter = _clean(request.GET.get("movement"))
@@ -718,7 +787,13 @@ def ifrs9_validations_download_view(request: HttpRequest):
     if cached_export:
         workbook_bytes, customer_row_count = cached_export
     else:
-        payload = _build_validation_payload(historical_queryset, previous_date, current_date)
+        payload = _get_validation_payload(
+            historical_queryset,
+            previous_date,
+            current_date,
+            branch_names,
+            selected_branch,
+        )
         detail_rows = _filter_details(payload["details"], search, movement_filter)
         workbook = _build_validation_workbook(
             payload,
@@ -738,7 +813,7 @@ def ifrs9_validations_download_view(request: HttpRequest):
         request.user,
         "download_ifrs9_validations",
         details=(
-            f"Downloaded IFRS9 historical validations. Previous month-end: {previous_date.isoformat()}; "
+            f"Downloaded IFRS9 scores validation. Previous month-end: {previous_date.isoformat()}; "
             f"Current month-end: {current_date.isoformat()}; Branch scope: "
             f"{selected_branch or current_branch_display_name(request) or 'No branch selected'}; "
             f"Customer rows: {customer_row_count}"
@@ -751,7 +826,7 @@ def ifrs9_validations_download_view(request: HttpRequest):
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     response["Content-Disposition"] = (
-        f'attachment; filename="ifrs9_validations_{previous_date.isoformat()}_to_{current_date.isoformat()}.xlsx"'
+        f'attachment; filename="ifrs9_scores_validation_{previous_date.isoformat()}_to_{current_date.isoformat()}.xlsx"'
     )
     response["X-Validation-Export-Cache"] = cache_status
     return response
