@@ -45,7 +45,7 @@ MOVEMENT_OPTIONS = (
     ("exited", "Exited since prior month"),
 )
 VALID_MOVEMENT_FILTERS = {value for value, _label in MOVEMENT_OPTIONS}
-PAGE_SIZE_OPTIONS = (25, 50, 100)
+PAGE_SIZE_OPTIONS = (10, 25, 50, 100)
 SCORE_BANDS = (
     ("0% - 20%", Decimal("0"), Decimal("20")),
     (">20% - 40%", Decimal("20"), Decimal("40")),
@@ -702,11 +702,11 @@ def ifrs9_validations_view(request: HttpRequest):
         movement_filter = ""
     search = _clean(request.GET.get("search"))
     try:
-        page_size = int(request.GET.get("page_size") or 50)
+        page_size = int(request.GET.get("page_size") or 10)
     except (TypeError, ValueError):
-        page_size = 50
+        page_size = 10
     if page_size not in PAGE_SIZE_OPTIONS:
-        page_size = 50
+        page_size = 10
 
     payload = None
     filtered_details = []

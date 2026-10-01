@@ -229,6 +229,34 @@ class ValidationReportPermissionTests(SimpleTestCase):
 
 
 class ValidationReportPerformanceTests(SimpleTestCase):
+    def test_validation_reports_start_with_ten_rows_per_page(self):
+        from scorecard.functions_view import basel_validations, ifrs9_validations
+
+        self.assertEqual(basel_validations.PAGE_SIZE_OPTIONS, (10, 25, 50, 100))
+        self.assertEqual(ifrs9_validations.PAGE_SIZE_OPTIONS, (10, 25, 50, 100))
+
+    def test_branch_validation_tables_start_with_ten_rows(self):
+        templates = (
+            (
+                "credit_scoreshifts/basel_validations.html",
+                "validation-branch-page-size",
+                "validation-branch-data-row",
+            ),
+            (
+                "credit_scoreshifts/ifrs9_validations.html",
+                "iv-branch-page-size",
+                "iv-branch-data-row",
+            ),
+        )
+
+        for template_name, page_size_id, row_class in templates:
+            source = get_template(template_name).template.source
+            self.assertIn(f'id="{page_size_id}"', source)
+            self.assertIn('<option value="10" selected>10</option>', source)
+            self.assertIn(row_class, source)
+            self.assertIn('const pageSize = Number.parseInt(pageSizeControl.value, 10) || 10;', source)
+            self.assertIn('setupBranchPagination();', source)
+
     class _HistoricalRowsQuerySet:
         def __init__(self, rows):
             self.rows = rows
@@ -473,6 +501,32 @@ class ValidationReportPerformanceTests(SimpleTestCase):
         self.assertEqual(distribution["B1"]["current_count"], 0)
         self.assertEqual(distribution["B2"]["previous_count"], 0)
         self.assertEqual(distribution["B2"]["current_count"], 1)
+
+        workbook = basel_validations._build_validation_workbook(
+            payload,
+            payload["details"],
+            "ALL ASSIGNED BRANCHES",
+            "",
+            "",
+            "",
+        )
+        output = BytesIO()
+        workbook.save(output)
+        output.seek(0)
+        exported_workbook = openpyxl.load_workbook(output, data_only=True)
+        population_sheet = exported_workbook["Grade Population by Date"]
+        self.assertEqual(
+            population_sheet["B4"].value,
+            f"Previous Customers ({previous_date})",
+        )
+        self.assertEqual(
+            population_sheet["C4"].value,
+            f"Current Customers ({current_date})",
+        )
+        self.assertEqual(
+            [cell.value for cell in population_sheet[population_sheet.max_row]],
+            ["Total graded customers", 2, 3, 1, None, None, None, None],
+        )
 
         template_source = get_template(
             "credit_scoreshifts/basel_validations.html"

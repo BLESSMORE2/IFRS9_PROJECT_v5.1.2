@@ -50,7 +50,7 @@ MOVEMENT_OPTIONS = (
     ("exited", "Exited since prior month"),
 )
 VALID_MOVEMENT_FILTERS = {value for value, _label in MOVEMENT_OPTIONS}
-PAGE_SIZE_OPTIONS = (25, 50, 100)
+PAGE_SIZE_OPTIONS = (10, 25, 50, 100)
 
 
 def _clean(value: Any) -> str:
@@ -703,7 +703,7 @@ def _build_validation_workbook(
     detail_sheet = workbook.create_sheet("Individual Customers")
     duplicate_sheet = workbook.create_sheet("Duplicate Customers")
     migration_sheet = workbook.create_sheet("Grade Migration")
-    distribution_sheet = workbook.create_sheet("Grade Distribution")
+    distribution_sheet = workbook.create_sheet("Grade Population by Date")
     npl_sheet = workbook.create_sheet("NPL by Branch")
     definitions_sheet = workbook.create_sheet("Definitions")
     for worksheet in workbook.worksheets:
@@ -868,7 +868,7 @@ def _build_validation_workbook(
     migration = payload["grade_migration"]
     migration_columns = [f"Previous Grade ({payload['previous_date']})"] + migration["current_grades"] + ["Matched Previous Total"]
     _style_title(migration_sheet, "Basel II Grade Migration Matrix", len(migration_columns))
-    migration_sheet.append(["Each cell is one matched-customer movement count from the previous row grade to the current column grade. Separate date populations are in Grade Distribution."])
+    migration_sheet.append(["Each cell is one matched-customer movement count from the previous row grade to the current column grade. Separate date populations are in Grade Population by Date."])
     migration_sheet.cell(3, 1, f"Previous Grade ↓ ({payload['previous_date']})")
     migration_sheet.merge_cells(start_row=3, start_column=2, end_row=3, end_column=1 + len(migration["current_grades"]))
     migration_sheet.cell(3, 2, f"Current Grade → ({payload['current_date']})")
@@ -912,13 +912,24 @@ def _build_validation_workbook(
         f"Current Customers ({payload['current_date']})",
         "Change",
     ]
-    _style_title(distribution_sheet, "Basel II Grade Distribution", len(distribution_columns))
+    _style_title(distribution_sheet, "Grade Population by Date", len(distribution_columns))
     distribution_sheet.append(["Previous Month-End", payload["previous_date"], "Current Month-End", payload["current_date"]])
     distribution_sheet.append([])
     distribution_sheet.append(distribution_columns)
     _style_header_row(distribution_sheet, 4, len(distribution_columns))
     for row in payload["grade_distribution"]:
         distribution_sheet.append([row["grade"], row["previous_count"], row["current_count"], row["change"]])
+    distribution_totals = payload["grade_distribution_totals"]
+    distribution_sheet.append([
+        "Total graded customers",
+        distribution_totals["previous_count"],
+        distribution_totals["current_count"],
+        distribution_totals["change"],
+    ])
+    for cell in distribution_sheet[distribution_sheet.max_row]:
+        cell.fill = PatternFill("solid", fgColor="EAF3FB")
+        cell.font = Font(name="Arial", bold=True, color="0B2D52")
+    distribution_sheet.freeze_panes = "A5"
     _add_table(distribution_sheet, "BaselGradeDistribution", 4)
 
     npl_columns = [
@@ -1024,11 +1035,11 @@ def basel_validations_view(request: HttpRequest):
         movement_filter = ""
     search = _clean(request.GET.get("search"))
     try:
-        page_size = int(request.GET.get("page_size") or 50)
+        page_size = int(request.GET.get("page_size") or 10)
     except (TypeError, ValueError):
-        page_size = 50
+        page_size = 10
     if page_size not in PAGE_SIZE_OPTIONS:
-        page_size = 50
+        page_size = 10
 
     payload = None
     filtered_details = []
