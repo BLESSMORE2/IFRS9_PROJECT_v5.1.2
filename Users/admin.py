@@ -24,7 +24,13 @@ class CustomUserAdmin(UserAdmin):
     form = CustomUserAdminChangeForm
     add_form = CustomUserAdminCreationForm
     change_password_form = CustomAdminPasswordChangeForm
-    readonly_fields = ("last_login", "date_joined", "password_changed_at")
+    readonly_fields = (
+        "last_login",
+        "date_joined",
+        "password_changed_at",
+        "inactivity_locked_at",
+        "inactivity_lock_reset_at",
+    )
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
@@ -40,6 +46,8 @@ class CustomUserAdmin(UserAdmin):
                     "password_changed_at",
                     "microsoft_authenticator_enabled",
                     "microsoft_authenticator_confirmed_at",
+                    "inactivity_locked_at",
+                    "inactivity_lock_reset_at",
                 )
             },
         ),

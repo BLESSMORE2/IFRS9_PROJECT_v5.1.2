@@ -39,7 +39,15 @@ from .forms import (
 )
 from .models import CustomUser, SystemModule, SystemSetting, UserModuleAccess, UserAccessLog, UserRoleGroup
 from .backends import resolve_login_user
-from .access_logs import begin_user_session_log, close_user_session_log
+from .access_logs import (
+    begin_user_session_log,
+    close_user_session_log,
+    _get_client_ip,
+    get_live_access_log_session_keys,
+    get_live_access_log_user_ids,
+    reconcile_stale_user_session_logs,
+    sweep_idle_user_sessions,
+)
 from .security import (
     password_change_required,
     password_expiry_reminder_due,
@@ -169,7 +177,10 @@ SCORECARD_ROLE_DESCRIPTIONS = {
     "IFRS9 Score Administrator": "Full IFRS9 score control across creation, review, and reopen actions.",
     "IFRS9 Supporting Data Manager": "Maintain branch-scoped collateral and payment schedule staging records for active IFRS9 loans.",
     "IFRS9 Results Viewer": "Open branch-scoped IFRS9 results extracts and ECL summary reporting workspaces.",
+    "NPL Migration Report Viewer": "Review and download the branch-scoped NPL migration report.",
+    "IFRS9 Scores Validation Viewer": "Review and download the branch-scoped IFRS9 scores validation report.",
     "Historical Score Viewer": "Review branch-scoped historical score snapshots and download filtered historical score extracts.",
+    "Historical Score Administrator": "Refresh and bulk-delete historical score snapshots without granting API administration.",
     "Customer Viewer": "Review customer directories, exports, and score gap lists.",
     "Customer Manager": "Create and maintain scorecard customer records.",
     "Branch Viewer": "Open the branch master workspace in read-only mode.",
@@ -320,7 +331,7 @@ def get_app_version():
     return get_current_application_version()
 
 
-def _render_lockout_response(request, target_user=None, permanent_lock=False):
+def _render_lockout_response(request, target_user=None, permanent_lock=False, inactivity_lock=False):
     popup_mode = _workspace_popup_enabled(request)
     lockout_until = getattr(target_user, "lockout_until", None) if target_user is not None else None
     lockout_remaining_seconds = 0
@@ -333,6 +344,7 @@ def _render_lockout_response(request, target_user=None, permanent_lock=False):
             "app_version": get_app_version(),
             "popup_mode": popup_mode,
             "permanent_lock": permanent_lock,
+            "inactivity_lock": inactivity_lock,
             "lockout_until": lockout_until,
             "lockout_remaining_seconds": lockout_remaining_seconds,
         },
@@ -346,6 +358,13 @@ MICROSOFT_AUTH_PENDING_USER_ID_KEY = "users_pending_microsoft_auth_user_id"
 PASSWORD_EXPIRY_REMINDER_SESSION_KEY = "users_password_expiry_reminder"
 WORKSPACE_POPUP_SESSION_KEY = "users_workspace_popup_mode"
 WORKSPACE_POPUP_WINDOW_NAME = "nexaWorkspaceWindow"
+SESSION_END_QUERY_PARAM = "session_end"
+SESSION_END_NOTICE_COOKIE = "nexa_session_end"
+SESSION_END_NOTICE_SESSION_KEY = "users_session_end_notice_seen"
+SESSION_END_NOTICE_MESSAGES = {
+    UserAccessLog.END_REASON_IDLE_TIMEOUT: "You have been logged out because your session was idle for too long. Please sign in again to continue.",
+    UserAccessLog.END_REASON_ABSOLUTE_TIMEOUT: "Your session reached the maximum allowed time and was closed. Please sign in again to continue.",
+}
 
 
 def _clear_password_expiry_reminder(request):
@@ -382,6 +401,85 @@ def _workspace_launcher_target(user, next_target=""):
         return get_post_login_redirect(user)
     return reverse("login_popup")
 
+
+def _get_session_end_notice_code(request):
+    code = (request.GET.get(SESSION_END_QUERY_PARAM) or "").strip()
+    if code in SESSION_END_NOTICE_MESSAGES:
+        return code
+
+    cookie_code = (request.COOKIES.get(SESSION_END_NOTICE_COOKIE) or "").strip()
+    if cookie_code in SESSION_END_NOTICE_MESSAGES:
+        return cookie_code
+
+    session_key = request.COOKIES.get(settings.SESSION_COOKIE_NAME)
+    if session_key:
+        try:
+            recent_cutoff = timezone.now() - timedelta(hours=24)
+            log_entry = (
+                UserAccessLog.objects.filter(
+                    session_key=session_key,
+                    end_reason__in=SESSION_END_NOTICE_MESSAGES,
+                    logout_time__gte=recent_cutoff,
+                )
+                .order_by("-logout_time")
+                .only("end_reason")
+                .first()
+            )
+        except Exception:
+            log_entry = None
+
+        if log_entry:
+            return log_entry.end_reason
+
+    recent_notice_code = _get_recent_session_end_notice_code(request)
+    if recent_notice_code:
+        return recent_notice_code
+
+    return ""
+
+
+def _get_recent_session_end_notice_code(request):
+    """Recover an idle/timeout notice when the browser lands on login with only next=."""
+    try:
+        recent_cutoff = timezone.now() - timedelta(minutes=10)
+        user_agent = (request.META.get("HTTP_USER_AGENT") or "").strip()[:255]
+        client_ip = _get_client_ip(request)
+        lookup = {
+            "end_reason__in": SESSION_END_NOTICE_MESSAGES,
+            "logout_time__gte": recent_cutoff,
+        }
+        if user_agent:
+            lookup["user_agent"] = user_agent
+        if client_ip:
+            lookup["ip_address"] = client_ip
+
+        log_entry = (
+            UserAccessLog.objects.filter(**lookup)
+            .order_by("-logout_time")
+            .only("end_reason")
+            .first()
+        )
+    except Exception:
+        return ""
+
+    return log_entry.end_reason if log_entry else ""
+
+
+def _queue_session_end_notice(request, queue_message=True):
+    code = _get_session_end_notice_code(request)
+    if not code:
+        return ""
+
+    session_key = request.COOKIES.get(settings.SESSION_COOKIE_NAME) or "query"
+    notice_key = f"{code}:{session_key}"
+    if request.session.get(SESSION_END_NOTICE_SESSION_KEY) == notice_key:
+        return code
+
+    if queue_message:
+        messages.warning(request, SESSION_END_NOTICE_MESSAGES[code])
+        request.session[SESSION_END_NOTICE_SESSION_KEY] = notice_key
+    return code
+
 def login_view(request):
     """Login view with expiry check."""
     # Invalidate caches immediately before checking package status
@@ -401,6 +499,8 @@ def login_view(request):
         password = request.POST.get("password", None)
         next_target = _get_safe_next_value(request.POST.get("next"))
         target_user = resolve_login_user(identifier) if identifier else None
+        if target_user and _is_user_inactivity_locked(target_user):
+            return _render_lockout_response(request, target_user, inactivity_lock=True)
         if target_user and _is_user_permanently_locked(target_user):
             return _render_lockout_response(request, target_user, permanent_lock=True)
         if target_user and _is_user_in_custom_lockout(target_user):
@@ -462,8 +562,14 @@ def login_view(request):
 def login_view(request):
     runtime_settings = apply_runtime_security_settings()
     next_target = _get_safe_next_value(request.GET.get("next") or request.POST.get("next"))
+    session_end_code = _queue_session_end_notice(request, queue_message=False)
     popup_login_url = reverse("login_popup")
-    popup_query = urllib.parse.urlencode({"next": next_target}) if next_target else ""
+    popup_params = {}
+    if next_target:
+        popup_params["next"] = next_target
+    if session_end_code:
+        popup_params[SESSION_END_QUERY_PARAM] = session_end_code
+    popup_query = urllib.parse.urlencode(popup_params)
     popup_url = f"{popup_login_url}?{popup_query}" if popup_query else popup_login_url
 
     return render(
@@ -493,6 +599,8 @@ def login_popup_view(request):
         next_target = _get_safe_next_value(request.POST.get("next"))
         target_user = resolve_login_user(identifier) if identifier else None
         _set_workspace_popup_mode(request, True)
+        if target_user and _is_user_inactivity_locked(target_user):
+            return _render_lockout_response(request, target_user, inactivity_lock=True)
         if target_user and _is_user_permanently_locked(target_user):
             return _render_lockout_response(request, target_user, permanent_lock=True)
         if target_user and _is_user_in_custom_lockout(target_user):
@@ -545,15 +653,17 @@ def login_popup_view(request):
             return redirect("login_popup")
 
     next_url = _get_safe_next_value(request.GET.get("next"))
+    session_end_code = _queue_session_end_notice(request, queue_message=False)
     _set_workspace_popup_mode(request, True)
     microsoft_query = {"purpose": "login", "next": next_url or "", "popup": "1"}
-    return render(
+    response = render(
         request,
         "users/login.html",
         {
             "app_version": get_app_version(),
             "next_url": next_url,
             "popup_mode": True,
+            "session_end_notice": SESSION_END_NOTICE_MESSAGES.get(session_end_code, ""),
             "login_form_action": reverse("login_popup"),
             "microsoft_login_available": microsoft_login_available,
             "microsoft_login_required": microsoft_login_available and runtime_settings.microsoft_auth_on_login,
@@ -561,6 +671,9 @@ def login_popup_view(request):
             "microsoft_login_url": f"{reverse('microsoft_auth_start')}?{urllib.parse.urlencode(microsoft_query)}",
         },
     )
+    if request.COOKIES.get(SESSION_END_NOTICE_COOKIE):
+        response.delete_cookie(SESSION_END_NOTICE_COOKIE, samesite="Lax")
+    return response
 
 
 def microsoft_auth_start_view(request):
@@ -1098,6 +1211,10 @@ def user_settings_system_view(request):
         return redirect("modules_home")
 
     runtime_settings = get_system_settings()
+    previous_inactivity_policy = (
+        bool(getattr(runtime_settings, "enable_inactivity_lock", False)),
+        int(getattr(runtime_settings, "inactivity_lock_days", 90) or 90),
+    )
     backend_state = _load_database_backend_state()
     system_active_tab = _normalize_system_settings_tab(request.GET.get("tab"))
     system_settings_available = hasattr(runtime_settings, "_meta")
@@ -1230,7 +1347,26 @@ def user_settings_system_view(request):
                 saved_settings.save()
                 clear_runtime_caches()
                 apply_runtime_security_settings()
+                current_inactivity_policy = (
+                    bool(saved_settings.enable_inactivity_lock),
+                    int(saved_settings.inactivity_lock_days),
+                )
+                if current_inactivity_policy != previous_inactivity_policy:
+                    save_audit_trail(
+                        request.user,
+                        "SystemSetting",
+                        "update",
+                        "inactivity_lock_policy",
+                        (
+                            "Updated inactive-account lock policy. "
+                            f"Enabled: {previous_inactivity_policy[0]} -> {current_inactivity_policy[0]}. "
+                            f"Days: {previous_inactivity_policy[1]} -> {current_inactivity_policy[1]}."
+                        ),
+                    )
                 messages.success(request, "System settings were updated successfully.")
+                requested_tab = (request.POST.get("settings_tab") or "").strip()
+                if requested_tab:
+                    return redirect(f"{reverse('user_settings_system')}?tab={requested_tab}")
                 return redirect("user_settings_system")
     context = _build_settings_context(
         request,
@@ -1291,6 +1427,16 @@ def user_settings_access_logs_view(request):
     selected_end_reason = (request.GET.get("end_reason") or "").strip()
     search_query = (request.GET.get("search") or request.GET.get("username") or "").strip()
     selected_user_activity_state = (request.GET.get("user_activity") or "").strip().lower()
+    access_log_now = timezone.now()
+
+    try:
+        sweep_idle_user_sessions(ended_at=access_log_now)
+        reconcile_stale_user_session_logs(ended_at=access_log_now)
+    except DatabaseError:
+        pass
+
+    live_session_keys = get_live_access_log_session_keys(ended_at=access_log_now)
+    live_user_ids = get_live_access_log_user_ids(ended_at=access_log_now)
 
     if request.method == "POST":
         action = (request.POST.get("action") or "").strip()
@@ -1345,18 +1491,31 @@ def user_settings_access_logs_view(request):
                     )
                 )
 
-            _release_user_lockout_by_admin(target_user)
+            released_inactivity_lock = _release_user_lockout_by_admin(target_user)
+            release_description = (
+                f"Released inactivity lock for user {target_user.email} from the Access Logs workspace "
+                "and started a fresh inactivity grace period."
+                if released_inactivity_lock
+                else f"Released lockout state for user {target_user.email} from the Access Logs workspace "
+                "and armed permanent lock on the next failed password while preserving history."
+            )
             save_audit_trail(
                 request.user,
                 "CustomUser",
                 "update",
                 target_user.pk,
-                f"Released lockout state for user {target_user.email} from the Access Logs workspace and armed permanent lock on the next failed password while preserving history.",
+                release_description,
             )
-            messages.success(
-                request,
-                f"Released {target_user.email}. History was preserved, and the next failed password will require another administrator reset.",
-            )
+            if released_inactivity_lock:
+                messages.success(
+                    request,
+                    f"Released {target_user.email}. A fresh inactivity grace period has started so the user can sign in.",
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Released {target_user.email}. History was preserved, and the next failed password will require another administrator reset.",
+                )
             return redirect(
                 _build_access_logs_view_url(
                     "users",
@@ -1412,15 +1571,17 @@ def user_settings_access_logs_view(request):
             access_logs_qs = access_logs_qs.filter(end_reason=selected_end_reason)
 
         session_rows = list(access_logs_qs[:120])
-        session_metrics = UserAccessLog.objects.aggregate(
-            total_sessions=Count("id"),
-            active_sessions=Count("id", filter=Q(end_reason=UserAccessLog.END_REASON_ACTIVE)),
-            manual_sessions=Count("id", filter=Q(end_reason=UserAccessLog.END_REASON_MANUAL_LOGOUT)),
-            timeout_sessions=Count(
-                "id",
-                filter=Q(end_reason__in=[UserAccessLog.END_REASON_IDLE_TIMEOUT, UserAccessLog.END_REASON_ABSOLUTE_TIMEOUT]),
-            ),
-        )
+        session_metrics = {
+            "total_sessions": UserAccessLog.objects.count(),
+            "active_sessions": UserAccessLog.objects.filter(
+                logout_time__isnull=True,
+                session_key__in=live_session_keys,
+            ).count(),
+            "manual_sessions": UserAccessLog.objects.filter(end_reason=UserAccessLog.END_REASON_MANUAL_LOGOUT).count(),
+            "timeout_sessions": UserAccessLog.objects.filter(
+                end_reason__in=[UserAccessLog.END_REASON_IDLE_TIMEOUT, UserAccessLog.END_REASON_ABSOLUTE_TIMEOUT]
+            ).count(),
+        }
     except DatabaseError:
         session_log_available = False
         if access_log_view == "sessions":
@@ -1491,20 +1652,21 @@ def user_settings_access_logs_view(request):
                 filter=Q(
                     access_log_entries__end_reason=UserAccessLog.END_REASON_ACTIVE,
                     access_log_entries__logout_time__isnull=True,
+                    access_log_entries__session_key__in=live_session_keys,
                 ),
                 distinct=True,
             )
         )
         if selected_user_activity_state == "active":
-            user_roster_base_qs = user_roster_base_qs.filter(active_session_count__gt=0)
+            user_roster_base_qs = user_roster_base_qs.filter(pk__in=live_user_ids)
         elif selected_user_activity_state == "inactive":
-            user_roster_base_qs = user_roster_base_qs.filter(active_session_count=0)
+            user_roster_base_qs = user_roster_base_qs.exclude(pk__in=live_user_ids)
         elif selected_user_activity_state == "never_logged":
             user_roster_base_qs = user_roster_base_qs.filter(last_login__isnull=True)
 
         user_roster_metrics = {
             "total_users": user_roster_base_qs.count(),
-            "currently_active_users": user_roster_base_qs.filter(active_session_count__gt=0).count(),
+            "currently_active_users": user_roster_base_qs.filter(pk__in=live_user_ids).count(),
             "never_logged_in_users": user_roster_base_qs.filter(last_login__isnull=True).count(),
         }
         user_roster_rows = list(user_roster_base_qs[:200])
@@ -1668,7 +1830,7 @@ def user_settings_access_logs_view(request):
                 ("inactive", "Not currently active"),
                 ("never_logged", "Never logged in"),
             ),
-            "access_log_now": timezone.now(),
+            "access_log_now": access_log_now,
             "session_log_available": session_log_available,
             "attempt_log_available": attempt_log_available,
             "failure_log_available": failure_log_available,
@@ -1693,6 +1855,16 @@ def user_settings_access_logs_download_view(request):
     if not _can_view_access_logs(request.user):
         messages.error(request, "You do not have permission to download access logs.")
         return redirect("modules_home")
+
+    download_now = timezone.now()
+    try:
+        sweep_idle_user_sessions(ended_at=download_now)
+        reconcile_stale_user_session_logs(ended_at=download_now)
+    except DatabaseError:
+        pass
+
+    live_session_keys = get_live_access_log_session_keys(ended_at=download_now)
+    live_user_ids = get_live_access_log_user_ids(ended_at=download_now)
 
     access_log_view = _normalize_access_log_view(request.GET.get("log_view"))
     selected_user_id = (request.GET.get("user") or "").strip()
@@ -1846,14 +2018,15 @@ def user_settings_access_logs_download_view(request):
                         filter=Q(
                             access_log_entries__end_reason=UserAccessLog.END_REASON_ACTIVE,
                             access_log_entries__logout_time__isnull=True,
+                            access_log_entries__session_key__in=live_session_keys,
                         ),
                         distinct=True,
                     )
                 )
                 if selected_user_activity_state == "active":
-                    queryset = queryset.filter(active_session_count__gt=0)
+                    queryset = queryset.filter(pk__in=live_user_ids)
                 elif selected_user_activity_state == "inactive":
-                    queryset = queryset.filter(active_session_count=0)
+                    queryset = queryset.exclude(pk__in=live_user_ids)
                 elif selected_user_activity_state == "never_logged":
                     queryset = queryset.filter(last_login__isnull=True)
             except DatabaseError:
@@ -2096,6 +2269,12 @@ def _is_user_permanently_locked(user):
     return bool(getattr(user, "permanently_locked", False))
 
 
+def _is_user_inactivity_locked(user):
+    if not user:
+        return False
+    return bool(getattr(user, "inactivity_locked_at", None))
+
+
 def _reset_user_failed_login_state(user):
     if not user:
         return
@@ -2108,12 +2287,26 @@ def _reset_user_failed_login_state(user):
 
 def _release_user_lockout_by_admin(user):
     if not user:
-        return
+        return False
+    released_inactivity_lock = _is_user_inactivity_locked(user)
     user.failed_login_attempts = 0
     user.lockout_until = None
-    user.lock_immediately_on_next_failure = True
+    user.lock_immediately_on_next_failure = not released_inactivity_lock
     user.permanently_locked = False
-    user.save(update_fields=["failed_login_attempts", "lockout_until", "lock_immediately_on_next_failure", "permanently_locked"])
+    user.inactivity_locked_at = None
+    if released_inactivity_lock:
+        user.inactivity_lock_reset_at = timezone.now()
+    user.save(
+        update_fields=[
+            "failed_login_attempts",
+            "lockout_until",
+            "lock_immediately_on_next_failure",
+            "permanently_locked",
+            "inactivity_locked_at",
+            "inactivity_lock_reset_at",
+        ]
+    )
+    return released_inactivity_lock
 
 
 def _register_failed_login_attempt(user, runtime_settings):
@@ -2697,6 +2890,9 @@ def _handle_authenticator_app_challenge(request, runtime_settings, purpose):
     )
 
     if purpose == "login":
+        if _is_user_inactivity_locked(user):
+            _clear_pending_microsoft_auth(request)
+            return _render_lockout_response(request, user, inactivity_lock=True)
         user.backend = "Users.backends.CaseInsensitiveEmailOrAliasBackend"
         _reset_user_failed_login_state(user)
         login(request, user)

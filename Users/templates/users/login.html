@@ -256,6 +256,14 @@
             </div>
             <h2>Sign in to your account</h2>
 
+            {% if session_end_notice %}
+            <div class="alert-stack">
+                <div class="alert alert-warning" role="alert">
+                    {{ session_end_notice }}
+                </div>
+            </div>
+            {% endif %}
+
             {% if messages %}
             <div class="alert-stack">
                 {% for message in messages %}

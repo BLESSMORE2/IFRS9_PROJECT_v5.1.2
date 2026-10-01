@@ -83,6 +83,8 @@ class FallbackSystemSettings:
     default_landing_rule: str = SystemSetting.LANDING_RULE_LAUNCHER
     failed_login_limit: int = 3
     lockout_duration_minutes: int = 60
+    enable_inactivity_lock: bool = False
+    inactivity_lock_days: int = 90
     enable_self_profile_edit: bool = True
     enable_self_password_change: bool = True
     password_expiry_days: int = 90

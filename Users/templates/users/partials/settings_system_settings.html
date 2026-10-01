@@ -12,6 +12,10 @@
             <div class="metric-label">Failed Attempts</div>
             <div class="metric-value">{{ runtime_settings.failed_login_limit }}</div>
         </div>
+        <div class="metric">
+            <div class="metric-label">Inactive Account Lock</div>
+            <div class="metric-value">{% if runtime_settings.enable_inactivity_lock %}{{ runtime_settings.inactivity_lock_days }}d{% else %}Off{% endif %}</div>
+        </div>
     </div>
 
     <div class="card">
@@ -72,6 +76,10 @@
                             <div class="status-row">
                                 <span class="status-label">Lockout Duration</span>
                                 <span class="status-value">{{ runtime_settings.lockout_duration_minutes }} minute{{ runtime_settings.lockout_duration_minutes|pluralize }}</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Inactive Account Lock</span>
+                                <span class="status-value">{% if runtime_settings.enable_inactivity_lock %}After {{ runtime_settings.inactivity_lock_days }} day{{ runtime_settings.inactivity_lock_days|pluralize }} without login{% else %}Disabled{% endif %}</span>
                             </div>
                         </div>
                     </div>
@@ -175,10 +183,11 @@
                 <form method="post" class="card">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="save_runtime_controls">
+                    <input type="hidden" name="settings_tab" value="security">
                     <div class="card-head">
                         <div>
                             <h2 class="card-title">Security Controls</h2>
-                            <p class="card-copy">Manage failed sign-in protection and temporary account lockout rules.</p>
+                            <p class="card-copy">Manage failed sign-in protection, temporary lockouts, and automatic locks for accounts that have not signed in recently.</p>
                         </div>
                     </div>
                     <div class="form-grid">
@@ -192,9 +201,24 @@
                             {{ system_form.lockout_duration_minutes }}
                             <div class="help-text">{{ system_form.lockout_duration_minutes.help_text }}</div>
                         </div>
+                        <div class="field-card">
+                            <div class="toggle-field">
+                                <div>
+                                    <label for="{{ system_form.enable_inactivity_lock.id_for_label }}">Enable Inactive-Account Locking</label>
+                                    <div class="help-text">{{ system_form.enable_inactivity_lock.help_text }}</div>
+                                </div>
+                                <input type="hidden" name="{{ system_form.enable_inactivity_lock.html_name }}" value="">
+                                {{ system_form.enable_inactivity_lock }}
+                            </div>
+                        </div>
+                        <div class="field-card">
+                            <label for="{{ system_form.inactivity_lock_days.id_for_label }}">Days Without Login</label>
+                            {{ system_form.inactivity_lock_days }}
+                            <div class="help-text">{{ system_form.inactivity_lock_days.help_text }}</div>
+                        </div>
                     </div>
                     <div class="editor-actions">
-                        <div class="editor-note">These limits help protect the shared sign-in experience from repeated failed attempts.</div>
+                        <div class="editor-note">The background Users scheduler checks active regular users. Superusers are excluded to preserve administrative recovery access.</div>
                         <button type="submit" class="primary-btn"{% if not can_manage_system_settings %} disabled{% endif %}>
                             <i class="fas fa-save"></i><span>Save Security Settings</span>
                         </button>

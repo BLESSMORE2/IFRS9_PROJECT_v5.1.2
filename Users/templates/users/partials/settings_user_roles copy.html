@@ -193,31 +193,22 @@
                         {% endif %}
                         <div class="role-section-grid">
                             {% for section in role_sections %}
-                            <section class="role-section-card {{ section.accent }}" data-role-bulk-section>
+                            <section class="role-section-card {{ section.accent }}">
                                 <div class="role-section-head">
                                     <div class="role-section-icon"><i class="{{ section.icon }}"></i></div>
                                     <div>
                                         <h3>{{ section.title }}</h3>
                                         <p>{{ section.subtitle }}</p>
                                     </div>
-                                    <div class="role-section-bulk">
-                                        <span class="role-section-count" data-role-bulk-count>{{ section.selected_count }}/{{ section.count }} selected</span>
-                                        {% if can_manage_user_roles and section.roles %}
-                                        <div class="scorecard-branch-actions role-bulk-actions">
-                                            <button type="button" class="scorecard-branch-action" data-role-bulk-action="all">Select All</button>
-                                            <button type="button" class="scorecard-branch-action is-secondary" data-role-bulk-action="none">Clear</button>
-                                        </div>
-                                        {% endif %}
-                                    </div>
+                                    <span class="role-section-count">{{ section.selected_count }}/{{ section.count }} selected</span>
                                 </div>
                                 <div class="role-check-grid">
                                     {% for role in section.roles %}
-                                    <label class="role-check-item{% if role.checked %} selected{% endif %}" data-role-bulk-card>
+                                    <label class="role-check-item{% if role.checked %} selected{% endif %}">
                                         <input
                                             type="checkbox"
                                             name="groups"
                                             value="{{ role.group.id }}"
-                                            data-role-bulk-checkbox
                                             {% if role.checked %}checked{% endif %}
                                             {% if not can_manage_user_roles %}disabled{% endif %}
                                         >
@@ -341,32 +332,22 @@
                             {% if role_group_form.roles.errors %}<div class="field-error">{{ role_group_form.roles.errors }}</div>{% endif %}
                             <div class="role-section-grid mini-role-sections">
                                 {% for section in role_sections %}
-                                <section class="role-section-card {{ section.accent }}" data-role-bulk-section>
+                                <section class="role-section-card {{ section.accent }}">
                                     <div class="role-section-head compact-role-section-head">
                                         <div class="role-section-icon"><i class="{{ section.icon }}"></i></div>
                                         <div>
                                             <h3>{{ section.title }}</h3>
                                             <p>{{ section.subtitle }}</p>
                                         </div>
-                                        <div class="role-section-bulk">
-                                            <span class="role-section-count" data-role-bulk-count>0/{{ section.count }} selected</span>
-                                            {% if can_manage_user_roles and section.roles %}
-                                            <div class="scorecard-branch-actions role-bulk-actions">
-                                                <button type="button" class="scorecard-branch-action" data-role-bulk-action="all">Select All</button>
-                                                <button type="button" class="scorecard-branch-action is-secondary" data-role-bulk-action="none">Clear</button>
-                                            </div>
-                                            {% endif %}
-                                        </div>
                                     </div>
                                     <div class="role-check-grid user-group-role-grid">
                                         {% for role in section.roles %}
-                                        <label class="role-check-item" data-role-group-role-card data-role-bulk-card>
+                                        <label class="role-check-item" data-role-group-role-card>
                                             <input
                                                 type="checkbox"
                                                 name="roles"
                                                 value="{{ role.group.id }}"
                                                 data-role-group-role-checkbox
-                                                data-role-bulk-checkbox
                                                 {% if not can_manage_user_roles %}disabled{% endif %}
                                             >
                                             <span class="role-check-copy">
@@ -593,84 +574,3 @@
         </div>
     </div>
 </div>
-
-
-<style>
-    .role-section-bulk {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-left: auto;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-    }
-
-    .role-bulk-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-</style>
-
-<script>
-(function () {
-    function getRoleBulkCheckboxes(section) {
-        return Array.from(section.querySelectorAll('input[type="checkbox"][data-role-bulk-checkbox]'));
-    }
-
-    function updateRoleBulkSection(section) {
-        var checkboxes = getRoleBulkCheckboxes(section);
-        var selectedCount = checkboxes.filter(function (checkbox) {
-            return checkbox.checked;
-        }).length;
-        var counter = section.querySelector('[data-role-bulk-count]');
-
-        if (counter) {
-            counter.textContent = selectedCount + '/' + checkboxes.length + ' selected';
-        }
-
-        checkboxes.forEach(function (checkbox) {
-            var card = checkbox.closest('.role-check-item');
-            if (card) {
-                card.classList.toggle('selected', checkbox.checked);
-            }
-        });
-    }
-
-    function refreshAllRoleBulkSections() {
-        document.querySelectorAll('[data-role-bulk-section]').forEach(updateRoleBulkSection);
-    }
-
-    document.querySelectorAll('[data-role-bulk-section]').forEach(function (section) {
-        section.querySelectorAll('[data-role-bulk-action]').forEach(function (button) {
-            button.addEventListener('click', function () {
-                var shouldCheck = button.getAttribute('data-role-bulk-action') === 'all';
-
-                getRoleBulkCheckboxes(section).forEach(function (checkbox) {
-                    if (!checkbox.disabled) {
-                        checkbox.checked = shouldCheck;
-                    }
-                });
-
-                updateRoleBulkSection(section);
-            });
-        });
-
-        section.addEventListener('change', function (event) {
-            if (event.target.matches('input[type="checkbox"][data-role-bulk-checkbox]')) {
-                updateRoleBulkSection(section);
-            }
-        });
-
-        updateRoleBulkSection(section);
-    });
-
-    window.refreshRoleBulkCounts = refreshAllRoleBulkSections;
-
-    document.querySelectorAll('[data-role-group-edit], [data-role-group-new]').forEach(function (button) {
-        button.addEventListener('click', function () {
-            window.setTimeout(refreshAllRoleBulkSections, 0);
-        });
-    });
-})();
-</script>

@@ -1,4 +1,5 @@
 from django.contrib.auth.backends import ModelBackend
+from django.utils import timezone
 
 from .models import CustomUser
 
@@ -23,6 +24,16 @@ def resolve_login_user(identifier):
 
 
 class CaseInsensitiveEmailOrAliasBackend(ModelBackend):
+    def user_can_authenticate(self, user):
+        if getattr(user, "inactivity_locked_at", None):
+            return False
+        if getattr(user, "permanently_locked", False):
+            return False
+        lockout_until = getattr(user, "lockout_until", None)
+        if lockout_until and lockout_until > timezone.now():
+            return False
+        return super().user_can_authenticate(user)
+
     def authenticate(self, request, username=None, password=None, email=None, **kwargs):
         identifier = email or username or kwargs.get(CustomUser.USERNAME_FIELD)
         if not identifier or password is None:

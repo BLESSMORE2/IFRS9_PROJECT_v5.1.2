@@ -198,22 +198,24 @@
             <div class="brand-title">NEXA <span>Compliance</span></div>
             <p class="brand-copy">Universal Workspace Launcher</p>
 
-            <div class="status-pill {% if permanent_lock %}permanent{% else %}temporary{% endif %}">
-                <i class="fas {% if permanent_lock %}fa-user-lock{% else %}fa-clock{% endif %}"></i>
-                <span>{% if permanent_lock %}Administrator Reset Required{% else %}Account Temporarily Locked{% endif %}</span>
+            <div class="status-pill {% if permanent_lock or inactivity_lock %}permanent{% else %}temporary{% endif %}">
+                <i class="fas {% if permanent_lock or inactivity_lock %}fa-user-lock{% else %}fa-clock{% endif %}"></i>
+                <span>{% if inactivity_lock %}Inactive Account Locked{% elif permanent_lock %}Administrator Reset Required{% else %}Account Temporarily Locked{% endif %}</span>
             </div>
 
-            <h1>{% if permanent_lock %}Account Locked After Repeated Failures{% else %}Too Many Sign-In Attempts{% endif %}</h1>
+            <h1>{% if inactivity_lock %}Account Locked Due to Inactivity{% elif permanent_lock %}Account Locked After Repeated Failures{% else %}Too Many Sign-In Attempts{% endif %}</h1>
 
             <p class="lockout-copy">
-                {% if permanent_lock %}
+                {% if inactivity_lock %}
+                This account reached the configured period without a successful login. An administrator must release the inactivity lock before you can sign in again.
+                {% elif permanent_lock %}
                 Your account is protected and can no longer accept password attempts from this login screen. An administrator must unlock it before you can sign in again.
                 {% else %}
                 Your account is temporarily locked for security reasons. The normal password form is intentionally blocked until the lockout period expires.
                 {% endif %}
             </p>
 
-            {% if not permanent_lock and lockout_until %}
+            {% if not permanent_lock and not inactivity_lock and lockout_until %}
             <div
                 class="countdown-panel"
                 data-lockout-countdown
@@ -233,7 +235,9 @@
 
             <div class="lockout-meta">
                 <strong>Next Step</strong>
-                {% if permanent_lock %}
+                {% if inactivity_lock %}
+                Contact your system administrator to release the inactivity lock, then sign in during the new grace period.
+                {% elif permanent_lock %}
                 Contact your system administrator to release the lockout state, then return to the login page and sign in again.
                 {% elif lockout_until %}
                 You can try again after {{ lockout_until|date:"Y-m-d H:i:s" }}.

@@ -269,7 +269,10 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if user_row.permanently_locked %}
+                            {% if user_row.inactivity_locked_at %}
+                                <span class="soft-badge status-timeout">Inactivity Lock</span><br>
+                                <span class="help-text">Locked {{ user_row.inactivity_locked_at|date:"Y-m-d H:i:s" }}</span>
+                            {% elif user_row.permanently_locked %}
                                 <span class="soft-badge status-timeout">Admin Lock</span><br>
                                 <span class="help-text">Locked until an administrator resets the account</span>
                             {% elif user_row.lockout_until and user_row.lockout_until > access_log_now %}

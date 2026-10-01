@@ -392,6 +392,8 @@ class SystemSettingsForm(forms.ModelForm):
             "default_landing_rule",
             "failed_login_limit",
             "lockout_duration_minutes",
+            "enable_inactivity_lock",
+            "inactivity_lock_days",
             "enable_self_profile_edit",
             "enable_self_password_change",
             "password_expiry_days",
@@ -410,6 +412,7 @@ class SystemSettingsForm(forms.ModelForm):
             "default_landing_rule": forms.Select(attrs={"class": "form-control form-control-sm"}),
             "failed_login_limit": forms.NumberInput(attrs={"class": "form-control form-control-sm", "min": 1}),
             "lockout_duration_minutes": forms.NumberInput(attrs={"class": "form-control form-control-sm", "min": 1}),
+            "inactivity_lock_days": forms.NumberInput(attrs={"class": "form-control form-control-sm", "min": 1, "max": 3650}),
             "password_expiry_days": forms.NumberInput(attrs={"class": "form-control form-control-sm", "min": 0}),
             "password_expiry_warning_days": forms.NumberInput(attrs={"class": "form-control form-control-sm", "min": 0}),
             "password_history_count": forms.NumberInput(attrs={"class": "form-control form-control-sm", "min": 0}),
@@ -422,6 +425,8 @@ class SystemSettingsForm(forms.ModelForm):
             "default_landing_rule": "Choose whether login opens the launcher or jumps straight into the only available module.",
             "failed_login_limit": "How many failed sign-in attempts are allowed before the account is locked.",
             "lockout_duration_minutes": "How long a sign-in lockout lasts after too many failed attempts.",
+            "enable_inactivity_lock": "Automatically lock regular active users who have not signed in within the configured number of days.",
+            "inactivity_lock_days": "Days since the last successful login before the account is locked. Never-used accounts are measured from their creation date.",
             "enable_self_profile_edit": "Allow users to maintain their own profile details.",
             "enable_self_password_change": "Allow users to change their own passwords.",
             "password_expiry_days": "Number of days before a password expires. Use 0 to disable password expiry.",
@@ -434,3 +439,7 @@ class SystemSettingsForm(forms.ModelForm):
             "microsoft_auth_enforce_periodically": "Require Microsoft authentication again after a configured number of days.",
             "microsoft_auth_recheck_days": "Number of days before Microsoft authentication should be requested again.",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["inactivity_lock_days"].widget.attrs.update({"min": 1, "max": 3650})

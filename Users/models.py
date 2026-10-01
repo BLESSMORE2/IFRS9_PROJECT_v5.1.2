@@ -6,6 +6,7 @@ from django.contrib.auth.models import (
     PermissionsMixin,
 )
 from django.core.cache import cache
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
@@ -55,6 +56,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     lockout_until = models.DateTimeField(blank=True, null=True)
     lock_immediately_on_next_failure = models.BooleanField(default=False)
     permanently_locked = models.BooleanField(default=False)
+    inactivity_locked_at = models.DateTimeField(blank=True, null=True)
+    inactivity_lock_reset_at = models.DateTimeField(blank=True, null=True)
     microsoft_authenticator_secret = models.CharField(max_length=64, blank=True, default="")
     microsoft_authenticator_enabled = models.BooleanField(default=False)
     microsoft_authenticator_confirmed_at = models.DateTimeField(blank=True, null=True)
@@ -368,6 +371,11 @@ class SystemSetting(models.Model):
     )
     failed_login_limit = models.PositiveSmallIntegerField(default=3)
     lockout_duration_minutes = models.PositiveSmallIntegerField(default=60)
+    enable_inactivity_lock = models.BooleanField(default=False)
+    inactivity_lock_days = models.PositiveSmallIntegerField(
+        default=90,
+        validators=[MinValueValidator(1), MaxValueValidator(3650)],
+    )
     enable_self_profile_edit = models.BooleanField(default=True)
     enable_self_password_change = models.BooleanField(default=True)
     password_expiry_days = models.PositiveSmallIntegerField(default=90)
@@ -441,11 +449,13 @@ class UserAccessLog(models.Model):
     END_REASON_MANUAL_LOGOUT = "manual_logout"
     END_REASON_IDLE_TIMEOUT = "idle_timeout"
     END_REASON_ABSOLUTE_TIMEOUT = "absolute_timeout"
+    END_REASON_INACTIVITY_LOCK = "inactivity_lock"
     END_REASON_CHOICES = [
         (END_REASON_ACTIVE, "Active"),
         (END_REASON_MANUAL_LOGOUT, "Manual Sign Out"),
         (END_REASON_IDLE_TIMEOUT, "Idle Timeout"),
         (END_REASON_ABSOLUTE_TIMEOUT, "Maximum Session Timeout"),
+        (END_REASON_INACTIVITY_LOCK, "Account Inactivity Lock"),
     ]
 
     user = models.ForeignKey(
